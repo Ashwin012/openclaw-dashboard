@@ -501,6 +501,15 @@ app.post('/api/projects/:id/instruct', requireAuth, async (req, res) => {
 
 // ===== Transcription =====
 
+const audioDashboardDir = path.join(__dirname, '.dashboard', 'audio');
+if (!fs.existsSync(audioDashboardDir)) fs.mkdirSync(audioDashboardDir, { recursive: true });
+
+// Serve saved audio files (auth-gated so they're not public)
+app.use('/audio', (req, res, next) => {
+  if (req.session && req.session.authenticated) return next();
+  res.status(401).end();
+}, express.static(audioDashboardDir));
+
 const transcribeUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }
@@ -513,14 +522,21 @@ app.post('/api/transcribe', requireAuth, transcribeUpload.single('audio'), async
   if (!apiKey) return res.status(503).json({ error: 'OPENAI_API_KEY not configured. Voice transcription unavailable.' });
 
   try {
+    // Save audio file to .dashboard/audio/ with a UUID filename
+    const uuid = crypto.randomUUID();
+    const ext = req.file.mimetype.includes('ogg') ? 'ogg' : 'webm';
+    const filename = `${uuid}.${ext}`;
+    fs.writeFileSync(path.join(audioDashboardDir, filename), req.file.buffer);
+    const audioUrl = `/audio/${filename}`;
+
     const { OpenAI, toFile } = require('openai');
     const openai = new OpenAI({ apiKey });
-    const audioFile = await toFile(req.file.buffer, 'recording.webm', { type: req.file.mimetype });
+    const audioFile = await toFile(req.file.buffer, `recording.${ext}`, { type: req.file.mimetype });
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: 'whisper-1'
     });
-    res.json({ text: transcription.text });
+    res.json({ text: transcription.text, audioUrl });
   } catch (err) {
     res.status(500).json({ error: `Transcription failed: ${err.message}` });
   }
@@ -743,6 +759,19 @@ wss.on('connection', (ws, req) => {
           addChatMessage(project, session.persistentId, {
             role: 'user',
             content: msg.text,
+            timestamp: new Date().toISOString()
+          });
+        }
+        spawnClaudeForMessage(session, msg.text, ws);
+      } else if (msg.type === 'voice_message') {
+        // Save voice message (with audioUrl) then send text to Claude
+        const project = config.projects.find(p => p.id === session.projectId);
+        if (project && session.persistentId) {
+          addChatMessage(project, session.persistentId, {
+            role: 'user',
+            type: 'voice',
+            content: msg.text,
+            audioUrl: msg.audioUrl,
             timestamp: new Date().toISOString()
           });
         }

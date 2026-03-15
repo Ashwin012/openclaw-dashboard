@@ -427,6 +427,42 @@
       0%, 100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.5); }
       50% { box-shadow: 0 0 0 8px rgba(248, 81, 73, 0); }
     }
+    /* Mic processing state */
+    .btn-mic.processing {
+      border-color: var(--accent);
+      color: var(--accent);
+      animation: mic-processing 0.9s ease-in-out infinite;
+      cursor: not-allowed;
+    }
+    @keyframes mic-processing {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+
+    /* Voice message bubble */
+    .voice-bubble {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .voice-audio {
+      width: 100%;
+      max-width: 300px;
+      height: 36px;
+      border-radius: 8px;
+      accent-color: var(--accent);
+    }
+    .voice-transcript {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-style: italic;
+      line-height: 1.4;
+    }
+    .voice-ts {
+      font-size: 11px;
+      color: var(--text-subtle);
+      align-self: flex-end;
+    }
 
     /* Attachment previews */
     .attachment-previews {
@@ -966,7 +1002,11 @@
     function loadAndDisplayHistory(messages) {
       for (const msg of messages) {
         if (msg.role === 'user') {
-          appendUserMessage(msg.content);
+          if (msg.type === 'voice' && msg.audioUrl) {
+            appendVoiceUserMessage(msg.audioUrl, msg.content);
+          } else {
+            appendUserMessage(msg.content);
+          }
         } else if (msg.role === 'assistant' && msg.content) {
           const el = createAssistantBubble();
           const contentEl = el.querySelector('.msg-content');
@@ -1453,28 +1493,30 @@
     }
 
     // ---- Voice Input ----
-    let recognition = null;
     let mediaRecorder = null;
     let audioChunks = [];
     let isRecording = false;
+    let isProcessing = false;
 
-    function hasSpeechRecognition() {
-      return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
-    }
-
-    function setMicState(recording) {
-      isRecording = recording;
+    function setMicState(state) {
+      // state: 'idle' | 'recording' | 'processing'
+      isRecording = state === 'recording';
+      isProcessing = state === 'processing';
       const btn = document.getElementById('micBtn');
-      if (recording) {
+      btn.classList.remove('recording', 'processing');
+      if (state === 'recording') {
         btn.classList.add('recording');
         btn.title = 'Tap to stop recording';
+      } else if (state === 'processing') {
+        btn.classList.add('processing');
+        btn.title = 'Processing...';
       } else {
-        btn.classList.remove('recording');
         btn.title = 'Voice input';
       }
     }
 
     function toggleMic() {
+      if (isProcessing) return;
       if (isRecording) {
         stopRecording();
       } else {
@@ -1482,68 +1524,7 @@
       }
     }
 
-    function startRecording() {
-      if (hasSpeechRecognition()) {
-        startWebSpeech();
-      } else {
-        startMediaRecorder();
-      }
-    }
-
-    function stopRecording() {
-      if (recognition) { try { recognition.stop(); } catch (e) {} }
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') { try { mediaRecorder.stop(); } catch (e) {} }
-      setMicState(false);
-      isRecording = false;
-    }
-
-    function startWebSpeech() {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognition = new SR();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      const input = document.getElementById('chatInput');
-      const existingText = input.value;
-      let finalTranscript = existingText ? existingText.trimEnd() + ' ' : '';
-
-      recognition.onstart = () => setMicState(true);
-
-      recognition.onresult = (event) => {
-        let interim = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interim += event.results[i][0].transcript;
-          }
-        }
-        input.value = finalTranscript + interim;
-        autoResize(input);
-      };
-
-      recognition.onerror = (e) => {
-        console.warn('Speech recognition error:', e.error);
-        setMicState(false);
-        isRecording = false;
-        recognition = null;
-        if (e.error !== 'no-speech' && e.error !== 'aborted') {
-          appendError('Voice input error: ' + e.error + '. Switching to fallback...');
-          startMediaRecorder();
-        }
-      };
-
-      recognition.onend = () => {
-        setMicState(false);
-        isRecording = false;
-        recognition = null;
-      };
-
-      recognition.start();
-    }
-
-    async function startMediaRecorder() {
+    async function startRecording() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioChunks = [];
@@ -1555,31 +1536,69 @@
         mediaRecorder.onstop = async () => {
           stream.getTracks().forEach(t => t.stop());
           const blob = new Blob(audioChunks, { type: mimeType });
-          await transcribeAudio(blob, mimeType);
+          await handleVoiceRecording(blob);
         };
         mediaRecorder.start();
-        setMicState(true);
+        setMicState('recording');
       } catch (err) {
         appendError('Microphone access denied: ' + err.message);
+        setMicState('idle');
       }
     }
 
-    async function transcribeAudio(blob, mimeType) {
-      appendSystem('Transcribing audio...');
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        setMicState('processing');
+        mediaRecorder.stop();
+      }
+    }
+
+    async function handleVoiceRecording(blob) {
       try {
         const formData = new FormData();
         formData.append('audio', blob, 'recording.webm');
         const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Transcription failed');
-        if (data.text) {
-          const input = document.getElementById('chatInput');
-          input.value = (input.value ? input.value.trimEnd() + ' ' : '') + data.text;
-          autoResize(input);
+
+        const text = (data.text || '').trim();
+        const audioUrl = data.audioUrl;
+
+        if (!text) {
+          appendSystem('No speech detected.');
+          setMicState('idle');
+          return;
+        }
+
+        // Show voice message bubble in chat
+        appendVoiceUserMessage(audioUrl, text);
+
+        // Auto-send transcribed text to Claude via WebSocket
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          awaitingResponse = true;
+          disableInput();
+          setStatus('active', 'Thinking...');
+          showLoading();
+          ws.send(JSON.stringify({ type: 'voice_message', text, audioUrl }));
         }
       } catch (err) {
         appendError('Transcription failed: ' + err.message);
+        setMicState('idle');
       }
+    }
+
+    function appendVoiceUserMessage(audioUrl, transcription) {
+      const el = document.createElement('div');
+      el.className = 'message user';
+      const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      el.innerHTML = `
+        <div class="msg-avatar">&#128100;</div>
+        <div class="msg-bubble voice-bubble">
+          <audio controls src="${audioUrl}" class="voice-audio"></audio>
+          <div class="voice-transcript">&#127908; ${escapeHtml(transcription)}</div>
+          <div class="voice-ts">${ts}</div>
+        </div>`;
+      appendMessage(el);
     }
 
     // ---- File Attachments ----
