@@ -6,50 +6,61 @@
   <title>Dev Dashboard</title>
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    /* ===== Project Cards (redesigned) ===== */
-    .projects-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
+    /* ===== Page layout ===== */
+    .projects-list {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 1000px;
     }
 
-    @media (max-width: 768px) {
-      .projects-grid { grid-template-columns: 1fr; }
-    }
-
+    /* ===== Project Card ===== */
     .project-card {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      padding: 0;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
       overflow: hidden;
-    }
-
-    .project-card-body {
-      padding: 18px 20px 14px;
-      flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 10px;
     }
 
-    .project-card-top {
+    /* Header */
+    .card-header {
+      padding: 16px 20px 14px;
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 12px;
+      gap: 14px;
+      border-bottom: 1px solid var(--border-muted);
     }
 
-    .project-card-title {
+    .card-header-left {
       display: flex;
-      flex-direction: column;
-      gap: 3px;
+      align-items: flex-start;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+
+    .status-dot.clean    { background: #3fb950; box-shadow: 0 0 6px #3fb95066; }
+    .status-dot.unpushed { background: #d29922; box-shadow: 0 0 6px #d2992266; }
+    .status-dot.dirty    { background: #f85149; box-shadow: 0 0 6px #f8514966; }
+    .status-dot.error    { background: #8b949e; }
+
+    .card-header-info {
       min-width: 0;
     }
 
     .project-name {
       font-size: 16px;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--accent);
       overflow: hidden;
       text-overflow: ellipsis;
@@ -59,109 +70,282 @@
     .project-desc {
       font-size: 12px;
       color: var(--text-muted);
+      margin-top: 2px;
       line-height: 1.4;
     }
 
-    .project-pending-badge {
-      flex-shrink: 0;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 3px 10px;
-      border-radius: 20px;
-      font-size: 12px;
+    .review-btn {
+      font-size: 13px;
       font-weight: 600;
+      color: var(--accent);
       white-space: nowrap;
+      flex-shrink: 0;
+      padding: 4px 12px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      transition: background 0.1s, color 0.1s;
     }
 
-    .pending-has-changes {
-      background: var(--red-bg);
-      color: var(--red);
-      border: 1px solid var(--red);
+    .review-btn:hover {
+      background: var(--accent);
+      color: var(--bg);
     }
 
-    .pending-clean {
-      background: var(--green-bg);
-      color: var(--green);
-      border: 1px solid var(--green);
+    /* Card section dividers */
+    .card-section {
+      border-bottom: 1px solid var(--border-muted);
+      padding: 12px 20px;
     }
 
-    .pending-error {
-      background: var(--red-bg);
-      color: var(--red);
-      border: 1px solid var(--red);
-      opacity: 0.6;
+    .card-section:last-of-type {
+      border-bottom: none;
     }
 
-    .project-last-commit {
+    .card-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-subtle);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ===== Section 1: Recent Commits (in card) ===== */
+    .card-commit-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .card-commit-row {
       display: flex;
       align-items: baseline;
-      gap: 8px;
+      gap: 6px;
+      font-size: 12px;
+      line-height: 1.4;
       min-width: 0;
     }
 
-    .last-commit-msg {
-      font-size: 12px;
-      color: var(--text-muted);
+    .card-commit-hash {
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 11px;
+      color: var(--text-subtle);
+      flex-shrink: 0;
+    }
+
+    .card-commit-msg {
+      flex: 1;
+      color: var(--text);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      flex: 1;
       min-width: 0;
     }
 
-    .last-commit-time {
-      font-size: 11px;
+    .card-commit-author {
+      font-size: 10px;
       color: var(--text-subtle);
+      flex-shrink: 0;
+    }
+
+    .card-commit-time {
+      font-size: 10px;
+      color: var(--text-subtle);
+      flex-shrink: 0;
+    }
+
+    .card-commit-badges {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    .cbadge {
+      font-size: 9px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
+    .cbadge.agent    { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
+    .cbadge.external { background: #8b949e22; color: #8b949e; border: 1px solid #8b949e33; }
+    .cbadge.unpushed { background: #d2992222; color: #d29922; border: 1px solid #d2992244; }
+
+    /* ===== Section 2: Local Changes ===== */
+    .changes-row {
+      margin-bottom: 8px;
+    }
+
+    .changes-row:last-child { margin-bottom: 0; }
+
+    .changes-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .changes-commits {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .changes-commit {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: flex-start;
+      gap: 5px;
+      padding-left: 4px;
+    }
+
+    .changes-commit::before {
+      content: '⬆';
+      color: #d29922;
+      font-size: 10px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .changes-files {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .change-file {
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .change-file.M { background: #d2992222; color: #d29922; border: 1px solid #d2992244; }
+    .change-file.A { background: #3fb95022; color: #3fb950; border: 1px solid #3fb95044; }
+    .change-file.D { background: #f8514922; color: #f85149; border: 1px solid #f8514944; }
+    .change-file.Q { background: #8b949e22; color: #8b949e; border: 1px solid #8b949e44; }
+    .change-file.R { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
+
+    /* ===== Section 3: Active Tasks (in card) ===== */
+    .card-tasks-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+
+    .task-stat-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .task-stat-badge.todo       { background: #8b949e22; color: #8b949e; border: 1px solid #8b949e44; }
+    .task-stat-badge.inprogress { background: #388bfd22; color: #388bfd; border: 1px solid #388bfd44; }
+    .task-stat-badge.review     { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
+    .task-stat-badge.done       { background: #3fb95022; color: #3fb950; border: 1px solid #3fb95044; }
+    .task-stat-badge.blocked    { background: #f8514922; color: #f85149; border: 1px solid #f8514944; }
+
+    .card-task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+
+    .card-task-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .task-priority-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .task-priority-dot.critical { background: #f85149; }
+    .task-priority-dot.high     { background: #d29922; }
+    .task-priority-dot.medium   { background: #388bfd; }
+    .task-priority-dot.low      { background: #8b949e; }
+
+    .card-task-title {
+      font-size: 12px;
+      color: var(--text);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .task-status-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
       white-space: nowrap;
       flex-shrink: 0;
     }
 
-    .project-card-footer {
+    .task-status-badge.todo       { background: #8b949e22; color: #8b949e; border: 1px solid #8b949e44; }
+    .task-status-badge.in_progress{ background: #388bfd22; color: #388bfd; border: 1px solid #388bfd44; }
+    .task-status-badge.review     { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
+    .task-status-badge.blocked    { background: #f8514922; color: #f85149; border: 1px solid #f8514944; }
+
+    .card-task-assignee {
+      font-size: 10px;
+      color: var(--text-subtle);
+      flex-shrink: 0;
+    }
+
+    .view-all-link {
+      font-size: 11px;
+      color: var(--accent);
+      display: inline-block;
+      margin-top: 4px;
+      transition: color 0.1s;
+    }
+
+    .view-all-link:hover { color: var(--accent-hover); }
+
+    /* ===== Card Footer ===== */
+    .card-footer {
       padding: 10px 20px;
       background: var(--bg-card);
       border-top: 1px solid var(--border-muted);
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .project-card-footer-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 0;
-    }
-
-    .project-branch {
+      gap: 14px;
       font-size: 11px;
       color: var(--text-subtle);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      white-space: nowrap;
     }
 
-    .unpushed-indicator {
-      font-size: 11px;
-      color: var(--yellow);
-      white-space: nowrap;
+    .card-footer-sep {
+      color: var(--border);
     }
-
-    .review-btn {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--accent);
-      white-space: nowrap;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      transition: color 0.1s;
-    }
-
-    .project-card:hover .review-btn { color: var(--accent-hover); }
 
     /* ===== Activity Layout ===== */
     .activity-wrapper {
@@ -169,6 +353,7 @@
       flex-direction: column;
       gap: 20px;
       margin-top: 28px;
+      max-width: 1000px;
     }
 
     .activity-section {
@@ -201,103 +386,7 @@
       margin-left: auto;
     }
 
-    /* ===== Attention Section ===== */
-    .attention-section {
-      border-color: #e3b341aa;
-    }
-
-    .attention-section .activity-section-header {
-      background: #2d200733;
-      color: #e3b341;
-      border-bottom-color: #e3b341aa;
-    }
-
-    .attention-group {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-muted);
-    }
-
-    .attention-group:last-child {
-      border-bottom: none;
-    }
-
-    .attention-group-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .attention-project-row {
-      margin-bottom: 10px;
-    }
-
-    .attention-project-row:last-child {
-      margin-bottom: 0;
-    }
-
-    .attention-project-name {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 5px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .attention-files {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-    }
-
-    .attention-file {
-      font-family: 'SFMono-Regular', Consolas, monospace;
-      font-size: 11px;
-      padding: 2px 7px;
-      border-radius: 4px;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      white-space: nowrap;
-      max-width: 300px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .attention-file.status-M { background: #d2992222; color: #d29922; border: 1px solid #d2992244; }
-    .attention-file.status-A { background: #3fb95022; color: #3fb950; border: 1px solid #3fb95044; }
-    .attention-file.status-D { background: #f8514922; color: #f85149; border: 1px solid #f8514944; }
-    .attention-file.status-Q { background: #8b949e22; color: #8b949e; border: 1px solid #8b949e44; }
-    .attention-file.status-R { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
-
-    .attention-commit-list {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .attention-commit {
-      font-size: 12px;
-      color: var(--text-muted);
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-    }
-
-    .attention-commit::before {
-      content: '↑';
-      color: #d29922;
-      font-size: 13px;
-      flex-shrink: 0;
-      margin-top: 1px;
-    }
-
-    /* ===== Recent Commits Section ===== */
+    /* ===== Recent Commits (global feed) ===== */
     .commit-item {
       padding: 10px 16px;
       border-bottom: 1px solid var(--border-muted);
@@ -333,15 +422,8 @@
       flex-wrap: wrap;
     }
 
-    .commit-author {
-      font-size: 11px;
-      color: var(--text-subtle);
-    }
-
-    .commit-time {
-      font-size: 11px;
-      color: var(--text-subtle);
-    }
+    .commit-author { font-size: 11px; color: var(--text-subtle); }
+    .commit-time   { font-size: 11px; color: var(--text-subtle); }
 
     .commit-expand {
       display: none;
@@ -359,7 +441,7 @@
       margin-bottom: 4px;
     }
 
-    /* ===== Badges ===== */
+    /* ===== Badges (global) ===== */
     .badge-proj {
       font-size: 10px;
       padding: 2px 6px;
@@ -378,7 +460,7 @@
       flex-shrink: 0;
     }
 
-    .badge-source.agent { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
+    .badge-source.agent    { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
     .badge-source.external { background: #8b949e22; color: #8b949e; border: 1px solid #8b949e33; }
 
     .badge-push {
@@ -390,183 +472,14 @@
       flex-shrink: 0;
     }
 
-    .badge-push.pushed { background: #3fb95022; color: #3fb950; border: 1px solid #3fb95044; }
+    .badge-push.pushed   { background: #3fb95022; color: #3fb950; border: 1px solid #3fb95044; }
     .badge-push.unpushed { background: #d2992222; color: #d29922; border: 1px solid #d2992244; }
-
-    /* ===== Tasks Overview ===== */
-    .tasks-overview {
-      margin-top: 28px;
-    }
-
-    .tasks-overview-header {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-muted);
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .tasks-projects-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
-    }
-
-    @media (max-width: 768px) {
-      .tasks-projects-grid { grid-template-columns: 1fr; }
-    }
-
-    .tasks-project-panel {
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .tasks-project-header {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .tasks-project-name {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .tasks-view-all {
-      font-size: 11px;
-      color: var(--accent);
-      white-space: nowrap;
-      flex-shrink: 0;
-      transition: color 0.1s;
-    }
-
-    .tasks-view-all:hover { color: var(--accent-hover); }
-
-    .tasks-stats-bar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border-muted);
-    }
-
-    .task-stat-badge {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 10px;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .task-stat-badge.todo     { background: #8b949e22; color: #8b949e; border: 1px solid #8b949e44; }
-    .task-stat-badge.inprogress { background: #388bfd22; color: #388bfd; border: 1px solid #388bfd44; }
-    .task-stat-badge.review   { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
-    .task-stat-badge.done     { background: #3fb95022; color: #3fb950; border: 1px solid #3fb95044; }
-    .task-stat-badge.blocked  { background: #f8514922; color: #f85149; border: 1px solid #f8514944; }
-
-    .tasks-list {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .task-row {
-      padding: 8px 14px;
-      border-bottom: 1px solid var(--border-muted);
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-    }
-
-    .task-row:last-child { border-bottom: none; }
-
-    .task-priority-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      margin-top: 5px;
-    }
-
-    .task-priority-dot.critical { background: #f85149; }
-    .task-priority-dot.high     { background: #d29922; }
-    .task-priority-dot.medium   { background: #388bfd; }
-    .task-priority-dot.low      { background: #8b949e; }
-
-    .task-row-main {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .task-row-top {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .task-title {
-      font-size: 12px;
-      color: var(--text);
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .task-status-badge {
-      font-size: 10px;
-      font-weight: 600;
-      padding: 1px 6px;
-      border-radius: 4px;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .task-status-badge.todo      { background: #8b949e22; color: #8b949e; border: 1px solid #8b949e44; }
-    .task-status-badge.in_progress { background: #388bfd22; color: #388bfd; border: 1px solid #388bfd44; }
-    .task-status-badge.review    { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
-    .task-status-badge.blocked   { background: #f8514922; color: #f85149; border: 1px solid #f8514944; }
-
-    .task-row-meta {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 2px;
-      flex-wrap: wrap;
-    }
-
-    .task-assignee {
-      font-size: 10px;
-      color: var(--text-subtle);
-    }
-
-    .task-updated {
-      font-size: 10px;
-      color: var(--text-subtle);
-    }
-
-    .tasks-empty {
-      padding: 16px 14px;
-      font-size: 12px;
-      color: var(--text-subtle);
-      font-style: italic;
-    }
 
     /* ===== Responsive ===== */
     @media (max-width: 640px) {
+      .card-header { flex-wrap: wrap; }
+      .card-commit-author { display: none; }
       .commit-message { font-size: 12px; }
-      .attention-files { gap: 3px; }
     }
   </style>
 </head>
@@ -626,140 +539,191 @@
       return `background:${color}22;color:${color};border:1px solid ${color}66;`;
     }
 
-    // ===== Project Cards =====
-    function renderProjectCards(projects) {
+    const STATUS_LABELS = {
+      todo: 'Todo', in_progress: 'In Progress', review: 'Review', done: 'Done', blocked: 'Blocked'
+    };
+
+    function taskStatusBadge(status) {
+      const cls = status === 'in_progress' ? 'in_progress' : status;
+      const label = STATUS_LABELS[status] || status;
+      return `<span class="task-status-badge ${cls}">${escapeHtml(label)}</span>`;
+    }
+
+    // ===== Comprehensive Project Cards =====
+    function renderProjectCards(projects, tasksByProject) {
       if (!projects.length) {
         return '<div class="empty-state"><div class="icon">&#128193;</div><h3>No projects configured</h3><p>Add projects to config.json</p></div>';
       }
 
       const cards = projects.map(p => {
+        // Error state
         if (!p.accessible) {
-          return `<a class="project-card" href="/project.html?id=${escapeHtml(p.id)}">
-            <div class="project-card-body">
-              <div class="project-card-top">
-                <div class="project-card-title">
+          return `<div class="project-card">
+            <div class="card-header">
+              <div class="card-header-left">
+                <span class="status-dot error"></span>
+                <div class="card-header-info">
                   <div class="project-name">${escapeHtml(p.name)}</div>
                   <div class="project-desc">${escapeHtml(p.description || '')}</div>
                 </div>
-                <span class="project-pending-badge pending-error">&#10005; Error</span>
               </div>
-              <div class="last-commit-msg" style="color:var(--red);opacity:0.7">${escapeHtml(p.error || 'Repository inaccessible')}</div>
+              <a class="review-btn" href="/project.html?id=${escapeHtml(p.id)}">Review &#8594;</a>
             </div>
-            <div class="project-card-footer">
-              <div class="project-card-footer-left"></div>
-              <span class="review-btn">Review &#8594;</span>
+            <div class="card-section" style="color:var(--red);font-size:12px;opacity:0.8">
+              &#10005; ${escapeHtml(p.error || 'Repository inaccessible')}
             </div>
-          </a>`;
+            <div class="card-footer">
+              <span>&#9135; ${escapeHtml(p.branch || 'unknown')}</span>
+            </div>
+          </div>`;
         }
 
         const pendingCount = p.pendingChanges || 0;
         const unpushedCount = p.unpushedCount || 0;
-        const lastCommit = (p.recentCommits && p.recentCommits[0]) || null;
-        const lastMsg = lastCommit ? lastCommit.message : null;
 
-        const pendingBadge = pendingCount > 0
-          ? `<span class="project-pending-badge pending-has-changes">&#128221; ${pendingCount} pending</span>`
-          : `<span class="project-pending-badge pending-clean">&#10003; Clean</span>`;
+        // Status dot
+        let dotClass = 'clean';
+        if (pendingCount > 0) dotClass = 'dirty';
+        else if (unpushedCount > 0) dotClass = 'unpushed';
 
-        const unpushedIndicator = unpushedCount > 0
-          ? `<span class="unpushed-indicator">&#8679; ${unpushedCount} unpushed</span>`
-          : '';
+        // --- Section 1: Recent Commits ---
+        const recentCommits = (p.recentCommits || []).slice(0, 5);
+        let section1 = '';
+        if (recentCommits.length) {
+          const unpushedHashes = new Set((p.unpushedCommits || []).map(c => c.hash));
+          const rows = recentCommits.map(c => {
+            const isUnpushed = unpushedHashes.has(c.hash);
+            const srcBadge = c.source === 'agent'
+              ? `<span class="cbadge agent">&#129302; Agent</span>`
+              : `<span class="cbadge external">&#128100;</span>`;
+            const upBadge = isUnpushed ? `<span class="cbadge unpushed">&#8679;</span>` : '';
+            return `<div class="card-commit-row">
+              <span class="card-commit-hash">${escapeHtml(c.shortHash || (c.hash || '').slice(0,7))}</span>
+              <span class="card-commit-msg" title="${escapeHtml(c.message)}">${escapeHtml(c.message)}</span>
+              <span class="card-commit-author">${escapeHtml(c.author)}</span>
+              <span class="card-commit-time">${timeAgo(c.date)}</span>
+              <span class="card-commit-badges">${srcBadge}${upBadge}</span>
+            </div>`;
+          }).join('');
+          section1 = `<div class="card-section">
+            <div class="card-section-title">&#9679; Recent Commits</div>
+            <div class="card-commit-list">${rows}</div>
+          </div>`;
+        }
 
-        const lastCommitHtml = lastMsg
-          ? `<div class="project-last-commit">
-              <span class="last-commit-msg" title="${escapeHtml(lastMsg)}">${escapeHtml(lastMsg)}</span>
-              <span class="last-commit-time">${timeAgo(p.lastActivity)}</span>
-            </div>`
-          : `<div class="project-last-commit"><span class="last-commit-time">No commits yet</span></div>`;
+        // --- Section 2: Local Changes (only if present) ---
+        let section2 = '';
+        const uncommitted = p.uncommittedChanges || [];
+        const unpushedCommits = p.unpushedCommits || [];
+        if (uncommitted.length > 0 || unpushedCommits.length > 0) {
+          let innerHtml = '';
 
-        return `<a class="project-card" href="/project.html?id=${escapeHtml(p.id)}">
-          <div class="project-card-body">
-            <div class="project-card-top">
-              <div class="project-card-title">
+          if (unpushedCommits.length > 0) {
+            const commitItems = unpushedCommits.slice(0, 5).map(c =>
+              `<div class="changes-commit">${escapeHtml(c.message)}</div>`
+            ).join('');
+            const more = unpushedCommits.length > 5
+              ? `<div class="changes-commit" style="color:var(--text-subtle)">+${unpushedCommits.length - 5} more commits</div>`
+              : '';
+            innerHtml += `<div class="changes-row">
+              <div class="changes-label">&#8679; <strong>${unpushedCommits.length}</strong> commit${unpushedCommits.length !== 1 ? 's' : ''} not pushed</div>
+              <div class="changes-commits">${commitItems}${more}</div>
+            </div>`;
+          }
+
+          if (uncommitted.length > 0) {
+            const fileIcons = { M: '&#9998;', A: '+', D: '&#8722;', Q: '?', R: '&#8594;' };
+            const fileBadges = uncommitted.slice(0, 20).map(f => {
+              const sc = f.status === '?' ? 'Q' : (f.status || 'M');
+              const icon = fileIcons[sc] || sc;
+              const fname = f.file ? f.file.split('/').pop() : f.file;
+              return `<span class="change-file ${sc}" title="${escapeHtml(f.file)}">${icon} ${escapeHtml(fname)}</span>`;
+            }).join('');
+            const moreFiles = uncommitted.length > 20
+              ? `<span class="change-file Q">+${uncommitted.length - 20} more</span>`
+              : '';
+            innerHtml += `<div class="changes-row">
+              <div class="changes-label">&#128221; <strong>${uncommitted.length}</strong> pending change${uncommitted.length !== 1 ? 's' : ''}</div>
+              <div class="changes-files">${fileBadges}${moreFiles}</div>
+            </div>`;
+          }
+
+          section2 = `<div class="card-section">${innerHtml}</div>`;
+        }
+
+        // --- Section 3: Active Tasks ---
+        let section3 = '';
+        const tasks = tasksByProject[p.id] || [];
+        const activeTasks = tasks.filter(t => t.status !== 'done');
+        if (activeTasks.length > 0) {
+          const counts = { todo: 0, in_progress: 0, review: 0, done: 0, blocked: 0 };
+          for (const t of tasks) {
+            if (counts[t.status] !== undefined) counts[t.status]++;
+            else counts.todo++;
+          }
+
+          const statsHtml = [
+            counts.todo       ? `<span class="task-stat-badge todo">${counts.todo} Todo</span>` : '',
+            counts.in_progress? `<span class="task-stat-badge inprogress">${counts.in_progress} In Progress</span>` : '',
+            counts.review     ? `<span class="task-stat-badge review">${counts.review} Review</span>` : '',
+            counts.done       ? `<span class="task-stat-badge done">${counts.done} Done</span>` : '',
+            counts.blocked    ? `<span class="task-stat-badge blocked">${counts.blocked} Blocked</span>` : '',
+          ].join('');
+
+          const topTasks = activeTasks
+            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+            .slice(0, 5);
+
+          const taskRows = topTasks.map(t => {
+            const priority = t.priority || 'medium';
+            return `<div class="card-task-row">
+              <div class="task-priority-dot ${escapeHtml(priority)}"></div>
+              <span class="card-task-title" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
+              ${taskStatusBadge(t.status)}
+              ${t.assignee ? `<span class="card-task-assignee">&#128100; ${escapeHtml(t.assignee)}</span>` : ''}
+            </div>`;
+          }).join('');
+
+          section3 = `<div class="card-section">
+            <div class="card-section-title">&#128203; Active Tasks</div>
+            <div class="card-tasks-stats">${statsHtml}</div>
+            <div class="card-task-list">${taskRows}</div>
+            <a class="view-all-link" href="/project.html?id=${escapeHtml(p.id)}&tab=tasks">View all tasks &#8594;</a>
+          </div>`;
+        }
+
+        // --- Footer ---
+        const commitCount = (p.recentCommits || []).length;
+        const footer = `<div class="card-footer">
+          <span>&#9135; ${escapeHtml(p.branch || 'unknown')}</span>
+          <span class="card-footer-sep">·</span>
+          <span>${commitCount} recent commit${commitCount !== 1 ? 's' : ''}</span>
+          <span class="card-footer-sep">·</span>
+          <span>Last activity ${timeAgo(p.lastActivity)}</span>
+        </div>`;
+
+        return `<div class="project-card">
+          <div class="card-header">
+            <div class="card-header-left">
+              <span class="status-dot ${dotClass}"></span>
+              <div class="card-header-info">
                 <div class="project-name">${escapeHtml(p.name)}</div>
                 <div class="project-desc">${escapeHtml(p.description || '')}</div>
               </div>
-              ${pendingBadge}
             </div>
-            ${lastCommitHtml}
+            <a class="review-btn" href="/project.html?id=${escapeHtml(p.id)}">Review &#8594;</a>
           </div>
-          <div class="project-card-footer">
-            <div class="project-card-footer-left">
-              <span class="project-branch">&#9135; ${escapeHtml(p.branch || 'unknown')}</span>
-              ${unpushedIndicator}
-            </div>
-            <span class="review-btn">Review &#8594;</span>
-          </div>
-        </a>`;
+          ${section1}
+          ${section2}
+          ${section3}
+          ${footer}
+        </div>`;
       });
 
-      return `<div class="projects-grid">${cards.join('')}</div>`;
+      return `<div class="projects-list">${cards.join('')}</div>`;
     }
 
-    // ===== Needs Attention =====
-    function renderAttentionSection(projects, colorMap) {
-      const uncommittedProjects = projects.filter(p => p.accessible && p.uncommittedChanges && p.uncommittedChanges.length > 0);
-      const unpushedProjects = projects.filter(p => p.accessible && p.unpushedCommits && p.unpushedCommits.length > 0);
-
-      if (!uncommittedProjects.length && !unpushedProjects.length) return '';
-
-      let html = `<div class="activity-section attention-section">
-        <div class="activity-section-header">
-          &#9888; Needs Attention
-          <span class="count-badge">${uncommittedProjects.length + unpushedProjects.length} project${uncommittedProjects.length + unpushedProjects.length !== 1 ? 's' : ''}</span>
-        </div>`;
-
-      if (uncommittedProjects.length) {
-        html += `<div class="attention-group">
-          <div class="attention-group-title">&#128221; Uncommitted Changes</div>`;
-        for (const p of uncommittedProjects) {
-          const color = colorMap[p.id];
-          html += `<div class="attention-project-row">
-            <div class="attention-project-name">
-              <span class="badge-proj" style="${projectBadgeStyle(color)}">${escapeHtml(p.name)}</span>
-              <span style="font-size:11px;color:var(--text-subtle)">${p.uncommittedChanges.length} file${p.uncommittedChanges.length !== 1 ? 's' : ''}</span>
-            </div>
-            <div class="attention-files">`;
-          for (const f of p.uncommittedChanges.slice(0, 20)) {
-            const sc = f.status === '?' ? 'Q' : f.status;
-            const icons = { M: '&#9998;', A: '&#43;', D: '&#8722;', Q: '?', R: '&#8594;' };
-            html += `<span class="attention-file status-${sc}" title="${escapeHtml(f.file)}">${icons[sc] || sc} ${escapeHtml(f.file.split('/').pop())}</span>`;
-          }
-          if (p.uncommittedChanges.length > 20) {
-            html += `<span class="attention-file status-Q">+${p.uncommittedChanges.length - 20} more</span>`;
-          }
-          html += `</div></div>`;
-        }
-        html += `</div>`;
-      }
-
-      if (unpushedProjects.length) {
-        html += `<div class="attention-group">
-          <div class="attention-group-title">&#8679; Unpushed Commits</div>`;
-        for (const p of unpushedProjects) {
-          const color = colorMap[p.id];
-          html += `<div class="attention-project-row">
-            <div class="attention-project-name">
-              <span class="badge-proj" style="${projectBadgeStyle(color)}">${escapeHtml(p.name)}</span>
-              <span style="font-size:11px;color:var(--text-subtle)">${p.unpushedCommits.length} commit${p.unpushedCommits.length !== 1 ? 's' : ''}</span>
-            </div>
-            <div class="attention-commit-list">`;
-          for (const c of p.unpushedCommits.slice(0, 5)) {
-            html += `<div class="attention-commit"><span>${escapeHtml(c.message)}</span></div>`;
-          }
-          if (p.unpushedCommits.length > 5) {
-            html += `<div class="attention-commit" style="color:var(--text-subtle)"><span>+${p.unpushedCommits.length - 5} more commits</span></div>`;
-          }
-          html += `</div></div>`;
-        }
-        html += `</div>`;
-      }
-
-      html += `</div>`;
-      return html;
-    }
-
-    // ===== Recent Commits =====
+    // ===== Recent Commits (global feed) =====
     function renderRecentCommits(projects, colorMap) {
       const allCommits = projects
         .flatMap(p => (p.recentCommits || []))
@@ -804,87 +768,7 @@
       </div>`;
     }
 
-    // ===== Tasks Overview =====
-    const STATUS_LABELS = {
-      todo: 'Todo', in_progress: 'In Progress', review: 'Review', done: 'Done', blocked: 'Blocked'
-    };
-
-    function taskStatusBadge(status) {
-      const cls = status === 'in_progress' ? 'in_progress' : status;
-      const label = STATUS_LABELS[status] || status;
-      return `<span class="task-status-badge ${cls}">${escapeHtml(label)}</span>`;
-    }
-
-    function renderTasksOverview(projects, tasksByProject) {
-      const panels = projects.map(p => {
-        const tasks = tasksByProject[p.id] || [];
-
-        if (!tasks.length) {
-          return `<div class="tasks-project-panel">
-            <div class="tasks-project-header">
-              <span class="tasks-project-name">${escapeHtml(p.name)}</span>
-              <a class="tasks-view-all" href="/project.html?id=${escapeHtml(p.id)}&tab=tasks">View all tasks →</a>
-            </div>
-            <div class="tasks-empty">No tasks yet</div>
-          </div>`;
-        }
-
-        // Count by status
-        const counts = { todo: 0, in_progress: 0, review: 0, done: 0, blocked: 0 };
-        for (const t of tasks) {
-          if (counts[t.status] !== undefined) counts[t.status]++;
-          else counts.todo++;
-        }
-
-        const statsHtml = [
-          counts.todo      ? `<span class="task-stat-badge todo">${counts.todo} Todo</span>` : '',
-          counts.in_progress ? `<span class="task-stat-badge inprogress">${counts.in_progress} In Progress</span>` : '',
-          counts.review    ? `<span class="task-stat-badge review">${counts.review} Review</span>` : '',
-          counts.done      ? `<span class="task-stat-badge done">${counts.done} Done</span>` : '',
-          counts.blocked   ? `<span class="task-stat-badge blocked">${counts.blocked} Blocked</span>` : '',
-        ].join('');
-
-        // Active tasks (not done), sorted by updatedAt desc, max 5
-        const activeTasks = tasks
-          .filter(t => t.status !== 'done')
-          .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-          .slice(0, 5);
-
-        const taskRows = activeTasks.map(t => {
-          const priority = t.priority || 'medium';
-          return `<div class="task-row">
-            <div class="task-priority-dot ${escapeHtml(priority)}"></div>
-            <div class="task-row-main">
-              <div class="task-row-top">
-                <span class="task-title" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
-                ${taskStatusBadge(t.status)}
-              </div>
-              <div class="task-row-meta">
-                ${t.assignee ? `<span class="task-assignee">&#128100; ${escapeHtml(t.assignee)}</span>` : ''}
-                <span class="task-updated">${timeAgo(t.updatedAt)}</span>
-              </div>
-            </div>
-          </div>`;
-        }).join('');
-
-        return `<div class="tasks-project-panel">
-          <div class="tasks-project-header">
-            <span class="tasks-project-name">${escapeHtml(p.name)}</span>
-            <a class="tasks-view-all" href="/project.html?id=${escapeHtml(p.id)}&tab=tasks">View all tasks →</a>
-          </div>
-          <div class="tasks-stats-bar">${statsHtml}</div>
-          <div class="tasks-list">${taskRows || '<div class="tasks-empty">All tasks complete</div>'}</div>
-        </div>`;
-      });
-
-      return `<div class="tasks-overview">
-        <div class="tasks-overview-header">&#128203; Tasks Overview</div>
-        <div class="tasks-projects-grid">${panels.join('')}</div>
-      </div>`;
-    }
-
     function handleCommitClick(event, idx, projectId) {
-      // If clicking a link inside, let the link handle it
       if (event.target.tagName === 'A') return;
       const el = document.getElementById(`commit-expand-${idx}`);
       if (el) el.classList.toggle('open');
@@ -916,11 +800,10 @@
         });
 
         const activityWrapper = `<div class="activity-wrapper">
-          ${renderAttentionSection(projects, colorMap)}
           ${renderRecentCommits(projects, colorMap)}
         </div>`;
 
-        content.innerHTML = renderProjectCards(projects) + renderTasksOverview(projects, tasksByProject) + activityWrapper;
+        content.innerHTML = renderProjectCards(projects, tasksByProject) + activityWrapper;
       } catch (err) {
         document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load projects</h3><p>${err.message}</p></div>`;
       }
