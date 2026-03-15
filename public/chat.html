@@ -472,6 +472,7 @@
     let currentTextParts = [];      // accumulated text for current streaming message
     let currentToolUses = {};       // id -> { name, inputJson }
     let awaitingResponse = false;
+    let loadingEl = null;           // loading bubble shown while waiting for response
 
     // Configure marked with highlight.js
     marked.setOptions({
@@ -656,6 +657,7 @@
 
         case 'assistant': {
           // Complete assistant message from stream-json
+          hideLoading();
           finalizeStreaming();
           renderAssistantMessage(event.message);
           break;
@@ -719,6 +721,7 @@
           break;
 
         case 'error':
+          hideLoading();
           finalizeStreaming();
           appendError(event.error || event.message || 'Unknown error');
           setStatus('error', 'Error');
@@ -727,6 +730,7 @@
           break;
 
         case 'session_end':
+          hideLoading();
           finalizeStreaming();
           appendSystem(`Session ended (exit code: ${event.code ?? 'unknown'}).`);
           setStatus('', 'Ended');
@@ -844,8 +848,27 @@
       header.parentElement.classList.toggle('expanded');
     }
 
+    // ---- Loading indicator ----
+    function showLoading() {
+      if (loadingEl) return;
+      loadingEl = document.createElement('div');
+      loadingEl.className = 'message assistant';
+      loadingEl.innerHTML = `
+        <div class="msg-avatar">&#129302;</div>
+        <div class="msg-bubble"><div class="msg-content" style="color:var(--text-muted);font-style:italic">Thinking<span class="streaming-cursor"></span></div></div>`;
+      appendMessage(loadingEl);
+    }
+
+    function hideLoading() {
+      if (loadingEl) {
+        loadingEl.remove();
+        loadingEl = null;
+      }
+    }
+
     // ---- Streaming support ----
     function startStreamingMessage() {
+      hideLoading();
       if (currentAssistantEl) return; // already started
       currentAssistantEl = createAssistantBubble();
       currentTextParts = [];
@@ -879,9 +902,13 @@
 
     function finalizeStreaming() {
       if (!currentAssistantEl) return;
-      // Remove cursor from streaming text
       const cursor = currentAssistantEl.querySelector('.streaming-cursor');
       if (cursor) cursor.remove();
+      // Remove bubble if it has no meaningful content (e.g. pre-created but superseded by assistant event)
+      const content = currentAssistantEl.querySelector('.msg-content');
+      if (!content || !content.textContent.trim()) {
+        currentAssistantEl.remove();
+      }
       currentAssistantEl = null;
       currentTextParts = [];
       currentToolUses = {};
@@ -901,7 +928,7 @@
       setStatus('active', 'Thinking...');
 
       appendUserMessage(text);
-      startStreamingMessage(); // Pre-create assistant bubble for streaming
+      showLoading();
 
       ws.send(JSON.stringify({ type: 'user_message', text }));
     }

@@ -357,6 +357,80 @@ app.post('/api/projects/:id/instruct', requireAuth, async (req, res) => {
 
 // ===== Chat / WebSocket =====
 
+function spawnClaudeForMessage(session, text, ws) {
+  if (session.busy) {
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send(JSON.stringify({ type: 'error', error: 'Already processing a message, please wait.' })); } catch (e) {}
+    }
+    return;
+  }
+  session.busy = true;
+
+  const args = [
+    '--print',
+    '--verbose',
+    '--permission-mode', 'bypassPermissions',
+    '--output-format', 'stream-json',
+    '--model', session.model
+  ];
+
+  if (session.claudeSessionId) {
+    args.push('--resume', session.claudeSessionId);
+  }
+
+  args.push(text);
+
+  const claudeProc = spawn('claude', args, {
+    cwd: session.projectPath,
+    env: { ...process.env },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+
+  session.process = claudeProc;
+
+  let stdoutBuf = '';
+
+  claudeProc.stdout.on('data', (chunk) => {
+    stdoutBuf += chunk.toString();
+    const lines = stdoutBuf.split('\n');
+    stdoutBuf = lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const parsed = JSON.parse(line);
+        if (parsed.type === 'result' && parsed.session_id) {
+          session.claudeSessionId = parsed.session_id;
+        }
+      } catch (e) {}
+      if (ws.readyState === WebSocket.OPEN) {
+        try { ws.send(line); } catch (e) {}
+      }
+    }
+  });
+
+  claudeProc.stderr.on('data', (chunk) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send(JSON.stringify({ type: 'stderr', data: chunk.toString() })); } catch (e) {}
+    }
+  });
+
+  claudeProc.on('close', (code) => {
+    session.busy = false;
+    session.process = null;
+    if (code !== 0 && code !== null && ws.readyState === WebSocket.OPEN) {
+      try { ws.send(JSON.stringify({ type: 'error', error: `Claude process exited with code ${code}` })); } catch (e) {}
+    }
+  });
+
+  claudeProc.on('error', (err) => {
+    session.busy = false;
+    session.process = null;
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send(JSON.stringify({ type: 'error', error: `Failed to run claude: ${err.message}` })); } catch (e) {}
+    }
+  });
+}
+
 server.on('upgrade', (request, socket, head) => {
   const pathname = new URL(request.url, 'http://localhost').pathname;
   if (pathname.startsWith('/ws/chat/')) {
@@ -387,72 +461,20 @@ wss.on('connection', (ws, req) => {
   session.ws = ws;
   session.status = 'active';
 
-  const claudeArgs = [
-    '--permission-mode', 'bypassPermissions',
-    '--output-format', 'stream-json',
-    '--input-format', 'stream-json',
-    '--model', session.model
-  ];
-
-  const claudeProc = spawn('claude', claudeArgs, {
-    cwd: session.projectPath,
-    env: { ...process.env },
-    stdio: ['pipe', 'pipe', 'pipe']
-  });
-
-  session.process = claudeProc;
-
   try { ws.send(JSON.stringify({ type: 'session_ready', sessionId, model: session.model })); } catch (e) {}
-
-  let stdoutBuf = '';
-  claudeProc.stdout.on('data', (chunk) => {
-    stdoutBuf += chunk.toString();
-    const lines = stdoutBuf.split('\n');
-    stdoutBuf = lines.pop();
-    for (const line of lines) {
-      if (line.trim() && ws.readyState === WebSocket.OPEN) {
-        try { ws.send(line); } catch (e) {}
-      }
-    }
-  });
-
-  claudeProc.stderr.on('data', (chunk) => {
-    if (ws.readyState === WebSocket.OPEN) {
-      try { ws.send(JSON.stringify({ type: 'stderr', data: chunk.toString() })); } catch (e) {}
-    }
-  });
-
-  claudeProc.on('close', (code) => {
-    chatSessions.delete(sessionId);
-    if (ws.readyState === WebSocket.OPEN) {
-      try { ws.send(JSON.stringify({ type: 'session_end', code })); } catch (e) {}
-    }
-  });
-
-  claudeProc.on('error', (err) => {
-    chatSessions.delete(sessionId);
-    if (ws.readyState === WebSocket.OPEN) {
-      try { ws.send(JSON.stringify({ type: 'error', error: `Failed to start claude: ${err.message}` })); } catch (e) {}
-    }
-  });
 
   ws.on('message', (data) => {
     try {
       const msg = JSON.parse(data.toString());
-      if (msg.type === 'user_message' && session.process && !session.process.killed) {
-        const input = JSON.stringify({
-          type: 'user',
-          message: { role: 'user', content: msg.text }
-        });
-        session.process.stdin.write(input + '\n');
+      if (msg.type === 'user_message') {
+        spawnClaudeForMessage(session, msg.text, ws);
       }
-    } catch (e) { /* ignore parse errors */ }
+    } catch (e) {}
   });
 
   ws.on('close', () => {
     session.ws = null;
     session.status = 'disconnected';
-    // Kill process when client disconnects
     if (session.process && !session.process.killed) {
       try { session.process.kill('SIGTERM'); } catch (e) {}
     }
@@ -468,7 +490,7 @@ app.post('/api/projects/:id/chat/start', requireAuth, (req, res) => {
   const project = config.projects.find(p => p.id === req.params.id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  // Kill any existing session for this project
+  // Clean up any existing session for this project
   for (const [sid, sess] of chatSessions.entries()) {
     if (sess.projectId === req.params.id) {
       if (sess.process) { try { sess.process.kill(); } catch (e) {} }
@@ -486,9 +508,11 @@ app.post('/api/projects/:id/chat/start', requireAuth, (req, res) => {
     projectId: req.params.id,
     projectPath: project.path,
     model: resolvedModel,
+    claudeSessionId: null,
     process: null,
     ws: null,
-    status: 'pending'
+    status: 'pending',
+    busy: false
   });
 
   res.json({ sessionId, model: resolvedModel });
