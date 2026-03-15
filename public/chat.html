@@ -13,6 +13,7 @@
       display: flex;
       flex-direction: column;
       height: calc(100vh - 56px); /* minus header */
+      overflow: hidden;
     }
 
     /* Top bar */
@@ -483,8 +484,178 @@
       margin-top: 4px;
     }
 
+    /* Chat body layout */
+    .chat-body {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .chat-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    /* Sessions sidebar */
+    .sessions-sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: width 0.2s ease, opacity 0.2s ease;
+    }
+    .sessions-sidebar.collapsed {
+      width: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .sidebar-header {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .btn-new-chat {
+      width: 100%;
+      background: var(--accent);
+      color: #0d1117;
+      border: none;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-new-chat:hover { opacity: 0.9; }
+    .sessions-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+    .sessions-empty {
+      padding: 16px 12px;
+      color: var(--text-subtle);
+      font-size: 12px;
+      text-align: center;
+    }
+    .session-item {
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid transparent;
+      transition: background 0.1s;
+      position: relative;
+    }
+    .session-item:hover { background: var(--bg-hover); }
+    .session-item.active {
+      background: rgba(88, 166, 255, 0.08);
+      border-left: 2px solid var(--accent);
+      padding-left: 10px;
+    }
+    .session-item-top {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 3px;
+    }
+    .session-date {
+      font-size: 11px;
+      color: var(--text-subtle);
+      flex: 1;
+    }
+    .session-model-badge {
+      font-size: 10px;
+      color: var(--text-subtle);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 10px;
+      font-family: monospace;
+      flex-shrink: 0;
+    }
+    .session-msg-count {
+      font-size: 10px;
+      color: var(--text-subtle);
+      flex-shrink: 0;
+    }
+    .session-preview {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .session-delete {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: none;
+      border: none;
+      color: var(--text-subtle);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      display: none;
+      line-height: 1;
+    }
+    .session-item:hover .session-delete { display: block; }
+    .session-delete:hover { color: var(--red); background: var(--red-bg); }
+
+    /* Reconnect banner */
+    .reconnect-banner {
+      background: #2d2008;
+      border-bottom: 1px solid #d29922;
+      color: #d29922;
+      padding: 8px 16px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .reconnect-banner.failed {
+      background: rgba(248, 81, 73, 0.08);
+      border-bottom-color: var(--red);
+      color: var(--red);
+    }
+    .reconnect-banner .reconnect-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .reconnect-banner .reconnect-retry {
+      margin-left: auto;
+      background: none;
+      border: 1px solid currentColor;
+      color: inherit;
+      padding: 3px 10px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .reconnect-banner .reconnect-retry:hover { opacity: 0.8; }
+
     /* Mobile tweaks */
     @media (max-width: 768px) {
+      .sessions-sidebar {
+        position: absolute;
+        top: 0; left: 0; bottom: 0;
+        z-index: 100;
+        width: 280px;
+        box-shadow: 4px 0 16px rgba(0,0,0,0.4);
+      }
+      .sessions-sidebar.collapsed { width: 0; }
       .chat-messages { padding: 16px; }
       .chat-input-area { padding: 10px 12px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
       .input-hint { display: none; }
@@ -514,57 +685,78 @@
         <span id="statusText">No session</span>
       </div>
       <button class="topbar-btn danger" id="stopBtn" style="display:none" onclick="stopSession()">&#9632; Stop</button>
-      <button class="topbar-btn" id="newSessionBtn" style="display:none" onclick="showStartPanel()">&#43; New Session</button>
+      <button class="topbar-btn" id="sidebarToggleBtn" onclick="toggleSidebar()">&#9776; Sessions</button>
     </div>
 
-    <!-- Start panel -->
-    <div class="chat-start-panel" id="startPanel">
-      <div class="start-card">
-        <h2>&#128172; Start a Chat Session</h2>
-        <p id="startProjectName">Select a model and start chatting with Claude Code in your project directory.</p>
-        <div class="model-selector-group">
-          <label>Model</label>
-          <select class="model-select" id="modelSelect" onchange="onModelChange()">
-            <option value="sonnet">Sonnet — claude-sonnet-4-6</option>
-            <option value="opus">Opus — claude-opus-4-6</option>
-            <option value="haiku">Haiku — claude-haiku-3-5</option>
-            <option value="custom">Custom model ID...</option>
-          </select>
-          <input type="text" class="custom-model-input" id="customModelInput"
-            placeholder="e.g. claude-sonnet-4-6" />
+    <div class="chat-body">
+      <!-- Sessions sidebar -->
+      <div class="sessions-sidebar" id="sessionsSidebar">
+        <div class="sidebar-header">
+          <button class="btn-new-chat" onclick="startNewChat()">&#43; New Chat</button>
         </div>
-        <button class="btn-start" id="startBtn" onclick="startSession()">&#9654; Start Chat</button>
+        <div class="sessions-list" id="sessionsList">
+          <div class="sessions-empty">No previous sessions</div>
+        </div>
       </div>
-    </div>
 
-    <!-- Chat messages (hidden until session active) -->
-    <div class="chat-messages" id="chatMessages" style="display:none"></div>
+      <div class="chat-main">
+        <!-- Reconnect banner -->
+        <div class="reconnect-banner" id="reconnectBanner" style="display:none">
+          <span class="reconnect-spinner" id="reconnectSpinner"></span>
+          <span id="reconnectText">Reconnecting...</span>
+          <button class="reconnect-retry" id="reconnectRetryBtn" style="display:none" onclick="manualReconnect()">Retry</button>
+        </div>
 
-    <!-- Input area (hidden until session active) -->
-    <div class="chat-input-area" id="inputArea" style="display:none">
-      <!-- Attachment previews -->
-      <div class="attachment-previews" id="attachmentPreviews"></div>
-      <div class="chat-input-row">
-        <!-- Hidden file input -->
-        <input type="file" id="fileInput" multiple
-          accept="image/*,.js,.ts,.jsx,.tsx,.py,.java,.go,.rs,.c,.cpp,.h,.cs,.rb,.php,.css,.html,.json,.yaml,.yml,.md,.txt,.sh,.env,.toml,.sql,.xml"
-          style="display:none" onchange="onFileSelected(event)">
-        <!-- Attach button -->
-        <button class="btn-icon btn-attach" id="attachBtn" title="Attach file" disabled onclick="openFilePicker()">&#128206;</button>
-        <!-- Textarea -->
-        <textarea class="chat-textarea" id="chatInput"
-          placeholder="Message..."
-          rows="1"
-          disabled
-          onkeydown="onInputKeydown(event)"
-          oninput="autoResize(this)"></textarea>
-        <!-- Mic button -->
-        <button class="btn-icon btn-mic" id="micBtn" title="Voice input" disabled onclick="toggleMic()">&#127908;</button>
-        <!-- Send button -->
-        <button class="btn-send" id="sendBtn" disabled onclick="sendMessage()">&#9654;</button>
-      </div>
-      <div class="input-hint">Ctrl+Enter to send &nbsp;·&nbsp; Claude Code is running in <span id="hintProjectPath" style="font-family:monospace"></span></div>
-    </div>
+        <!-- Start panel -->
+        <div class="chat-start-panel" id="startPanel">
+          <div class="start-card">
+            <h2>&#128172; Start a Chat Session</h2>
+            <p id="startProjectName">Select a model and start chatting with Claude Code in your project directory.</p>
+            <div class="model-selector-group">
+              <label>Model</label>
+              <select class="model-select" id="modelSelect" onchange="onModelChange()">
+                <option value="sonnet">Sonnet — claude-sonnet-4-6</option>
+                <option value="opus">Opus — claude-opus-4-6</option>
+                <option value="haiku">Haiku — claude-haiku-3-5</option>
+                <option value="custom">Custom model ID...</option>
+              </select>
+              <input type="text" class="custom-model-input" id="customModelInput"
+                placeholder="e.g. claude-sonnet-4-6" />
+            </div>
+            <button class="btn-start" id="startBtn" onclick="startSession()">&#9654; Start Chat</button>
+          </div>
+        </div>
+
+        <!-- Chat messages (hidden until session active) -->
+        <div class="chat-messages" id="chatMessages" style="display:none"></div>
+
+        <!-- Input area (hidden until session active) -->
+        <div class="chat-input-area" id="inputArea" style="display:none">
+          <!-- Attachment previews -->
+          <div class="attachment-previews" id="attachmentPreviews"></div>
+          <div class="chat-input-row">
+            <!-- Hidden file input -->
+            <input type="file" id="fileInput" multiple
+              accept="image/*,.js,.ts,.jsx,.tsx,.py,.java,.go,.rs,.c,.cpp,.h,.cs,.rb,.php,.css,.html,.json,.yaml,.yml,.md,.txt,.sh,.env,.toml,.sql,.xml"
+              style="display:none" onchange="onFileSelected(event)">
+            <!-- Attach button -->
+            <button class="btn-icon btn-attach" id="attachBtn" title="Attach file" disabled onclick="openFilePicker()">&#128206;</button>
+            <!-- Textarea -->
+            <textarea class="chat-textarea" id="chatInput"
+              placeholder="Message..."
+              rows="1"
+              disabled
+              onkeydown="onInputKeydown(event)"
+              oninput="autoResize(this)"></textarea>
+            <!-- Mic button -->
+            <button class="btn-icon btn-mic" id="micBtn" title="Voice input" disabled onclick="toggleMic()">&#127908;</button>
+            <!-- Send button -->
+            <button class="btn-send" id="sendBtn" disabled onclick="sendMessage()">&#9654;</button>
+          </div>
+          <div class="input-hint">Ctrl+Enter to send &nbsp;·&nbsp; Claude Code is running in <span id="hintProjectPath" style="font-family:monospace"></span></div>
+        </div>
+      </div><!-- end chat-main -->
+    </div><!-- end chat-body -->
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -583,6 +775,11 @@
     let currentToolUses = {};       // id -> { name, inputJson }
     let awaitingResponse = false;
     let loadingEl = null;           // loading bubble shown while waiting for response
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT = 10;
+    let reconnectTimer = null;
+    let sidebarCollapsed = false;
+    let activeSessionId = null;     // currently loaded session (for sidebar highlight)
 
     // Configure marked with highlight.js
     marked.setOptions({
@@ -646,16 +843,200 @@
       }
     }
 
+    // ---- Sidebar ----
+    function toggleSidebar() {
+      sidebarCollapsed = !sidebarCollapsed;
+      document.getElementById('sessionsSidebar').classList.toggle('collapsed', sidebarCollapsed);
+    }
+
+    function storageKey(key) {
+      return `chat_${key}_${projectId}`;
+    }
+
+    async function loadSessions() {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/chat/sessions`);
+        if (!res.ok) return;
+        const sessions = await res.json();
+        renderSessionsList(sessions);
+      } catch (e) {}
+    }
+
+    function renderSessionsList(sessions) {
+      const list = document.getElementById('sessionsList');
+      if (!sessions.length) {
+        list.innerHTML = '<div class="sessions-empty">No previous sessions</div>';
+        return;
+      }
+      list.innerHTML = '';
+      for (const s of sessions) {
+        list.appendChild(buildSessionItem(s));
+      }
+    }
+
+    function buildSessionItem(s) {
+      const div = document.createElement('div');
+      div.className = 'session-item' + (s.id === activeSessionId ? ' active' : '');
+      div.dataset.sessionId = s.id;
+
+      const modelShort = (s.model || '').replace('claude-', '').replace('-latest', '');
+      const date = formatRelativeDate(s.lastActivityAt || s.createdAt);
+      const preview = s.firstMessage || '(empty session)';
+      const count = s.messageCount || 0;
+
+      div.innerHTML = `
+        <div class="session-item-top">
+          <span class="session-date">${date}</span>
+          <span class="session-model-badge">${escapeHtml(modelShort)}</span>
+          <span class="session-msg-count">${count} msg${count !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="session-preview">${escapeHtml(preview)}</div>
+        <button class="session-delete" title="Delete session" onclick="deleteSession(event, '${s.id}')">&#215;</button>`;
+      div.addEventListener('click', () => selectSession(s.id));
+      return div;
+    }
+
+    function formatRelativeDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const now = new Date();
+      const diff = now - d;
+      if (diff < 60000) return 'just now';
+      if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+      if (diff < 604800000) return Math.floor(diff / 86400000) + 'd ago';
+      return d.toLocaleDateString();
+    }
+
+    async function selectSession(sid) {
+      if (sid === activeSessionId) return;
+      // Stop current WS if any
+      if (ws) { try { ws.close(1000, 'Switching session'); } catch (e) {} ws = null; }
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      hideReconnectBanner();
+
+      try {
+        const res = await fetch(`/api/projects/${projectId}/chat/sessions/${sid}`);
+        if (!res.ok) throw new Error('Session not found');
+        const data = await res.json();
+        activeSessionId = sid;
+        sessionId = sid;
+        sessionModel = data.model;
+        localStorage.setItem(storageKey('sessionId'), sid);
+
+        // Show chat panel and render history
+        showChatPanel();
+        document.getElementById('chatMessages').innerHTML = '';
+        loadAndDisplayHistory(data.messages || []);
+
+        // Resume the session on the server
+        const resumeRes = await fetch(`/api/projects/${projectId}/chat/sessions/${sid}/resume`, { method: 'POST' });
+        if (!resumeRes.ok) throw new Error('Failed to resume session');
+        const resumeData = await resumeRes.json();
+        sessionModel = resumeData.model;
+
+        reconnectAttempts = 0;
+        connectWebSocket();
+        updateSidebarActive(sid);
+      } catch (err) {
+        appendError(`Failed to load session: ${err.message}`);
+      }
+    }
+
+    async function deleteSession(e, sid) {
+      e.stopPropagation();
+      try {
+        await fetch(`/api/projects/${projectId}/chat/sessions/${sid}`, { method: 'DELETE' });
+        if (sid === activeSessionId) {
+          activeSessionId = null;
+          localStorage.removeItem(storageKey('sessionId'));
+          showStartPanel();
+        }
+        loadSessions();
+      } catch (err) {}
+    }
+
+    function updateSidebarActive(sid) {
+      document.querySelectorAll('.session-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.sessionId === sid);
+      });
+    }
+
+    function loadAndDisplayHistory(messages) {
+      for (const msg of messages) {
+        if (msg.role === 'user') {
+          appendUserMessage(msg.content);
+        } else if (msg.role === 'assistant' && msg.content) {
+          const el = createAssistantBubble();
+          const contentEl = el.querySelector('.msg-content');
+          const textDiv = document.createElement('div');
+          textDiv.innerHTML = marked.parse(msg.content);
+          contentEl.appendChild(textDiv);
+          document.getElementById('chatMessages').appendChild(el);
+        }
+      }
+      scrollToBottom();
+    }
+
+    // ---- Reconnect banner ----
+    function showReconnectBanner(text, showRetry) {
+      const banner = document.getElementById('reconnectBanner');
+      document.getElementById('reconnectText').textContent = text;
+      document.getElementById('reconnectSpinner').style.display = showRetry ? 'none' : '';
+      document.getElementById('reconnectRetryBtn').style.display = showRetry ? '' : 'none';
+      banner.classList.toggle('failed', showRetry);
+      banner.style.display = '';
+    }
+
+    function hideReconnectBanner() {
+      document.getElementById('reconnectBanner').style.display = 'none';
+    }
+
+    function manualReconnect() {
+      reconnectAttempts = 0;
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      scheduleReconnect();
+    }
+
+    function scheduleReconnect() {
+      if (!sessionId) return;
+      if (reconnectAttempts >= MAX_RECONNECT) {
+        showReconnectBanner('Connection lost. Click to retry.', true);
+        return;
+      }
+      reconnectAttempts++;
+      showReconnectBanner(`Reconnecting... (${reconnectAttempts}/${MAX_RECONNECT})`, false);
+      reconnectTimer = setTimeout(async () => {
+        reconnectTimer = null;
+        try {
+          // Re-register session on server if needed
+          const res = await fetch(`/api/projects/${projectId}/chat/sessions/${sessionId}/resume`, { method: 'POST' });
+          if (!res.ok) throw new Error('Resume failed');
+          connectWebSocket();
+        } catch (err) {
+          scheduleReconnect();
+        }
+      }, 3000);
+    }
+
     // ---- Session lifecycle ----
+    function startNewChat() {
+      activeSessionId = null;
+      sessionId = null;
+      localStorage.removeItem(storageKey('sessionId'));
+      showStartPanel();
+    }
+
     function showStartPanel() {
       document.getElementById('startPanel').style.display = '';
       document.getElementById('chatMessages').style.display = 'none';
       document.getElementById('inputArea').style.display = 'none';
       document.getElementById('stopBtn').style.display = 'none';
-      document.getElementById('newSessionBtn').style.display = 'none';
-      document.getElementById('modelTag').style.display = 'none';
+      document.getElementById('modelTag') && (document.getElementById('modelTag').style.display = 'none');
       setStatus('', 'No session');
+      hideReconnectBanner();
       if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+      updateSidebarActive(null);
     }
 
     function showChatPanel() {
@@ -663,12 +1044,8 @@
       document.getElementById('chatMessages').style.display = '';
       document.getElementById('inputArea').style.display = '';
       document.getElementById('stopBtn').style.display = '';
-      document.getElementById('newSessionBtn').style.display = '';
-      if (sessionModel) {
-        const tag = document.getElementById('modelTag');
-        tag.textContent = sessionModel;
-        tag.style.display = '';
-      }
+      const tag = document.getElementById('modelTag');
+      if (tag && sessionModel) { tag.textContent = sessionModel; tag.style.display = ''; }
     }
 
     async function startSession() {
@@ -693,8 +1070,13 @@
 
         sessionId = data.sessionId;
         sessionModel = data.model;
+        activeSessionId = sessionId;
+        localStorage.setItem(storageKey('sessionId'), sessionId);
+        reconnectAttempts = 0;
         showChatPanel();
         connectWebSocket();
+        // Refresh sidebar to show the new session
+        setTimeout(loadSessions, 500);
       } catch (err) {
         btn.disabled = false;
         btn.textContent = '▶ Start Chat';
@@ -703,7 +1085,9 @@
     }
 
     async function stopSession() {
-      if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      hideReconnectBanner();
+      if (ws) { try { ws.close(1000, 'Stopped'); } catch (e) {} ws = null; }
       try {
         await fetch(`/api/projects/${projectId}/chat/stop`, { method: 'POST' });
       } catch (e) {}
@@ -711,7 +1095,10 @@
       setStatus('', 'Stopped');
       document.getElementById('stopBtn').style.display = 'none';
       disableInput();
+      localStorage.removeItem(storageKey('sessionId'));
+      activeSessionId = null;
       sessionId = null;
+      loadSessions();
     }
 
     // ---- WebSocket ----
@@ -724,6 +1111,8 @@
 
       ws.onopen = () => {
         setStatus('active', 'Connected');
+        hideReconnectBanner();
+        reconnectAttempts = 0;
       };
 
       ws.onmessage = (e) => {
@@ -736,16 +1125,21 @@
       };
 
       ws.onclose = (e) => {
-        if (e.code !== 1000) {
-          setStatus('error', 'Disconnected');
-          appendSystem('Connection closed' + (e.reason ? `: ${e.reason}` : '.'));
-        }
         disableInput();
+        if (e.code === 1000) {
+          // Intentional close — no reconnect
+          setStatus('', 'Disconnected');
+        } else {
+          setStatus('error', 'Disconnected');
+          // Auto-reconnect if we still have a session
+          if (sessionId) {
+            scheduleReconnect();
+          }
+        }
       };
 
       ws.onerror = () => {
         setStatus('error', 'Error');
-        appendError('WebSocket connection error.');
       };
     }
 
@@ -828,6 +1222,7 @@
             enableInput();
           }
           awaitingResponse = false;
+          loadSessions(); // refresh sidebar message counts
           break;
 
         case 'error':
@@ -1270,6 +1665,14 @@
       window.location.href = '/login.html';
     });
 
+    // Close sidebar on mobile when clicking outside
+    document.getElementById('chatMessages').addEventListener('click', () => {
+      if (window.innerWidth <= 768 && !sidebarCollapsed) {
+        sidebarCollapsed = true;
+        document.getElementById('sessionsSidebar').classList.add('collapsed');
+      }
+    });
+
     async function init() {
       if (!projectId) {
         document.getElementById('topbarProject').textContent = 'No project';
@@ -1288,6 +1691,29 @@
           document.title = `${projectData.name} Chat — Dev Dashboard`;
         }
       } catch (e) {}
+
+      // Load session list in sidebar
+      await loadSessions();
+
+      // Auto-reconnect stored session
+      const storedSessionId = localStorage.getItem(storageKey('sessionId'));
+      if (storedSessionId) {
+        try {
+          const res = await fetch(`/api/projects/${projectId}/chat/sessions/${storedSessionId}`);
+          if (res.ok) {
+            await selectSession(storedSessionId);
+            return;
+          }
+        } catch (e) {}
+        // Stored session not found — clear it
+        localStorage.removeItem(storageKey('sessionId'));
+      }
+
+      // Collapse sidebar on mobile by default
+      if (window.innerWidth <= 768) {
+        sidebarCollapsed = true;
+        document.getElementById('sessionsSidebar').classList.add('collapsed');
+      }
     }
 
     fetch('/api/session').then(r => r.json()).then(d => {

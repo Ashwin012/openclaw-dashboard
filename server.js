@@ -77,6 +77,52 @@ async function captureProjectState(project) {
   return { files, diff: fullDiff };
 }
 
+// ===== Chat Session Persistence =====
+
+function getChatSessionsPath(project) {
+  return path.join(project.path, '.claude', 'chat-sessions.json');
+}
+
+function readChatSessions(project) {
+  const p = getChatSessionsPath(project);
+  if (!fs.existsSync(p)) return [];
+  try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return []; }
+}
+
+function writeChatSessions(project, sessions) {
+  const dir = path.join(project.path, '.claude');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(getChatSessionsPath(project), JSON.stringify(sessions, null, 2), 'utf8');
+}
+
+function upsertChatSession(project, sessionData) {
+  const sessions = readChatSessions(project);
+  const idx = sessions.findIndex(s => s.id === sessionData.id);
+  if (idx >= 0) { sessions[idx] = sessionData; } else { sessions.unshift(sessionData); }
+  writeChatSessions(project, sessions);
+}
+
+function addChatMessage(project, sessionId, message) {
+  const sessions = readChatSessions(project);
+  const sess = sessions.find(s => s.id === sessionId);
+  if (!sess) return;
+  if (!sess.messages) sess.messages = [];
+  sess.messages.push(message);
+  sess.lastActivityAt = new Date().toISOString();
+  if (!sess.firstMessage && message.role === 'user') {
+    sess.firstMessage = message.content.substring(0, 120);
+  }
+  writeChatSessions(project, sessions);
+}
+
+function updateChatSessionMeta(project, sessionId, updates) {
+  const sessions = readChatSessions(project);
+  const sess = sessions.find(s => s.id === sessionId);
+  if (!sess) return;
+  Object.assign(sess, updates);
+  writeChatSessions(project, sessions);
+}
+
 // ===== Auth =====
 
 function requireAuth(req, res, next) {
@@ -433,6 +479,7 @@ function spawnClaudeForMessage(session, text, ws) {
     return;
   }
   session.busy = true;
+  session.currentResponseText = '';
 
   const args = [
     '--print',
@@ -468,6 +515,28 @@ function spawnClaudeForMessage(session, text, ws) {
         const parsed = JSON.parse(line);
         if (parsed.type === 'result' && parsed.session_id) {
           session.claudeSessionId = parsed.session_id;
+          // Save assistant response and update claudeSessionId
+          const project = config.projects.find(p => p.id === session.projectId);
+          if (project && session.persistentId) {
+            if (session.currentResponseText) {
+              addChatMessage(project, session.persistentId, {
+                role: 'assistant',
+                content: session.currentResponseText,
+                timestamp: new Date().toISOString()
+              });
+              session.currentResponseText = '';
+            }
+            updateChatSessionMeta(project, session.persistentId, {
+              claudeSessionId: parsed.session_id,
+              status: 'active'
+            });
+          }
+        } else if (parsed.type === 'content_block_delta' && parsed.delta && parsed.delta.type === 'text_delta') {
+          session.currentResponseText += parsed.delta.text || '';
+        } else if (parsed.type === 'assistant' && parsed.message && parsed.message.content) {
+          // Complete assistant message event
+          const text = parsed.message.content.filter(b => b.type === 'text').map(b => b.text || '').join('');
+          if (text) session.currentResponseText += text;
         }
       } catch (e) {}
       if (ws.readyState === WebSocket.OPEN) {
@@ -511,14 +580,50 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 wss.on('connection', (ws, req) => {
-  const pathname = new URL(req.url, 'http://localhost').pathname;
-  const sessionId = pathname.slice('/ws/chat/'.length);
-  const session = chatSessions.get(sessionId);
+  const url = new URL(req.url, 'http://localhost');
+  const sessionId = url.pathname.slice('/ws/chat/'.length);
+  const querySessionId = url.searchParams.get('sessionId');
+  let session = chatSessions.get(sessionId);
+
+  // If not in memory, try to restore from persistent storage (handles server restarts)
+  if (!session) {
+    const lookupId = sessionId || querySessionId;
+    if (lookupId) {
+      for (const proj of config.projects) {
+        const fileSessions = readChatSessions(proj);
+        const fileSession = fileSessions.find(s => s.id === lookupId);
+        if (fileSession) {
+          // Restore in-memory session from file
+          session = {
+            projectId: proj.id,
+            projectPath: proj.path,
+            model: fileSession.model,
+            claudeSessionId: fileSession.claudeSessionId,
+            process: null,
+            ws: null,
+            status: 'pending',
+            busy: false,
+            persistentId: lookupId,
+            currentResponseText: '',
+            cleanupTimer: null
+          };
+          chatSessions.set(lookupId, session);
+          break;
+        }
+      }
+    }
+  }
 
   if (!session) {
-    ws.send(JSON.stringify({ type: 'error', error: 'Session not found or expired' }));
+    try { ws.send(JSON.stringify({ type: 'error', error: 'Session not found or expired' })); } catch (e) {}
     ws.close(1008, 'Session not found');
     return;
+  }
+
+  // Cancel any pending cleanup timer (reconnect case)
+  if (session.cleanupTimer) {
+    clearTimeout(session.cleanupTimer);
+    session.cleanupTimer = null;
   }
 
   // Close any previous WS connection for this session
@@ -535,6 +640,15 @@ wss.on('connection', (ws, req) => {
     try {
       const msg = JSON.parse(data.toString());
       if (msg.type === 'user_message') {
+        // Save user message to persistent session
+        const project = config.projects.find(p => p.id === session.projectId);
+        if (project && session.persistentId) {
+          addChatMessage(project, session.persistentId, {
+            role: 'user',
+            content: msg.text,
+            timestamp: new Date().toISOString()
+          });
+        }
         spawnClaudeForMessage(session, msg.text, ws);
       }
     } catch (e) {}
@@ -543,10 +657,20 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => {
     session.ws = null;
     session.status = 'disconnected';
-    if (session.process && !session.process.killed) {
-      try { session.process.kill('SIGTERM'); } catch (e) {}
+    const project = config.projects.find(p => p.id === session.projectId);
+    if (project && session.persistentId) {
+      updateChatSessionMeta(project, session.persistentId, {
+        status: 'disconnected',
+        lastActivityAt: new Date().toISOString()
+      });
     }
-    chatSessions.delete(sessionId);
+    // Grace period: keep in-memory session for 45s to allow reconnect
+    session.cleanupTimer = setTimeout(() => {
+      if (session.process && !session.process.killed) {
+        try { session.process.kill('SIGTERM'); } catch (e) {}
+      }
+      chatSessions.delete(sessionId);
+    }, 45000);
   });
 
   ws.on('error', (err) => {
@@ -561,6 +685,7 @@ app.post('/api/projects/:id/chat/start', requireAuth, (req, res) => {
   // Clean up any existing session for this project
   for (const [sid, sess] of chatSessions.entries()) {
     if (sess.projectId === req.params.id) {
+      if (sess.cleanupTimer) clearTimeout(sess.cleanupTimer);
       if (sess.process) { try { sess.process.kill(); } catch (e) {} }
       if (sess.ws) { try { sess.ws.close(); } catch (e) {} }
       chatSessions.delete(sid);
@@ -572,6 +697,20 @@ app.post('/api/projects/:id/chat/start', requireAuth, (req, res) => {
   const resolvedModel = modelMap[model] || model;
 
   const sessionId = crypto.randomUUID();
+  const now = new Date().toISOString();
+
+  const persistentSession = {
+    id: sessionId,
+    claudeSessionId: null,
+    model: resolvedModel,
+    messages: [],
+    createdAt: now,
+    lastActivityAt: now,
+    status: 'active',
+    firstMessage: null
+  };
+  upsertChatSession(project, persistentSession);
+
   chatSessions.set(sessionId, {
     projectId: req.params.id,
     projectPath: project.path,
@@ -580,7 +719,10 @@ app.post('/api/projects/:id/chat/start', requireAuth, (req, res) => {
     process: null,
     ws: null,
     status: 'pending',
-    busy: false
+    busy: false,
+    persistentId: sessionId,
+    currentResponseText: '',
+    cleanupTimer: null
   });
 
   res.json({ sessionId, model: resolvedModel });
@@ -592,8 +734,12 @@ app.post('/api/projects/:id/chat/stop', requireAuth, (req, res) => {
 
   for (const [sid, sess] of chatSessions.entries()) {
     if (sess.projectId === req.params.id) {
+      if (sess.cleanupTimer) clearTimeout(sess.cleanupTimer);
       if (sess.process) { try { sess.process.kill('SIGTERM'); } catch (e) {} }
       if (sess.ws) { try { sess.ws.close(); } catch (e) {} }
+      if (project && sess.persistentId) {
+        updateChatSessionMeta(project, sess.persistentId, { status: 'closed', lastActivityAt: new Date().toISOString() });
+      }
       chatSessions.delete(sid);
     }
   }
@@ -614,6 +760,93 @@ app.get('/api/projects/:id/chat/status', requireAuth, (req, res) => {
   }
 
   res.json({ active: !!activeSession, session: activeSession });
+});
+
+// ===== Chat Session API =====
+
+app.get('/api/projects/:id/chat/sessions', requireAuth, (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const sessions = readChatSessions(project).slice(0, 20).map(s => ({
+    id: s.id,
+    model: s.model,
+    createdAt: s.createdAt,
+    lastActivityAt: s.lastActivityAt,
+    status: s.status,
+    firstMessage: s.firstMessage,
+    messageCount: (s.messages || []).length
+  }));
+  res.json(sessions);
+});
+
+app.get('/api/projects/:id/chat/sessions/:sessionId', requireAuth, (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const sessions = readChatSessions(project);
+  const session = sessions.find(s => s.id === req.params.sessionId);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+  res.json(session);
+});
+
+app.delete('/api/projects/:id/chat/sessions/:sessionId', requireAuth, (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const sessions = readChatSessions(project).filter(s => s.id !== req.params.sessionId);
+  writeChatSessions(project, sessions);
+  res.json({ ok: true });
+});
+
+app.post('/api/projects/:id/chat/sessions/:sessionId/resume', requireAuth, (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const { sessionId } = req.params;
+
+  // If session is still in memory (short disconnect), just clear timer and reuse
+  const existing = chatSessions.get(sessionId);
+  if (existing) {
+    if (existing.cleanupTimer) {
+      clearTimeout(existing.cleanupTimer);
+      existing.cleanupTimer = null;
+    }
+    existing.status = 'pending';
+    return res.json({ sessionId, model: existing.model });
+  }
+
+  // Load from persistent storage
+  const sessions = readChatSessions(project);
+  const persistent = sessions.find(s => s.id === sessionId);
+  if (!persistent) return res.status(404).json({ error: 'Session not found' });
+
+  // Clean up any active sessions for this project
+  for (const [sid, sess] of chatSessions.entries()) {
+    if (sess.projectId === req.params.id) {
+      if (sess.cleanupTimer) clearTimeout(sess.cleanupTimer);
+      if (sess.process) { try { sess.process.kill(); } catch (e) {} }
+      if (sess.ws) { try { sess.ws.close(); } catch (e) {} }
+      chatSessions.delete(sid);
+    }
+  }
+
+  chatSessions.set(sessionId, {
+    projectId: req.params.id,
+    projectPath: project.path,
+    model: persistent.model,
+    claudeSessionId: persistent.claudeSessionId,
+    process: null,
+    ws: null,
+    status: 'pending',
+    busy: false,
+    persistentId: sessionId,
+    currentResponseText: '',
+    cleanupTimer: null
+  });
+
+  updateChatSessionMeta(project, sessionId, { status: 'active', lastActivityAt: new Date().toISOString() });
+  res.json({ sessionId, model: persistent.model });
 });
 
 const PORT = process.env.PORT || 8090;
