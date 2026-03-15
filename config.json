@@ -1,4 +1,5 @@
 {
+  "webhookUrl": "",
   "projects": [
     {
       "id": "afdex",

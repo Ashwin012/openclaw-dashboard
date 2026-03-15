@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const https = require('https');
 const { spawn } = require('child_process');
 const pty = require('node-pty');
 
@@ -25,7 +26,7 @@ const WARNING_THRESHOLDS_MIN = [30, 60, 120];
 // Silence-based detection timings
 const SILENCE_CHECK_MS = 1_000;
 const QUESTION_SILENCE_MS = 3_000;     // silence before checking for question/prompt
-const COMPLETION_SILENCE_MS = 10_000;  // silence before assuming completion
+const COMPLETION_SILENCE_MS = 45_000;  // silence before assuming completion
 const MIN_OUTPUT_FOR_COMPLETION = 200; // chars since instruction to consider "done"
 const PTY_READY_TIMEOUT_MS = 60_000;   // max wait for initial prompt
 const QUESTION_WARN_MS = 30 * 60 * 1000; // warn after 30 min of unanswered question
@@ -176,6 +177,65 @@ function addNotification(projectName, taskTitle, taskId, fromStatus, toStatus, m
   }
 }
 
+// ─── Push webhook notifications ───────────────────────────────────────────────
+
+function pushNotification(event, projectName, taskId, taskTitle, message) {
+  const config = loadConfig();
+  const webhookUrl = config.webhookUrl;
+  if (!webhookUrl) return;
+
+  const payload = JSON.stringify({
+    event,
+    projectName,
+    taskId,
+    taskTitle,
+    message,
+    timestamp: new Date().toISOString(),
+  });
+
+  function doPost(attempt) {
+    try {
+      const url = new URL(webhookUrl);
+      const mod = url.protocol === 'https:' ? https : http;
+      const options = {
+        hostname: url.hostname,
+        port: url.port || (url.protocol === 'https:' ? 443 : 80),
+        path: url.pathname + url.search,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+        },
+      };
+      const req = mod.request(options, res => {
+        res.resume(); // drain response body
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          log(`  Webhook OK: ${event} → ${projectName} (HTTP ${res.statusCode})`);
+        } else if (attempt === 1) {
+          log(`  Webhook failed (HTTP ${res.statusCode}) for event "${event}", retrying in 5s`);
+          setTimeout(() => doPost(2), 5000);
+        } else {
+          log(`  Webhook retry failed (HTTP ${res.statusCode}) for event "${event}" — abandoning`);
+        }
+      });
+      req.on('error', err => {
+        if (attempt === 1) {
+          log(`  Webhook error (${err.message}) for event "${event}", retrying in 5s`);
+          setTimeout(() => doPost(2), 5000);
+        } else {
+          log(`  Webhook retry failed (${err.message}) for event "${event}" — abandoning`);
+        }
+      });
+      req.write(payload);
+      req.end();
+    } catch (err) {
+      logError(`pushNotification failed for event "${event}"`, err);
+    }
+  }
+
+  doPost(1);
+}
+
 // ─── tasks.json helpers ───────────────────────────────────────────────────────
 
 function getTasksPath(projectPath) {
@@ -298,6 +358,7 @@ async function processTask(project, task) {
     addNote(t, 'Worker', 'Début du traitement');
   });
   addNotification(project.name, task.title, task.id, 'queued', 'in_progress', '🔄 Début du traitement par le worker');
+  pushNotification('task_started', project.name, task.id, task.title, '🔄 Début du traitement par le worker');
 
   const instruction = buildInstruction(task);
 
@@ -434,6 +495,8 @@ async function processTask(project, task) {
           });
           addNotification(project.name, task.title, task.id, 'in_progress', 'in_progress',
             `❓ Question: ${lastLine}`);
+          pushNotification('question_detected', project.name, task.id, task.title,
+            `❓ Question: ${lastLine}`);
           break;
         }
 
@@ -443,8 +506,11 @@ async function processTask(project, task) {
           exitReason = 'complete';
           clearInterval(silenceInterval);
           try { ptyProc.write('/exit\r'); } catch {}
-          // Fallback kill after 5s in case /exit doesn't close it
-          setTimeout(() => { try { ptyProc.kill(); } catch {} }, 5000);
+          // Fallback kill after 15s in case /exit doesn't close the PTY
+          setTimeout(() => {
+            log(`  Fallback kill triggered (15s after /exit) for task [${task.id}]`);
+            try { ptyProc.kill(); } catch {}
+          }, 15000);
         }
         break;
       }
@@ -457,6 +523,8 @@ async function processTask(project, task) {
           updateTask(projectPath, task.id, t => {
             addNote(t, 'Worker', '⏰ Question sans réponse depuis 30min');
           });
+          pushNotification('question_timeout', project.name, task.id, task.title,
+            `⏰ Question sans réponse depuis 30min: ${currentQuestion ? currentQuestion.question : ''}`);
         }
 
         // Poll for answer file
@@ -499,6 +567,7 @@ async function processTask(project, task) {
       t.status = 'review';
     });
     addNotification(cp.projectName, cp.taskTitle, task.id, 'in_progress', 'review', '⏹ Tâche stoppée manuellement');
+    pushNotification('task_failed', cp.projectName, task.id, cp.taskTitle, '⏹ Tâche stoppée manuellement');
     log(`Task [${task.id}] → review (stopped manually)`);
     return;
   }
@@ -529,13 +598,21 @@ async function processTask(project, task) {
     if (failed) t.error = true;
   });
 
+  const projectName = cp ? cp.projectName : project.name;
+  const taskTitle = cp ? cp.taskTitle : task.title;
+
+  for (const qg of qualityResults) {
+    const qgMsg = `Quality gate "${qg.gate}": ${qg.passed ? '✅ PASSED' : '❌ FAILED'}`;
+    pushNotification('quality_gate_result', projectName, task.id, taskTitle, qgMsg);
+  }
+
   const notifMsg = failed
     ? '❌ Erreur pendant le traitement — en review'
     : '🔍 Traitement terminé — en attente de review';
-  addNotification(
-    cp ? cp.projectName : project.name,
-    cp ? cp.taskTitle : task.title,
-    task.id, 'in_progress', 'review', notifMsg,
+  addNotification(projectName, taskTitle, task.id, 'in_progress', 'review', notifMsg);
+  pushNotification(
+    failed ? 'task_failed' : 'task_completed',
+    projectName, task.id, taskTitle, notifMsg,
   );
   log(`Task [${task.id}] "${task.title}" → review${failed ? ' (with error)' : ''}`);
 }
