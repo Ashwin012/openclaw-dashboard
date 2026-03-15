@@ -746,8 +746,22 @@
     }
 
     async function loadProjects() {
-      const res = await fetch('/api/projects');
-      projects = res.ok ? await res.json() : [];
+      try {
+        const res = await fetch('/api/projects', { credentials: 'same-origin' });
+        if (!res.ok) {
+          console.error('loadProjects: HTTP', res.status, res.statusText);
+          document.getElementById('devGrid').innerHTML = `<div style="color:var(--red);font-size:13px">Erreur API: ${res.status} ${res.statusText}</div>`;
+          projects = [];
+          return;
+        }
+        projects = await res.json();
+        console.log('loadProjects: raw response', projects);
+      } catch (err) {
+        console.error('loadProjects: fetch failed', err);
+        document.getElementById('devGrid').innerHTML = `<div style="color:var(--red);font-size:13px">Erreur réseau: ${err.message}</div>`;
+        projects = [];
+        return;
+      }
       renderDevSummary();
     }
 

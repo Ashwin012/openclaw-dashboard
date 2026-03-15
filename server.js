@@ -260,6 +260,7 @@ app.get('/api/projects', requireAuth, async (req, res) => {
           branch: branchName,
           pendingChanges: changedFiles,
           unpushedCount: unpushed.length,
+          uncommittedCount: uncommittedChanges.length,
           unpushedCommits: unpushed,
           uncommittedChanges,
           lastActivity: lastLog.trim(),
@@ -268,7 +269,7 @@ app.get('/api/projects', requireAuth, async (req, res) => {
           accessible: true
         };
       } catch (err) {
-        return { ...p, branch: 'unknown', pendingChanges: 0, unpushedCount: 0, lastActivity: null, recentCommits: [], accessible: false, error: err.message };
+        return { ...p, branch: 'unknown', pendingChanges: 0, unpushedCount: 0, uncommittedCount: 0, lastActivity: null, recentCommits: [], accessible: false, error: err.message };
       }
     }));
     res.json(projects);
