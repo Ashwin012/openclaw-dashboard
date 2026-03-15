@@ -347,134 +347,6 @@
       color: var(--border);
     }
 
-    /* ===== Activity Layout ===== */
-    .activity-wrapper {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      margin-top: 28px;
-      max-width: 1000px;
-    }
-
-    .activity-section {
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .activity-section-header {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-muted);
-      letter-spacing: 0.03em;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .activity-section-header .count-badge {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 11px;
-      padding: 1px 7px;
-      color: var(--text-subtle);
-      font-weight: 500;
-      margin-left: auto;
-    }
-
-    /* ===== Recent Commits (global feed) ===== */
-    .commit-item {
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--border-muted);
-      cursor: pointer;
-      transition: background 0.1s;
-    }
-
-    .commit-item:last-child { border-bottom: none; }
-    .commit-item:hover { background: var(--bg-hover); }
-
-    .commit-top {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .commit-message {
-      font-size: 13px;
-      color: var(--text);
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .commit-meta {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 4px;
-      flex-wrap: wrap;
-    }
-
-    .commit-author { font-size: 11px; color: var(--text-subtle); }
-    .commit-time   { font-size: 11px; color: var(--text-subtle); }
-
-    .commit-expand {
-      display: none;
-      padding: 10px 0 4px 0;
-      border-top: 1px solid var(--border-muted);
-      margin-top: 8px;
-    }
-
-    .commit-expand.open { display: block; }
-
-    .commit-hash {
-      font-family: 'SFMono-Regular', Consolas, monospace;
-      font-size: 11px;
-      color: var(--text-subtle);
-      margin-bottom: 4px;
-    }
-
-    /* ===== Badges (global) ===== */
-    .badge-proj {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-weight: 600;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .badge-source {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-weight: 500;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .badge-source.agent    { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
-    .badge-source.external { background: #8b949e22; color: #8b949e; border: 1px solid #8b949e33; }
-
-    .badge-push {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-weight: 500;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .badge-push.pushed   { background: #3fb95022; color: #3fb950; border: 1px solid #3fb95044; }
-    .badge-push.unpushed { background: #d2992222; color: #d29922; border: 1px solid #d2992244; }
-
     /* ===== Responsive ===== */
     @media (max-width: 640px) {
       .card-header { flex-wrap: wrap; }
@@ -723,57 +595,6 @@
       return `<div class="projects-list">${cards.join('')}</div>`;
     }
 
-    // ===== Recent Commits (global feed) =====
-    function renderRecentCommits(projects, colorMap) {
-      const allCommits = projects
-        .flatMap(p => (p.recentCommits || []))
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .slice(0, 15);
-
-      if (!allCommits.length) return '';
-
-      const items = allCommits.map((c, idx) => {
-        const color = colorMap[c.projectId] || '#888';
-        const sourceBadge = c.source === 'agent'
-          ? `<span class="badge-source agent">&#129302; Agent</span>`
-          : `<span class="badge-source external">&#128100; External</span>`;
-        const pushBadge = c.pushed
-          ? `<span class="badge-push pushed">&#10003; Pushed</span>`
-          : `<span class="badge-push unpushed">&#8679; Unpushed</span>`;
-
-        return `<div class="commit-item" onclick="handleCommitClick(event, ${idx}, '${escapeHtml(c.projectId)}')">
-          <div class="commit-top">
-            <span class="badge-proj" style="${projectBadgeStyle(color)}">${escapeHtml(c.projectName)}</span>
-            <span class="commit-message" title="${escapeHtml(c.message)}">${escapeHtml(c.message)}</span>
-            ${pushBadge}
-          </div>
-          <div class="commit-meta">
-            <span class="commit-author">${escapeHtml(c.author)}</span>
-            <span class="commit-time" style="color:var(--border)">·</span>
-            <span class="commit-time">${timeAgo(c.date)}</span>
-            ${sourceBadge}
-          </div>
-          <div class="commit-expand" id="commit-expand-${idx}">
-            <div class="commit-hash">${escapeHtml(c.shortHash)} &mdash; <a href="/project.html?id=${escapeHtml(c.projectId)}" onclick="event.stopPropagation()">View project</a></div>
-          </div>
-        </div>`;
-      });
-
-      return `<div class="activity-section">
-        <div class="activity-section-header">
-          &#9679; Recent Commits
-          <span class="count-badge">${allCommits.length}</span>
-        </div>
-        ${items.join('')}
-      </div>`;
-    }
-
-    function handleCommitClick(event, idx, projectId) {
-      if (event.target.tagName === 'A') return;
-      const el = document.getElementById(`commit-expand-${idx}`);
-      if (el) el.classList.toggle('open');
-    }
-
     async function loadProjects() {
       try {
         const res = await fetch('/api/projects');
@@ -799,11 +620,7 @@
           tasksByProject[p.id] = taskResults[i].status === 'fulfilled' ? taskResults[i].value : [];
         });
 
-        const activityWrapper = `<div class="activity-wrapper">
-          ${renderRecentCommits(projects, colorMap)}
-        </div>`;
-
-        content.innerHTML = renderProjectCards(projects, tasksByProject) + activityWrapper;
+        content.innerHTML = renderProjectCards(projects, tasksByProject);
       } catch (err) {
         document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load projects</h3><p>${err.message}</p></div>`;
       }
