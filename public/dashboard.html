@@ -569,6 +569,12 @@
             <div class="card-task-list">${taskRows}</div>
             <a class="view-all-link" href="/project.html?id=${escapeHtml(p.id)}&tab=tasks">View all tasks &#8594;</a>
           </div>`;
+        } else {
+          section3 = `<div class="card-section">
+            <div class="card-section-title">&#128204; Pending Tasks</div>
+            <div style="color:var(--text-muted);font-size:0.85rem;padding:4px 0;">No pending tasks</div>
+            <a class="view-all-link" href="/project.html?id=${escapeHtml(p.id)}&tab=tasks">View all tasks &#8594;</a>
+          </div>`;
         }
 
         // --- Footer ---
