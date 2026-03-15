@@ -66,6 +66,31 @@ process.on('SIGINT', () => {
 
 let currentProcess = null;
 
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+const NOTIFICATIONS_PATH = path.join(__dirname, '.dashboard', 'notifications.json');
+
+function addNotification(projectName, taskTitle, taskId, fromStatus, toStatus, message) {
+  try {
+    const dir = path.dirname(NOTIFICATIONS_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+    let data = { pending: [] };
+    if (fs.existsSync(NOTIFICATIONS_PATH)) {
+      try { data = JSON.parse(fs.readFileSync(NOTIFICATIONS_PATH, 'utf8')); } catch { data = { pending: [] }; }
+    }
+    if (!Array.isArray(data.pending)) data.pending = [];
+
+    data.pending.push({ projectName, taskTitle, taskId, fromStatus, toStatus, message, timestamp: new Date().toISOString() });
+
+    const tmp = `${NOTIFICATIONS_PATH}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
+    fs.renameSync(tmp, NOTIFICATIONS_PATH);
+  } catch (err) {
+    logError('Failed to write notification', err);
+  }
+}
+
 // ─── tasks.json helpers ───────────────────────────────────────────────────────
 
 function getTasksPath(projectPath) {
@@ -193,6 +218,7 @@ function processTask(project, task) {
     t.status = 'in_progress';
     addNote(t, 'Worker', 'Début du traitement');
   });
+  addNotification(project.name, task.title, task.id, 'queued', 'in_progress', '🔄 Début du traitement par le worker');
 
   const promptParts = [task.title];
   if (task.description && task.description.trim()) {
@@ -245,6 +271,7 @@ function processTask(project, task) {
         addNote(t, 'Worker', `Stoppée manuellement\n${truncated}`);
         t.status = 'review';
       });
+      addNotification(cp.projectName, cp.taskTitle, task.id, 'in_progress', 'review', '⏹ Tâche stoppée manuellement');
       log(`Task [${task.id}] → review (stopped manually)`);
       if (shuttingDown) process.exit(0);
       return;
@@ -275,6 +302,10 @@ function processTask(project, task) {
       if (failed) t.error = true;
     });
 
+    const notifMsg = failed
+      ? '❌ Erreur pendant le traitement — en review'
+      : '🔍 Traitement terminé — en attente de review';
+    addNotification(cp.projectName, cp.taskTitle, task.id, 'in_progress', 'review', notifMsg);
     log(`Task [${task.id}] "${task.title}" → review${failed ? ' (with error)' : ''}`);
 
     if (shuttingDown) process.exit(0);

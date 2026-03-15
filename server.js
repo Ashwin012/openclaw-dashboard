@@ -1411,6 +1411,33 @@ app.post('/api/worker/stop', requireAuth, (req, res) => {
   proxyWorkerRequest('POST', '/stop', res);
 });
 
+// ===== Notifications (no auth — called by cron agent) =====
+
+const NOTIFICATIONS_PATH = path.join(__dirname, '.dashboard', 'notifications.json');
+
+app.get('/api/notifications', (req, res) => {
+  try {
+    if (!fs.existsSync(NOTIFICATIONS_PATH)) {
+      return res.json({ pending: [] });
+    }
+    let data = { pending: [] };
+    try { data = JSON.parse(fs.readFileSync(NOTIFICATIONS_PATH, 'utf8')); } catch { data = { pending: [] }; }
+    if (!Array.isArray(data.pending)) data.pending = [];
+
+    const notifications = data.pending;
+
+    // Atomically clear
+    const empty = { pending: [] };
+    const tmp = `${NOTIFICATIONS_PATH}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(empty, null, 2), 'utf8');
+    fs.renameSync(tmp, NOTIFICATIONS_PATH);
+
+    res.json({ pending: notifications });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 8090;
 server.listen(PORT, () => {
   console.log(`Dev Dashboard running on http://localhost:${PORT}`);
