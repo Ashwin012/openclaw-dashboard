@@ -1009,7 +1009,7 @@
         else dotClass = 'green';
 
         return `
-          <div class="dev-card">
+          <a href="/project.html?id=${encodeURIComponent(p.id)}" class="dev-card" style="text-decoration:none;color:inherit;display:block;cursor:pointer;">
             <div class="dev-card-header">
               <div class="status-dot ${dotClass}"></div>
               <div class="dev-card-name">${escHtml(p.name)}</div>
@@ -1020,7 +1020,7 @@
               <span>📝 ${p.uncommittedCount || 0} non commités</span>
               <span>✅ ${p.taskCount || 0} tâches</span>
             </div>
-          </div>
+          </a>
         `;
       }).join('');
     }
