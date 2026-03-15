@@ -196,27 +196,22 @@ app.get('/api/projects', requireAuth, async (req, res) => {
       try {
         const { stdout: branch } = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: p.path });
         const { stdout: status } = await execAsync('git status --porcelain', { cwd: p.path });
-        const { stdout: lastLog } = await execAsync('git log -1 --format="%ci|||%s|||%an"', { cwd: p.path });
+        const { stdout: lastLog } = await execAsync('git log -1 --format="%ci"', { cwd: p.path });
         const changedFiles = status.trim().split('\n').filter(l => l.trim()).length;
         const recentActivity = readHistory(p).slice(0, 5);
         const branchName = branch.trim();
         const unpushed = await getUnpushedCommits(p, branchName);
-        const [lastActivity, lastCommitMessage, lastCommitAuthor] = lastLog.trim().split('|||');
-        const taskCount = readTasks(p).length;
         return {
           ...p,
           branch: branchName,
           pendingChanges: changedFiles,
           unpushedCount: unpushed.length,
-          lastActivity: lastActivity || null,
-          lastCommitMessage: lastCommitMessage || '',
-          lastCommitAuthor: lastCommitAuthor || '',
-          taskCount,
+          lastActivity: lastLog.trim(),
           recentActivity,
           accessible: true
         };
       } catch (err) {
-        return { ...p, branch: 'unknown', pendingChanges: 0, unpushedCount: 0, lastActivity: null, lastCommitMessage: '', lastCommitAuthor: '', taskCount: 0, recentActivity: [], accessible: false, error: err.message };
+        return { ...p, branch: 'unknown', pendingChanges: 0, unpushedCount: 0, lastActivity: null, recentActivity: [], accessible: false, error: err.message };
       }
     }));
     res.json(projects);
@@ -1003,188 +998,6 @@ app.post('/api/projects/:id/tasks/:taskId/notes', requireAuthOrBearer, (req, res
   task.updatedAt = new Date().toISOString();
   writeTasks(project, tasks);
   res.status(201).json(note);
-});
-
-// ===== Dashboard Personal Data =====
-
-const DASHBOARD_DIR = path.join(__dirname, '.dashboard');
-function ensureDashboardDir() {
-  if (!fs.existsSync(DASHBOARD_DIR)) fs.mkdirSync(DASHBOARD_DIR, { recursive: true });
-}
-
-// --- Personal Tasks ---
-function readPersonalTasks() {
-  const p = path.join(DASHBOARD_DIR, 'personal-tasks.json');
-  if (!fs.existsSync(p)) return [];
-  try { const d = JSON.parse(fs.readFileSync(p, 'utf8')); return Array.isArray(d.tasks) ? d.tasks : []; } catch { return []; }
-}
-function writePersonalTasks(tasks) {
-  ensureDashboardDir();
-  fs.writeFileSync(path.join(DASHBOARD_DIR, 'personal-tasks.json'), JSON.stringify({ tasks }, null, 2), 'utf8');
-}
-
-app.get('/api/personal/tasks', requireAuth, (req, res) => {
-  let tasks = readPersonalTasks();
-  const { status, category, priority } = req.query;
-  if (status) tasks = tasks.filter(t => t.status === status);
-  if (category) tasks = tasks.filter(t => t.category === category);
-  if (priority) tasks = tasks.filter(t => t.priority === priority);
-  res.json(tasks);
-});
-
-app.post('/api/personal/tasks', requireAuth, (req, res) => {
-  const { title, description, status, priority, category } = req.body;
-  if (!title || !title.trim()) return res.status(400).json({ error: 'Title required' });
-  const now = new Date().toISOString();
-  const task = {
-    id: crypto.randomUUID(),
-    title: title.trim(),
-    description: description || '',
-    status: status || 'todo',
-    priority: priority || 'medium',
-    category: category || 'action',
-    createdAt: now,
-    updatedAt: now,
-    completedAt: null,
-    notes: []
-  };
-  const tasks = readPersonalTasks();
-  tasks.push(task);
-  writePersonalTasks(tasks);
-  res.status(201).json(task);
-});
-
-app.put('/api/personal/tasks/:id', requireAuth, (req, res) => {
-  const tasks = readPersonalTasks();
-  const idx = tasks.findIndex(t => t.id === req.params.id);
-  if (idx < 0) return res.status(404).json({ error: 'Task not found' });
-  const task = tasks[idx];
-  const now = new Date().toISOString();
-  ['title', 'description', 'status', 'priority', 'category'].forEach(f => {
-    if (req.body[f] !== undefined) task[f] = req.body[f];
-  });
-  if (req.body.status === 'done' && !task.completedAt) task.completedAt = now;
-  else if (req.body.status && req.body.status !== 'done') task.completedAt = null;
-  task.updatedAt = now;
-  tasks[idx] = task;
-  writePersonalTasks(tasks);
-  res.json(task);
-});
-
-app.delete('/api/personal/tasks/:id', requireAuth, (req, res) => {
-  const tasks = readPersonalTasks();
-  const idx = tasks.findIndex(t => t.id === req.params.id);
-  if (idx < 0) return res.status(404).json({ error: 'Task not found' });
-  tasks.splice(idx, 1);
-  writePersonalTasks(tasks);
-  res.json({ ok: true });
-});
-
-app.post('/api/personal/tasks/:id/notes', requireAuth, (req, res) => {
-  const tasks = readPersonalTasks();
-  const task = tasks.find(t => t.id === req.params.id);
-  if (!task) return res.status(404).json({ error: 'Task not found' });
-  const { author, text } = req.body;
-  if (!text || !text.trim()) return res.status(400).json({ error: 'Note text required' });
-  const note = { author: author || 'gollum', text: text.trim(), timestamp: new Date().toISOString() };
-  if (!task.notes) task.notes = [];
-  task.notes.push(note);
-  task.updatedAt = new Date().toISOString();
-  writePersonalTasks(tasks);
-  res.status(201).json(note);
-});
-
-// --- News ---
-function readNews() {
-  const p = path.join(DASHBOARD_DIR, 'news.json');
-  if (!fs.existsSync(p)) return [];
-  try { const d = JSON.parse(fs.readFileSync(p, 'utf8')); return Array.isArray(d.articles) ? d.articles : []; } catch { return []; }
-}
-function writeNews(articles) {
-  ensureDashboardDir();
-  fs.writeFileSync(path.join(DASHBOARD_DIR, 'news.json'), JSON.stringify({ articles }, null, 2), 'utf8');
-}
-
-app.get('/api/news', requireAuth, (req, res) => {
-  let articles = readNews();
-  const { category, read } = req.query;
-  if (category) articles = articles.filter(a => a.category === category);
-  if (read !== undefined) articles = articles.filter(a => String(a.read) === read);
-  res.json(articles);
-});
-
-app.post('/api/news', requireAuthOrBearer, (req, res) => {
-  const { title, summary, url, source, category, publishedAt } = req.body;
-  if (!title || !title.trim()) return res.status(400).json({ error: 'Title required' });
-  const now = new Date().toISOString();
-  const article = {
-    id: crypto.randomUUID(),
-    title: title.trim(),
-    summary: summary || '',
-    url: url || '',
-    source: source || '',
-    category: category || 'ai',
-    publishedAt: publishedAt || now,
-    addedAt: now,
-    read: false
-  };
-  const articles = readNews();
-  articles.unshift(article);
-  writeNews(articles);
-  res.status(201).json(article);
-});
-
-app.put('/api/news/:id', requireAuth, (req, res) => {
-  const articles = readNews();
-  const idx = articles.findIndex(a => a.id === req.params.id);
-  if (idx < 0) return res.status(404).json({ error: 'Article not found' });
-  ['read', 'title', 'summary', 'category'].forEach(f => {
-    if (req.body[f] !== undefined) articles[idx][f] = req.body[f];
-  });
-  writeNews(articles);
-  res.json(articles[idx]);
-});
-
-app.delete('/api/news/:id', requireAuth, (req, res) => {
-  const articles = readNews();
-  const idx = articles.findIndex(a => a.id === req.params.id);
-  if (idx < 0) return res.status(404).json({ error: 'Article not found' });
-  articles.splice(idx, 1);
-  writeNews(articles);
-  res.json({ ok: true });
-});
-
-// --- Agent Activity ---
-function readActivity() {
-  const p = path.join(DASHBOARD_DIR, 'activity.json');
-  if (!fs.existsSync(p)) return [];
-  try { const d = JSON.parse(fs.readFileSync(p, 'utf8')); return Array.isArray(d.events) ? d.events : []; } catch { return []; }
-}
-function writeActivity(events) {
-  ensureDashboardDir();
-  fs.writeFileSync(path.join(DASHBOARD_DIR, 'activity.json'), JSON.stringify({ events }, null, 2), 'utf8');
-}
-
-app.get('/api/activity', requireAuth, (req, res) => {
-  res.json(readActivity().slice(0, 50));
-});
-
-app.post('/api/activity', requireAuthOrBearer, (req, res) => {
-  const { project, agent, action, type } = req.body;
-  if (!action || !action.trim()) return res.status(400).json({ error: 'Action required' });
-  const event = {
-    id: crypto.randomUUID(),
-    project: project || '',
-    agent: agent || '',
-    action: action.trim(),
-    timestamp: new Date().toISOString(),
-    type: type || 'task_update'
-  };
-  const events = readActivity();
-  events.unshift(event);
-  if (events.length > 200) events.splice(200);
-  writeActivity(events);
-  res.status(201).json(event);
 });
 
 const PORT = process.env.PORT || 8090;

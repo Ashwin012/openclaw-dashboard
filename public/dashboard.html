@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Command Center — Dev Dashboard</title>
+  <title>Dev Dashboard</title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -13,257 +13,31 @@
     <button class="btn-logout" id="logoutBtn">Sign out</button>
   </header>
 
-  <!-- Personal Task Modal -->
-  <div class="modal-overlay" id="taskModal">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 id="taskModalTitle">New Personal Task</h3>
-        <button class="modal-close" onclick="closeTaskModal()">&#10005;</button>
-      </div>
-      <div class="modal-body">
-        <input type="text" id="taskTitle" class="form-input" placeholder="Task title..." />
-        <textarea id="taskDescription" class="form-textarea" rows="3" placeholder="Description (optional)..."></textarea>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Status</label>
-            <select id="taskStatus" class="form-select">
-              <option value="todo">Todo</option>
-              <option value="in_progress">In Progress</option>
-              <option value="waiting">Waiting</option>
-              <option value="done">Done</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Priority</label>
-            <select id="taskPriority" class="form-select">
-              <option value="low">Low</option>
-              <option value="medium" selected>Medium</option>
-              <option value="high">High</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Category</label>
-            <select id="taskCategory" class="form-select">
-              <option value="research">Research</option>
-              <option value="action" selected>Action</option>
-              <option value="reminder">Reminder</option>
-              <option value="veille">Veille</option>
-            </select>
-          </div>
-        </div>
-        <div id="taskNoteSection" style="display:none">
-          <div class="modal-section-title">Notes</div>
-          <div id="taskNotesList" class="notes-list"></div>
-          <div class="note-add">
-            <textarea id="newNoteText" class="form-textarea" rows="2" placeholder="Add a note..."></textarea>
-            <button class="cc-btn cc-btn-secondary cc-btn-sm" onclick="addNote()">Add Note</button>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="cc-btn cc-btn-danger" id="deleteTaskBtn" style="display:none" onclick="deleteTask()">Delete</button>
-        <div style="flex:1"></div>
-        <button class="cc-btn cc-btn-secondary" onclick="closeTaskModal()">Cancel</button>
-        <button class="cc-btn cc-btn-primary" onclick="saveTask()">Save Task</button>
-      </div>
-    </div>
-  </div>
+  <div class="container">
+    <h1 class="page-title">Projects</h1>
+    <p class="page-subtitle">Select a project to review pending changes</p>
 
-  <!-- Dev Task Modal -->
-  <div class="modal-overlay" id="devTaskModal">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3>New Dev Task</h3>
-        <button class="modal-close" onclick="closeDevTaskModal()">&#10005;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Project</label>
-          <select id="devTaskProject" class="form-select"></select>
-        </div>
-        <input type="text" id="devTaskTitle" class="form-input" placeholder="Task title..." />
-        <textarea id="devTaskDescription" class="form-textarea" rows="3" placeholder="Description (optional)..."></textarea>
-        <div class="form-group">
-          <label class="form-label">Priority</label>
-          <select id="devTaskPriority" class="form-select">
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
-          </select>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <div style="flex:1"></div>
-        <button class="cc-btn cc-btn-secondary" onclick="closeDevTaskModal()">Cancel</button>
-        <button class="cc-btn cc-btn-primary" onclick="saveDevTask()">Create Task</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Instruction Modal -->
-  <div class="modal-overlay" id="instructModal">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3>Send Instruction</h3>
-        <button class="modal-close" onclick="closeInstructModal()">&#10005;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Project</label>
-          <select id="instructProject" class="form-select"></select>
-        </div>
-        <textarea id="instructText" class="form-textarea" rows="5" placeholder="Your instruction for the agent..."></textarea>
-      </div>
-      <div class="modal-footer">
-        <div style="flex:1"></div>
-        <button class="cc-btn cc-btn-secondary" onclick="closeInstructModal()">Cancel</button>
-        <button class="cc-btn cc-btn-primary" onclick="sendInstruction()">Send Instruction</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="command-center">
-
-    <!-- Row 1: Overview -->
-    <div class="cc-overview">
-      <div class="cc-welcome-card">
-        <div class="welcome-left">
-          <div class="welcome-time" id="clockTime">00:00:00</div>
-          <div class="welcome-date" id="clockDate">Loading...</div>
-        </div>
-        <div class="welcome-stats">
-          <div class="stat-item">
-            <span class="stat-num" id="statTasks">—</span>
-            <span class="stat-label">Active Tasks</span>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item">
-            <span class="stat-num stat-num-pending" id="statPending">—</span>
-            <span class="stat-label">Pending Reviews</span>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item">
-            <span class="stat-num stat-num-unread" id="statUnread">—</span>
-            <span class="stat-label">Unread News</span>
-          </div>
-        </div>
-      </div>
-      <div class="cc-quick-actions">
-        <div class="qa-title">Quick Actions</div>
-        <div class="qa-grid">
-          <button class="qa-btn qa-personal" onclick="openTaskModal()">
-            <span class="qa-icon">&#9998;</span>
-            <span class="qa-label">Personal Task</span>
-          </button>
-          <button class="qa-btn qa-dev" onclick="openDevTaskModal()">
-            <span class="qa-icon">&#128295;</span>
-            <span class="qa-label">Dev Task</span>
-          </button>
-          <button class="qa-btn qa-instruct" onclick="openInstructModal()">
-            <span class="qa-icon">&#128172;</span>
-            <span class="qa-label">Send Instruction</span>
-          </button>
-          <a class="qa-btn qa-review" href="#projects-section">
-            <span class="qa-icon">&#128269;</span>
-            <span class="qa-label">Review Changes</span>
-          </a>
-        </div>
-      </div>
-    </div>
-
-    <!-- Row 2: Tasks + News -->
-    <div class="cc-main-row">
-
-      <!-- Personal Tasks Panel -->
-      <div class="cc-panel cc-panel-tasks">
-        <div class="panel-header">
-          <h2 class="panel-title">&#9998; Personal Tasks</h2>
-          <button class="cc-btn cc-btn-primary cc-btn-sm" onclick="openTaskModal()">+ Add</button>
-        </div>
-        <div class="task-filter-bar">
-          <div class="filter-chips" id="statusFilterChips">
-            <button class="chip chip-active" onclick="setTaskFilter('all', this)">All</button>
-            <button class="chip" onclick="setTaskFilter('todo', this)">Todo</button>
-            <button class="chip" onclick="setTaskFilter('in_progress', this)">In Progress</button>
-            <button class="chip" onclick="setTaskFilter('waiting', this)">Waiting</button>
-            <button class="chip" onclick="setTaskFilter('done', this)">Done</button>
-          </div>
-          <div class="filter-chips" id="categoryFilterChips">
-            <button class="chip" onclick="setCatFilter('all', this)">All</button>
-            <button class="chip" onclick="setCatFilter('research', this)">&#128269; Research</button>
-            <button class="chip" onclick="setCatFilter('action', this)">&#9889; Action</button>
-            <button class="chip" onclick="setCatFilter('reminder', this)">&#128276; Reminder</button>
-            <button class="chip" onclick="setCatFilter('veille', this)">&#128065; Veille</button>
-          </div>
-        </div>
-        <div id="personalTasksList" class="tasks-list">
-          <div class="cc-loading"><div class="spinner"></div></div>
-        </div>
-      </div>
-
-      <!-- News Feed Panel -->
-      <div class="cc-panel cc-panel-news">
-        <div class="panel-header">
-          <h2 class="panel-title">&#128240; News <span class="unread-badge" id="unreadBadge" style="display:none">0</span></h2>
-        </div>
-        <div class="filter-chips news-cat-chips" id="newsCatChips">
-          <button class="chip chip-active" onclick="setNewsFilter('all', this)">All</button>
-          <button class="chip chip-cat-crypto" onclick="setNewsFilter('crypto', this)">Crypto</button>
-          <button class="chip chip-cat-ai" onclick="setNewsFilter('ai', this)">AI</button>
-          <button class="chip chip-cat-fintech" onclick="setNewsFilter('fintech', this)">Fintech</button>
-          <button class="chip chip-cat-realestate" onclick="setNewsFilter('realestate', this)">Real Estate</button>
-          <button class="chip chip-cat-mauritius" onclick="setNewsFilter('mauritius', this)">Mauritius</button>
-          <button class="chip chip-cat-packaging" onclick="setNewsFilter('packaging', this)">Packaging</button>
-          <button class="chip chip-cat-auto" onclick="setNewsFilter('auto', this)">Auto</button>
-        </div>
-        <div id="newsList" class="news-list">
-          <div class="cc-loading"><div class="spinner"></div></div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Row 3: Project Health + Activity -->
-    <div class="cc-status-row" id="projects-section">
-
-      <!-- Project Health -->
-      <div class="cc-panel cc-panel-health">
-        <div class="panel-header">
-          <h2 class="panel-title">&#128202; Project Health</h2>
-        </div>
-        <div id="projectHealthCards" class="health-cards-grid">
-          <div class="cc-loading"><div class="spinner"></div></div>
-        </div>
-      </div>
-
-      <!-- Agent Activity -->
-      <div class="cc-panel cc-panel-activity">
-        <div class="panel-header">
-          <h2 class="panel-title">&#9889; Agent Activity</h2>
-          <button class="cc-btn cc-btn-ghost cc-btn-sm" onclick="loadActivity()">&#8635; Refresh</button>
-        </div>
-        <div id="activityFeed" class="activity-timeline">
-          <div class="cc-loading"><div class="spinner"></div></div>
-        </div>
-      </div>
-
+    <div id="content">
+      <div class="loading"><div class="spinner"></div> Loading projects...</div>
     </div>
   </div>
 
   <div class="toast" id="toast"></div>
 
   <script>
-    // === State ===
-    let allProjects = [];
-    let personalTasks = [];
-    let newsArticles = [];
-    let activeStatusFilter = 'all';
-    let activeCatFilter = 'all';
-    let activeNewsFilter = 'all';
-    let editingTaskId = null;
+    function requireAuth() {
+      fetch('/api/session').then(r => r.json()).then(d => {
+        if (!d.authenticated) window.location.href = '/login.html';
+      });
+    }
 
-    // === Utilities ===
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast toast-${type} show`;
+      setTimeout(() => { t.className = 'toast'; }, 3000);
+    }
+
     function timeAgo(dateStr) {
       if (!dateStr) return 'unknown';
       const d = new Date(dateStr);
@@ -274,8 +48,7 @@
       const hrs = Math.floor(mins / 60);
       if (hrs < 24) return `${hrs}h ago`;
       const days = Math.floor(hrs / 24);
-      if (days < 30) return `${days}d ago`;
-      return d.toLocaleDateString();
+      return `${days}d ago`;
     }
 
     function escapeHtml(str) {
@@ -283,463 +56,80 @@
       return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    function showToast(msg, type = 'success') {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.className = `toast toast-${type} show`;
-      setTimeout(() => t.className = 'toast', 3000);
+    function activityIcon(action) {
+      if (action === 'approved') return '&#10003;';
+      if (action === 'rejected') return '&#10007;';
+      if (action === 'instructed') return '&#9998;';
+      return '&#8226;';
     }
 
-    // === Auth ===
-    async function requireAuth() {
-      const r = await fetch('/api/session').then(r => r.json());
-      if (!r.authenticated) window.location.href = '/login.html';
+    function activityClass(action) {
+      if (action === 'approved') return 'act-approved';
+      if (action === 'rejected') return 'act-rejected';
+      if (action === 'instructed') return 'act-instructed';
+      return '';
     }
 
-    // === Clock ===
-    function startClock() {
-      function tick() {
-        const now = new Date();
-        document.getElementById('clockTime').textContent =
-          now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        document.getElementById('clockDate').textContent =
-          now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      }
-      tick();
-      setInterval(tick, 1000);
+    function renderRecentActivity(activity) {
+      if (!activity || !activity.length) return '';
+      const items = activity.map(a => `
+        <div class="act-item ${activityClass(a.action)}">
+          <span class="act-icon">${activityIcon(a.action)}</span>
+          <span class="act-text">${escapeHtml(a.message || a.action)}</span>
+          <span class="act-time">${timeAgo(a.timestamp)}</span>
+        </div>`).join('');
+      return `<div class="recent-activity"><div class="act-label">Recent activity</div>${items}</div>`;
     }
 
-    // === Quick Stats ===
-    function updateQuickStats() {
-      const active = personalTasks.filter(t => t.status !== 'done').length;
-      const pending = allProjects.reduce((s, p) => s + (p.pendingChanges || 0), 0);
-      const unread = newsArticles.filter(a => !a.read).length;
-      document.getElementById('statTasks').textContent = active;
-      document.getElementById('statPending').textContent = pending;
-      document.getElementById('statUnread').textContent = unread;
-    }
-
-    // === Projects ===
     async function loadProjects() {
       try {
         const res = await fetch('/api/projects');
         if (res.status === 401) { window.location.href = '/login.html'; return; }
-        allProjects = await res.json();
-        renderProjectHealth();
-        populateProjectSelects();
-        updateQuickStats();
-      } catch (err) {
-        document.getElementById('projectHealthCards').innerHTML = `<p class="cc-error">${escapeHtml(err.message)}</p>`;
-      }
-    }
+        const projects = await res.json();
 
-    function populateProjectSelects() {
-      const opts = allProjects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
-      document.getElementById('devTaskProject').innerHTML = opts;
-      document.getElementById('instructProject').innerHTML = opts;
-    }
+        const content = document.getElementById('content');
 
-    function renderProjectHealth() {
-      const el = document.getElementById('projectHealthCards');
-      if (!allProjects.length) {
-        el.innerHTML = '<div class="cc-empty"><p>No projects configured</p></div>';
-        return;
-      }
-      el.innerHTML = allProjects.map(p => {
-        const cls = !p.accessible ? 'health-error' : p.pendingChanges > 0 ? 'health-pending' : 'health-clean';
-        const lbl = !p.accessible ? 'Error' : p.pendingChanges > 0 ? `${p.pendingChanges} changes` : 'Clean';
-        const commitMsg = p.lastCommitMessage || 'No commits';
-        return `
-        <div class="health-card ${cls}">
-          <div class="health-card-top">
-            <span class="health-project-name">${escapeHtml(p.name)}</span>
-            <span class="health-badge">${lbl}</span>
-          </div>
-          <div class="health-commit-line" title="${escapeHtml(commitMsg)}">
-            &#128280; ${escapeHtml(commitMsg.length > 50 ? commitMsg.substring(0, 50) + '…' : commitMsg)}
-          </div>
-          <div class="health-commit-meta">${escapeHtml(p.lastCommitAuthor || '')}${p.lastCommitAuthor ? ' · ' : ''}${timeAgo(p.lastActivity)}</div>
-          <div class="health-stats-row">
-            <span class="health-stat"><strong>${p.taskCount || 0}</strong> tasks</span>
-            <span class="health-stat"><strong>${p.unpushedCount || 0}</strong> unpushed</span>
-            <span class="health-stat">&#9135; ${escapeHtml(p.branch || 'unknown')}</span>
-          </div>
-          <div class="health-links-row">
-            <a class="health-link" href="/project.html?id=${p.id}">Diff</a>
-            <a class="health-link" href="/project.html?id=${p.id}#tasks">Tasks</a>
-            <a class="health-link" href="/chat.html?project=${p.id}">Chat</a>
-            <a class="health-link" href="/project.html?id=${p.id}#history">History</a>
-          </div>
-        </div>`;
-      }).join('');
-    }
-
-    // === Personal Tasks ===
-    async function loadPersonalTasks() {
-      try {
-        personalTasks = await fetch('/api/personal/tasks').then(r => r.json());
-        renderPersonalTasks();
-        updateQuickStats();
-      } catch (err) {
-        document.getElementById('personalTasksList').innerHTML = `<p class="cc-error">${escapeHtml(err.message)}</p>`;
-      }
-    }
-
-    const CAT_ICONS = { research: '&#128269;', action: '&#9889;', reminder: '&#128276;', veille: '&#128065;' };
-    const CAT_LABELS = { research: 'Research', action: 'Action', reminder: 'Reminder', veille: 'Veille' };
-    const STATUS_CLS = { todo: 'st-todo', in_progress: 'st-inprog', done: 'st-done', waiting: 'st-waiting' };
-    const STATUS_LBL = { todo: 'Todo', in_progress: 'In Progress', done: 'Done', waiting: 'Waiting' };
-    const PRI_CLS = { low: 'pri-low', medium: 'pri-med', high: 'pri-high' };
-
-    function filteredTasks() {
-      return personalTasks.filter(t => {
-        const sOk = activeStatusFilter === 'all' || t.status === activeStatusFilter;
-        const cOk = activeCatFilter === 'all' || t.category === activeCatFilter;
-        return sOk && cOk;
-      });
-    }
-
-    function renderPersonalTasks() {
-      const el = document.getElementById('personalTasksList');
-      const tasks = filteredTasks();
-      const order = { in_progress: 0, todo: 1, waiting: 2, done: 3 };
-      tasks.sort((a, b) => (order[a.status] || 0) - (order[b.status] || 0));
-      if (!tasks.length) {
-        el.innerHTML = '<div class="cc-empty"><p>No tasks. Click + Add to create one.</p></div>';
-        return;
-      }
-      el.innerHTML = tasks.map(t => `
-        <div class="task-row" onclick="openEditTask('${t.id}')">
-          <span class="task-cat-icon" title="${CAT_LABELS[t.category] || t.category}">${CAT_ICONS[t.category] || '&#8226;'}</span>
-          <div class="task-row-body">
-            <div class="task-row-title ${t.status === 'done' ? 'task-strikethrough' : ''}">${escapeHtml(t.title)}</div>
-            ${t.description ? `<div class="task-row-desc">${escapeHtml(t.description.length > 80 ? t.description.substring(0, 80) + '…' : t.description)}</div>` : ''}
-          </div>
-          <div class="task-row-meta">
-            <span class="st-badge ${STATUS_CLS[t.status] || ''}">${STATUS_LBL[t.status] || t.status}</span>
-            <span class="pri-dot ${PRI_CLS[t.priority] || ''}" title="Priority: ${t.priority}"></span>
-            ${t.notes && t.notes.length ? `<span class="task-note-count">&#128172;${t.notes.length}</span>` : ''}
-          </div>
-        </div>`).join('');
-    }
-
-    function setTaskFilter(status, btn) {
-      activeStatusFilter = status;
-      document.querySelectorAll('#statusFilterChips .chip').forEach(c => c.classList.remove('chip-active'));
-      btn.classList.add('chip-active');
-      renderPersonalTasks();
-    }
-
-    function setCatFilter(cat, btn) {
-      activeCatFilter = cat;
-      document.querySelectorAll('#categoryFilterChips .chip').forEach(c => c.classList.remove('chip-active'));
-      btn.classList.add('chip-active');
-      renderPersonalTasks();
-    }
-
-    // === Task Modal ===
-    function openTaskModal() { showTaskModal(null); }
-    function openEditTask(id) { showTaskModal(id); }
-
-    function showTaskModal(taskId) {
-      editingTaskId = taskId;
-      const del = document.getElementById('deleteTaskBtn');
-      const noteSection = document.getElementById('taskNoteSection');
-      if (taskId) {
-        const t = personalTasks.find(x => x.id === taskId);
-        if (!t) return;
-        document.getElementById('taskModalTitle').textContent = 'Edit Task';
-        document.getElementById('taskTitle').value = t.title;
-        document.getElementById('taskDescription').value = t.description || '';
-        document.getElementById('taskStatus').value = t.status;
-        document.getElementById('taskPriority').value = t.priority;
-        document.getElementById('taskCategory').value = t.category;
-        del.style.display = '';
-        noteSection.style.display = '';
-        renderModalNotes(t.notes || []);
-        document.getElementById('newNoteText').value = '';
-      } else {
-        document.getElementById('taskModalTitle').textContent = 'New Personal Task';
-        document.getElementById('taskTitle').value = '';
-        document.getElementById('taskDescription').value = '';
-        document.getElementById('taskStatus').value = 'todo';
-        document.getElementById('taskPriority').value = 'medium';
-        document.getElementById('taskCategory').value = 'action';
-        del.style.display = 'none';
-        noteSection.style.display = 'none';
-      }
-      document.getElementById('taskModal').classList.add('modal-open');
-      setTimeout(() => document.getElementById('taskTitle').focus(), 80);
-    }
-
-    function closeTaskModal() {
-      document.getElementById('taskModal').classList.remove('modal-open');
-      editingTaskId = null;
-    }
-
-    function renderModalNotes(notes) {
-      const el = document.getElementById('taskNotesList');
-      if (!notes.length) { el.innerHTML = '<p class="cc-empty-sm">No notes yet</p>'; return; }
-      el.innerHTML = notes.map(n => `
-        <div class="note-item">
-          <div class="note-meta">${escapeHtml(n.author)} · ${timeAgo(n.timestamp)}</div>
-          <div class="note-text">${escapeHtml(n.text)}</div>
-        </div>`).join('');
-    }
-
-    async function addNote() {
-      if (!editingTaskId) return;
-      const text = document.getElementById('newNoteText').value.trim();
-      if (!text) return;
-      try {
-        await fetch(`/api/personal/tasks/${editingTaskId}/notes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ author: 'gollum', text })
-        });
-        document.getElementById('newNoteText').value = '';
-        await loadPersonalTasks();
-        const t = personalTasks.find(x => x.id === editingTaskId);
-        if (t) renderModalNotes(t.notes || []);
-        showToast('Note added');
-      } catch (err) { showToast(err.message, 'error'); }
-    }
-
-    async function saveTask() {
-      const title = document.getElementById('taskTitle').value.trim();
-      if (!title) { showToast('Title is required', 'error'); return; }
-      const body = {
-        title,
-        description: document.getElementById('taskDescription').value,
-        status: document.getElementById('taskStatus').value,
-        priority: document.getElementById('taskPriority').value,
-        category: document.getElementById('taskCategory').value
-      };
-      try {
-        if (editingTaskId) {
-          await fetch(`/api/personal/tasks/${editingTaskId}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-          });
-          showToast('Task updated');
-        } else {
-          await fetch('/api/personal/tasks', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-          });
-          showToast('Task created');
-        }
-        closeTaskModal();
-        await loadPersonalTasks();
-      } catch (err) { showToast(err.message, 'error'); }
-    }
-
-    async function deleteTask() {
-      if (!editingTaskId || !confirm('Delete this task?')) return;
-      try {
-        await fetch(`/api/personal/tasks/${editingTaskId}`, { method: 'DELETE' });
-        showToast('Task deleted');
-        closeTaskModal();
-        await loadPersonalTasks();
-      } catch (err) { showToast(err.message, 'error'); }
-    }
-
-    // === Dev Task Modal ===
-    function openDevTaskModal() {
-      document.getElementById('devTaskTitle').value = '';
-      document.getElementById('devTaskDescription').value = '';
-      document.getElementById('devTaskPriority').value = 'medium';
-      document.getElementById('devTaskModal').classList.add('modal-open');
-      setTimeout(() => document.getElementById('devTaskTitle').focus(), 80);
-    }
-    function closeDevTaskModal() { document.getElementById('devTaskModal').classList.remove('modal-open'); }
-
-    async function saveDevTask() {
-      const projectId = document.getElementById('devTaskProject').value;
-      const title = document.getElementById('devTaskTitle').value.trim();
-      if (!projectId) { showToast('Select a project', 'error'); return; }
-      if (!title) { showToast('Title required', 'error'); return; }
-      try {
-        await fetch(`/api/projects/${projectId}/tasks`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title,
-            description: document.getElementById('devTaskDescription').value,
-            priority: document.getElementById('devTaskPriority').value,
-            status: 'todo', assignee: 'agent'
-          })
-        });
-        showToast('Dev task created');
-        closeDevTaskModal();
-        await loadProjects();
-      } catch (err) { showToast(err.message, 'error'); }
-    }
-
-    // === Instruction Modal ===
-    function openInstructModal() {
-      document.getElementById('instructText').value = '';
-      document.getElementById('instructModal').classList.add('modal-open');
-      setTimeout(() => document.getElementById('instructText').focus(), 80);
-    }
-    function closeInstructModal() { document.getElementById('instructModal').classList.remove('modal-open'); }
-
-    async function sendInstruction() {
-      const projectId = document.getElementById('instructProject').value;
-      const instruction = document.getElementById('instructText').value.trim();
-      if (!projectId) { showToast('Select a project', 'error'); return; }
-      if (!instruction) { showToast('Instruction required', 'error'); return; }
-      try {
-        await fetch(`/api/projects/${projectId}/instruct`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ instruction })
-        });
-        showToast('Instruction sent');
-        closeInstructModal();
-      } catch (err) { showToast(err.message, 'error'); }
-    }
-
-    // === News ===
-    const NEWS_COLORS = {
-      crypto: '#F7B731', ai: '#9B59B6', fintech: '#3498DB',
-      realestate: '#2ECC71', mauritius: '#E74C3C', packaging: '#1ABC9C', auto: '#95A5A6'
-    };
-
-    async function loadNews() {
-      try {
-        newsArticles = await fetch('/api/news').then(r => r.json());
-        renderNews();
-        updateQuickStats();
-      } catch (err) {
-        document.getElementById('newsList').innerHTML = `<p class="cc-error">${escapeHtml(err.message)}</p>`;
-      }
-    }
-
-    function renderNews() {
-      const el = document.getElementById('newsList');
-      const filtered = activeNewsFilter === 'all' ? newsArticles : newsArticles.filter(a => a.category === activeNewsFilter);
-      const unread = newsArticles.filter(a => !a.read).length;
-      const badge = document.getElementById('unreadBadge');
-      badge.textContent = unread;
-      badge.style.display = unread > 0 ? '' : 'none';
-      if (!filtered.length) {
-        el.innerHTML = '<div class="cc-empty"><p>No articles yet.</p></div>';
-        return;
-      }
-      el.innerHTML = filtered.map(a => `
-        <div class="news-card ${a.read ? 'news-read' : ''}">
-          <div class="news-card-top" onclick="toggleNews('${a.id}')">
-            <span class="news-cat-pill" style="background:${NEWS_COLORS[a.category] || '#555'}">${a.category}</span>
-            <div class="news-card-info">
-              <div class="news-card-title">${escapeHtml(a.title)}</div>
-              <div class="news-card-meta">${escapeHtml(a.source)}${a.source ? ' · ' : ''}${timeAgo(a.addedAt)}</div>
-            </div>
-            ${!a.read ? '<span class="news-dot"></span>' : ''}
-          </div>
-          <div class="news-expand" id="news-x-${a.id}" style="display:none">
-            <p class="news-summary-text">${escapeHtml(a.summary)}</p>
-            <div class="news-card-actions">
-              ${a.url ? `<a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" class="cc-btn cc-btn-ghost cc-btn-sm">Open &#8599;</a>` : ''}
-              ${!a.read ? `<button class="cc-btn cc-btn-secondary cc-btn-sm" onclick="markRead('${a.id}',event)">Mark Read</button>` : ''}
-              <button class="cc-btn cc-btn-danger-ghost cc-btn-sm" onclick="deleteNews('${a.id}',event)">Delete</button>
-            </div>
-          </div>
-        </div>`).join('');
-    }
-
-    function toggleNews(id) {
-      const el = document.getElementById(`news-x-${id}`);
-      const wasOpen = el.style.display !== 'none';
-      document.querySelectorAll('.news-expand').forEach(e => e.style.display = 'none');
-      if (!wasOpen) {
-        el.style.display = '';
-        const a = newsArticles.find(x => x.id === id);
-        if (a && !a.read) markRead(id);
-      }
-    }
-
-    async function markRead(id, ev) {
-      if (ev) ev.stopPropagation();
-      try {
-        await fetch(`/api/news/${id}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ read: true })
-        });
-        const a = newsArticles.find(x => x.id === id);
-        if (a) a.read = true;
-        renderNews();
-        updateQuickStats();
-      } catch (err) { console.error(err); }
-    }
-
-    async function deleteNews(id, ev) {
-      if (ev) ev.stopPropagation();
-      if (!confirm('Delete this article?')) return;
-      try {
-        await fetch(`/api/news/${id}`, { method: 'DELETE' });
-        newsArticles = newsArticles.filter(a => a.id !== id);
-        renderNews();
-        updateQuickStats();
-        showToast('Article deleted');
-      } catch (err) { showToast(err.message, 'error'); }
-    }
-
-    function setNewsFilter(cat, btn) {
-      activeNewsFilter = cat;
-      document.querySelectorAll('#newsCatChips .chip').forEach(c => c.classList.remove('chip-active'));
-      btn.classList.add('chip-active');
-      renderNews();
-    }
-
-    // === Activity ===
-    const ACT_ICONS = { task_update: '&#128203;', commit: '&#128190;', test_run: '&#9989;', error: '&#10060;' };
-    const ACT_CLS = { task_update: 'act-task', commit: 'act-commit', test_run: 'act-test', error: 'act-err' };
-
-    async function loadActivity() {
-      try {
-        const events = await fetch('/api/activity').then(r => r.json());
-        const el = document.getElementById('activityFeed');
-        if (!events.length) {
-          el.innerHTML = '<div class="cc-empty"><p>No agent activity yet.</p></div>';
+        if (!projects.length) {
+          content.innerHTML = '<div class="empty-state"><div class="icon">&#128193;</div><h3>No projects configured</h3><p>Add projects to config.json</p></div>';
           return;
         }
-        el.innerHTML = events.map(e => `
-          <div class="act-event ${ACT_CLS[e.type] || ''}">
-            <div class="act-icon-wrap">${ACT_ICONS[e.type] || '&#9679;'}</div>
-            <div class="act-body">
-              <div class="act-action">${escapeHtml(e.action)}</div>
-              <div class="act-meta">
-                ${e.project ? `<span class="act-proj">${escapeHtml(e.project)}</span>` : ''}
-                ${e.agent ? `<span class="act-agent">${escapeHtml(e.agent)}</span>` : ''}
-                <span class="act-time">${timeAgo(e.timestamp)}</span>
+
+        content.innerHTML = `<div class="projects-grid">${projects.map(p => {
+          const badgeClass = !p.accessible ? 'badge-error' : p.pendingChanges > 0 ? 'badge-pending' : 'badge-clean';
+          const badgeText = !p.accessible ? 'Error' : p.pendingChanges > 0 ? `${p.pendingChanges} pending` : 'Clean';
+          const unpushedBadge = p.accessible && p.unpushedCount > 0
+            ? `<span class="badge badge-unpushed">${p.unpushedCount} unpushed</span>`
+            : '';
+
+          return `<a class="project-card" href="/project.html?id=${p.id}">
+            <div class="project-card-header">
+              <div class="project-name">${escapeHtml(p.name)}</div>
+              <div class="project-badges">
+                <span class="badge ${badgeClass}">${badgeText}</span>
+                ${unpushedBadge}
               </div>
             </div>
-          </div>`).join('');
+            <div class="project-desc">${escapeHtml(p.description)}</div>
+            <div class="project-meta">
+              <span>&#9135; ${escapeHtml(p.branch || 'unknown')}</span>
+              <span>&#128336; ${timeAgo(p.lastActivity)}</span>
+              <span style="word-break:break-all;font-size:11px;color:var(--text-subtle)">${escapeHtml(p.path)}</span>
+            </div>
+            ${renderRecentActivity(p.recentActivity)}
+          </a>`;
+        }).join('')}</div>`;
       } catch (err) {
-        document.getElementById('activityFeed').innerHTML = `<p class="cc-error">${escapeHtml(err.message)}</p>`;
+        document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load projects</h3><p>${err.message}</p></div>`;
       }
     }
-
-    // === Keyboard & backdrop ===
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') { closeTaskModal(); closeDevTaskModal(); closeInstructModal(); }
-    });
-    document.querySelectorAll('.modal-overlay').forEach(m => {
-      m.addEventListener('click', e => {
-        if (e.target === m) { closeTaskModal(); closeDevTaskModal(); closeInstructModal(); }
-      });
-    });
 
     document.getElementById('logoutBtn').addEventListener('click', async () => {
       await fetch('/api/logout', { method: 'POST' });
       window.location.href = '/login.html';
     });
 
-    // === Init ===
-    async function init() {
-      await requireAuth();
-      startClock();
-      await Promise.all([loadProjects(), loadPersonalTasks(), loadNews(), loadActivity()]);
-    }
-    init();
+    requireAuth();
+    loadProjects();
   </script>
 </body>
 </html>
