@@ -1172,6 +1172,152 @@ app.post('/api/projects/:id/tasks/:taskId/notes', requireAuthOrBearer, (req, res
   res.status(201).json(note);
 });
 
+// ===== /dev route (serve original projects dashboard) =====
+
+app.get('/dev', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+// ===== Personal Tasks =====
+
+const personalTasksPath = path.join(__dirname, '.dashboard', 'personal-tasks.json');
+
+function readPersonalTasks() {
+  if (!fs.existsSync(personalTasksPath)) return [];
+  try { return JSON.parse(fs.readFileSync(personalTasksPath, 'utf8')).tasks || []; } catch { return []; }
+}
+
+function writePersonalTasks(tasks) {
+  fs.writeFileSync(personalTasksPath, JSON.stringify({ tasks }, null, 2), 'utf8');
+}
+
+app.get('/api/personal/tasks', requireAuth, (req, res) => {
+  let tasks = readPersonalTasks();
+  const { status, category, priority } = req.query;
+  if (status) tasks = tasks.filter(t => t.status === status);
+  if (category) tasks = tasks.filter(t => t.category === category);
+  if (priority) tasks = tasks.filter(t => t.priority === priority);
+  res.json(tasks);
+});
+
+app.post('/api/personal/tasks', requireAuth, (req, res) => {
+  const { title, description, status, priority, category } = req.body;
+  if (!title || !title.trim()) return res.status(400).json({ error: 'Title required' });
+  const task = {
+    id: crypto.randomUUID(),
+    title: title.trim(),
+    description: description || '',
+    status: status || 'todo',
+    priority: priority || 'medium',
+    category: category || 'action',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    completedAt: null,
+    notes: []
+  };
+  const tasks = readPersonalTasks();
+  tasks.unshift(task);
+  writePersonalTasks(tasks);
+  res.status(201).json(task);
+});
+
+app.put('/api/personal/tasks/:id', requireAuth, (req, res) => {
+  const tasks = readPersonalTasks();
+  const idx = tasks.findIndex(t => t.id === req.params.id);
+  if (idx < 0) return res.status(404).json({ error: 'Task not found' });
+  const old = tasks[idx];
+  tasks[idx] = { ...old, ...req.body, id: old.id, updatedAt: new Date().toISOString() };
+  if (req.body.status === 'done' && old.status !== 'done') {
+    tasks[idx].completedAt = new Date().toISOString();
+  } else if (req.body.status && req.body.status !== 'done') {
+    tasks[idx].completedAt = null;
+  }
+  writePersonalTasks(tasks);
+  res.json(tasks[idx]);
+});
+
+app.delete('/api/personal/tasks/:id', requireAuth, (req, res) => {
+  const tasks = readPersonalTasks();
+  const idx = tasks.findIndex(t => t.id === req.params.id);
+  if (idx < 0) return res.status(404).json({ error: 'Task not found' });
+  tasks.splice(idx, 1);
+  writePersonalTasks(tasks);
+  res.json({ ok: true });
+});
+
+app.post('/api/personal/tasks/:id/notes', requireAuth, (req, res) => {
+  const tasks = readPersonalTasks();
+  const task = tasks.find(t => t.id === req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  const { author, text } = req.body;
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Note text required' });
+  const note = { author: author || 'user', text: text.trim(), timestamp: new Date().toISOString() };
+  if (!task.notes) task.notes = [];
+  task.notes.push(note);
+  task.updatedAt = new Date().toISOString();
+  writePersonalTasks(tasks);
+  res.status(201).json(note);
+});
+
+// ===== News =====
+
+const newsPath = path.join(__dirname, '.dashboard', 'news.json');
+
+function readNews() {
+  if (!fs.existsSync(newsPath)) return [];
+  try { return JSON.parse(fs.readFileSync(newsPath, 'utf8')).articles || []; } catch { return []; }
+}
+
+function writeNews(articles) {
+  fs.writeFileSync(newsPath, JSON.stringify({ articles }, null, 2), 'utf8');
+}
+
+app.get('/api/news', requireAuth, (req, res) => {
+  let articles = readNews();
+  const { category, read } = req.query;
+  if (category) articles = articles.filter(a => a.category === category);
+  if (read !== undefined) articles = articles.filter(a => String(a.read) === read);
+  res.json(articles);
+});
+
+app.post('/api/news', requireAuth, (req, res) => {
+  const { title, summary, url, source, category, publishedAt } = req.body;
+  if (!title || !title.trim()) return res.status(400).json({ error: 'Title required' });
+  const article = {
+    id: crypto.randomUUID(),
+    title: title.trim(),
+    summary: summary || '',
+    url: url || '',
+    source: source || '',
+    category: category || 'ai',
+    publishedAt: publishedAt || new Date().toISOString(),
+    addedAt: new Date().toISOString(),
+    read: false
+  };
+  const articles = readNews();
+  articles.unshift(article);
+  writeNews(articles);
+  res.status(201).json(article);
+});
+
+app.put('/api/news/:id', requireAuth, (req, res) => {
+  const articles = readNews();
+  const idx = articles.findIndex(a => a.id === req.params.id);
+  if (idx < 0) return res.status(404).json({ error: 'Article not found' });
+  articles[idx] = { ...articles[idx], ...req.body, id: articles[idx].id };
+  writeNews(articles);
+  res.json(articles[idx]);
+});
+
+app.delete('/api/news/:id', requireAuth, (req, res) => {
+  const articles = readNews();
+  const idx = articles.findIndex(a => a.id === req.params.id);
+  if (idx < 0) return res.status(404).json({ error: 'Article not found' });
+  articles.splice(idx, 1);
+  writeNews(articles);
+  res.json({ ok: true });
+});
+
 const PORT = process.env.PORT || 8090;
 server.listen(PORT, () => {
   console.log(`Dev Dashboard running on http://localhost:${PORT}`);

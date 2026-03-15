@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Ashwin</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* ===== Home Page Overrides ===== */
+    .home-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .home-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
+    .home-header .clock { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .header-nav { display: flex; gap: 8px; align-items: center; }
+
+    .btn-nav {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .btn-nav:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
+    .btn-logout-home {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-logout-home:hover { color: var(--red); border-color: var(--red); }
+
+    .home-main { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+    /* Stats bar */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .stat-card .stat-value { font-size: 28px; font-weight: 700; line-height: 1; }
+    .stat-card .stat-label { font-size: 12px; color: var(--text-muted); }
+    .stat-value.blue { color: var(--accent); }
+    .stat-value.green { color: var(--green); }
+    .stat-value.yellow { color: var(--yellow); }
+    .stat-value.purple { color: var(--purple); }
+
+    /* Two-column grid */
+    .two-col {
+      display: grid;
+      grid-template-columns: 60% 40%;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      min-height: 400px;
+    }
+    .panel-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-title { font-weight: 600; font-size: 14px; flex: 1; }
+    .panel-body { flex: 1; overflow-y: auto; padding: 12px; }
+
+    /* Filter chips */
+    .filter-chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--border-muted); }
+    .chip {
+      padding: 3px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .chip:hover { background: var(--bg-hover); color: var(--text); }
+    .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* Task list */
+    .task-item {
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      margin-bottom: 6px;
+      cursor: pointer;
+      background: var(--bg-surface);
+    }
+    .task-item:hover { border-color: var(--border); }
+    .task-item.expanded { border-color: var(--border); }
+
+    .task-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .priority-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .priority-dot.critical { background: #f85149; }
+    .priority-dot.high { background: #d29922; }
+    .priority-dot.medium { background: #58a6ff; }
+    .priority-dot.low { background: #6e7681; }
+
+    .cat-icon { font-size: 13px; flex-shrink: 0; }
+    .task-title { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .status-badge {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .status-todo { background: #2d333b; color: #8b949e; }
+    .status-in_progress { background: #0c2d6b; color: #58a6ff; }
+    .status-done { background: #0d4429; color: #3fb950; }
+    .status-waiting { background: #2d2007; color: #d29922; }
+    .status-blocked { background: #3d1c1c; color: #f85149; }
+
+    .task-detail {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-muted);
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .task-item.expanded .task-detail { display: flex; }
+    .task-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+    .task-notes { font-size: 12px; }
+    .note-item { padding: 6px 8px; background: var(--bg); border-radius: 4px; margin-bottom: 4px; }
+    .note-author { font-weight: 600; color: var(--accent); }
+    .note-time { color: var(--text-subtle); }
+
+    .task-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .task-actions select {
+      padding: 4px 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-sm {
+      padding: 4px 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-sm:hover { color: var(--red); border-color: var(--red); }
+    .btn-sm.primary { color: var(--accent); border-color: var(--accent); }
+    .btn-sm.primary:hover { background: rgba(88,166,255,0.1); }
+
+    .add-note-row { display: flex; gap: 6px; }
+    .add-note-row input {
+      flex: 1;
+      padding: 4px 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 12px;
+    }
+    .add-note-row input:focus { outline: none; border-color: var(--accent); }
+
+    .btn-add-task {
+      margin: 10px 12px;
+      padding: 7px 14px;
+      border-radius: var(--radius);
+      border: 1px dashed var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+      width: calc(100% - 24px);
+    }
+    .btn-add-task:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* News */
+    .news-item {
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      margin-bottom: 6px;
+      cursor: pointer;
+      background: var(--bg-surface);
+      position: relative;
+    }
+    .news-item:hover { border-color: var(--border); }
+    .news-item.expanded { border-color: var(--border); }
+    .news-item.unread::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 50%; transform: translateY(-50%);
+      width: 3px; height: 60%;
+      background: var(--accent);
+      border-radius: 0 2px 2px 0;
+    }
+
+    .news-row { display: flex; align-items: flex-start; gap: 8px; }
+    .cat-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-weight: 600;
+      margin-top: 1px;
+    }
+    .cat-crypto { background: rgba(212,175,55,0.2); color: #d4af37; }
+    .cat-ai { background: rgba(188,140,255,0.2); color: #bc8cff; }
+    .cat-fintech { background: rgba(88,166,255,0.2); color: #58a6ff; }
+    .cat-realestate { background: rgba(63,185,80,0.2); color: #3fb950; }
+    .cat-mauritius { background: rgba(248,81,73,0.2); color: #f85149; }
+    .cat-packaging { background: rgba(0,200,180,0.2); color: #00c8b4; }
+    .cat-auto { background: rgba(180,180,180,0.2); color: #b0b0b0; }
+
+    .news-title { flex: 1; font-size: 13px; font-weight: 500; line-height: 1.4; }
+    .news-meta { font-size: 11px; color: var(--text-subtle); margin-top: 3px; }
+    .news-detail { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-muted); }
+    .news-item.expanded .news-detail { display: block; }
+    .news-summary { font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-bottom: 8px; }
+
+    /* Dev Summary */
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .section-title a { font-size: 12px; text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+    .dev-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .dev-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+    .dev-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .status-dot.green { background: var(--green); }
+    .status-dot.yellow { background: var(--yellow); }
+    .status-dot.red { background: var(--red); }
+    .status-dot.gray { background: #6e7681; }
+    .dev-card-name { font-weight: 600; font-size: 14px; }
+    .dev-card-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+    .dev-card-stats { display: flex; gap: 12px; font-size: 12px; color: var(--text-subtle); }
+    .dev-card-stats span { display: flex; align-items: center; gap: 4px; }
+
+    /* Quick links */
+    .quick-links {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .quick-link {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-decoration: none;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: border-color 0.15s;
+    }
+    .quick-link:hover { border-color: var(--accent); color: var(--text); text-decoration: none; }
+    .quick-link .ql-icon { font-size: 22px; }
+    .quick-link .ql-label { font-size: 13px; font-weight: 500; }
+    .quick-link .ql-sub { font-size: 11px; color: var(--text-muted); }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      width: 480px;
+      max-width: 95vw;
+    }
+    .modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    .form-row { margin-bottom: 14px; }
+    .form-row label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+    .form-row input, .form-row textarea, .form-row select {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .form-row input:focus, .form-row textarea:focus, .form-row select:focus {
+      outline: none; border-color: var(--accent);
+    }
+    .form-row textarea { resize: vertical; min-height: 80px; }
+    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .btn-primary-sm {
+      padding: 7px 16px;
+      border-radius: var(--radius);
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-primary-sm:hover { background: var(--accent-hover); }
+    .btn-cancel {
+      padding: 7px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .empty-state { text-align: center; padding: 32px 16px; color: var(--text-subtle); font-size: 13px; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .two-col { grid-template-columns: 1fr; }
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .quick-links { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 500px) {
+      .stats-bar { grid-template-columns: 1fr 1fr; }
+      .quick-links { grid-template-columns: 1fr 1fr; }
+      .home-header .clock { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="home-header">
+    <div class="logo">🏠 Dashboard Ashwin</div>
+    <div class="clock" id="clock">--:--:--</div>
+    <nav class="header-nav">
+      <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
+      <a href="https://openclaw.infozen-consulting.com" class="btn-nav" target="_blank">⚡ OpenClaw</a>
+      <button class="btn-logout-home" id="logoutBtn">Déconnexion</button>
+    </nav>
+  </header>
+
+  <main class="home-main">
+    <!-- Stats bar -->
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-value blue" id="statPersonalTasks">–</div>
+        <div class="stat-label">Tâches perso en cours</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value yellow" id="statDevTasks">–</div>
+        <div class="stat-label">Tâches dev</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value purple" id="statUnreadNews">–</div>
+        <div class="stat-label">News non lues</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value green" id="statProjects">–</div>
+        <div class="stat-label">Projets actifs</div>
+      </div>
+    </div>
+
+    <!-- Two-column grid -->
+    <div class="two-col">
+      <!-- LEFT: Personal Tasks -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">📋 Tâches personnelles</span>
+        </div>
+        <div class="filter-chips" id="taskFilters">
+          <button class="chip active" data-filter="all">Tous</button>
+          <button class="chip" data-filter="todo">Todo</button>
+          <button class="chip" data-filter="in_progress">En cours</button>
+          <button class="chip" data-filter="waiting">En attente</button>
+          <button class="chip" data-filter="done">Terminé</button>
+        </div>
+        <div class="panel-body" id="taskList"></div>
+        <button class="btn-add-task" id="btnAddTask">+ Nouvelle tâche</button>
+      </div>
+
+      <!-- RIGHT: News -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">📡 Veille & News</span>
+          <button class="btn-sm primary" id="btnAddNews">+ Article</button>
+        </div>
+        <div class="filter-chips" id="newsFilters">
+          <button class="chip active" data-filter="all">Tous</button>
+          <button class="chip" data-filter="crypto">Crypto</button>
+          <button class="chip" data-filter="ai">IA</button>
+          <button class="chip" data-filter="fintech">FinTech</button>
+          <button class="chip" data-filter="realestate">Immo</button>
+          <button class="chip" data-filter="mauritius">Maurice</button>
+          <button class="chip" data-filter="auto">Auto</button>
+        </div>
+        <div class="panel-body" id="newsList"></div>
+      </div>
+    </div>
+
+    <!-- Dev Summary -->
+    <div class="section-title">
+      Résumé des projets dev
+      <a href="/dev">Ouvrir Projets Dev →</a>
+    </div>
+    <div class="dev-grid" id="devGrid"></div>
+
+    <!-- Quick Links -->
+    <div class="section-title">Accès rapides</div>
+    <div class="quick-links">
+      <a href="/dev" class="quick-link">
+        <div class="ql-icon">🔧</div>
+        <div class="ql-label">Projets Dev</div>
+        <div class="ql-sub">Review & commit</div>
+      </a>
+      <a href="https://openclaw.infozen-consulting.com" class="quick-link" target="_blank">
+        <div class="ql-icon">⚡</div>
+        <div class="ql-label">OpenClaw</div>
+        <div class="ql-sub">Application</div>
+      </a>
+      <a href="https://github.com/Ashwin012" class="quick-link" target="_blank">
+        <div class="ql-icon">🐙</div>
+        <div class="ql-label">GitHub</div>
+        <div class="ql-sub">Ashwin012</div>
+      </a>
+      <a href="/dev" class="quick-link">
+        <div class="ql-icon">📋</div>
+        <div class="ql-label">Tâches Dev</div>
+        <div class="ql-sub">Projets Dev</div>
+      </a>
+    </div>
+  </main>
+
+  <!-- Modal: New Task -->
+  <div class="modal-overlay" id="taskModal">
+    <div class="modal">
+      <h3>Nouvelle tâche</h3>
+      <div class="form-row">
+        <label>Titre *</label>
+        <input type="text" id="taskTitleInput" placeholder="Titre de la tâche">
+      </div>
+      <div class="form-row">
+        <label>Description</label>
+        <textarea id="taskDescInput" placeholder="Détails optionnels..."></textarea>
+      </div>
+      <div class="form-row form-row-2">
+        <div>
+          <label>Catégorie</label>
+          <select id="taskCatInput">
+            <option value="action">🎯 Action</option>
+            <option value="research">🔍 Recherche</option>
+            <option value="reminder">⏰ Rappel</option>
+            <option value="veille">📡 Veille</option>
+          </select>
+        </div>
+        <div>
+          <label>Priorité</label>
+          <select id="taskPrioInput">
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="taskModalCancel">Annuler</button>
+        <button class="btn-primary-sm" id="taskModalSave">Créer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: New News -->
+  <div class="modal-overlay" id="newsModal">
+    <div class="modal">
+      <h3>Ajouter un article</h3>
+      <div class="form-row">
+        <label>Titre *</label>
+        <input type="text" id="newsTitleInput" placeholder="Titre de l'article">
+      </div>
+      <div class="form-row">
+        <label>Résumé</label>
+        <textarea id="newsSummaryInput" placeholder="Résumé..."></textarea>
+      </div>
+      <div class="form-row">
+        <label>URL</label>
+        <input type="text" id="newsUrlInput" placeholder="https://...">
+      </div>
+      <div class="form-row form-row-2">
+        <div>
+          <label>Source</label>
+          <input type="text" id="newsSourceInput" placeholder="ex: CoinDesk">
+        </div>
+        <div>
+          <label>Catégorie</label>
+          <select id="newsCatInput">
+            <option value="crypto">Crypto</option>
+            <option value="ai">IA</option>
+            <option value="fintech">FinTech</option>
+            <option value="realestate">Immo</option>
+            <option value="mauritius">Maurice</option>
+            <option value="packaging">Packaging</option>
+            <option value="auto">Auto</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="newsModalCancel">Annuler</button>
+        <button class="btn-primary-sm" id="newsModalSave">Ajouter</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Auth guard =====
+    fetch('/api/session').then(r => r.json()).then(d => {
+      if (!d.authenticated) window.location.href = '/login.html';
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.href = '/login.html';
+    });
+
+    // ===== Clock (UTC+4 Mauritius) =====
+    function updateClock() {
+      const now = new Date();
+      const mu = new Date(now.toLocaleString('en-US', { timeZone: 'Indian/Mauritius' }));
+      const hh = String(mu.getHours()).padStart(2, '0');
+      const mm = String(mu.getMinutes()).padStart(2, '0');
+      const ss = String(mu.getSeconds()).padStart(2, '0');
+      document.getElementById('clock').textContent = `🇲🇺 ${hh}:${mm}:${ss}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // ===== State =====
+    let tasks = [];
+    let news = [];
+    let projects = [];
+    let taskFilter = 'all';
+    let newsFilter = 'all';
+
+    // ===== Helpers =====
+    const CAT_ICONS = { research: '🔍', action: '🎯', reminder: '⏰', veille: '📡' };
+    const CAT_LABELS = { crypto: 'Crypto', ai: 'IA', fintech: 'FinTech', realestate: 'Immo', mauritius: 'Maurice', packaging: 'Packaging', auto: 'Auto' };
+
+    function timeAgo(iso) {
+      if (!iso) return '';
+      const diff = Date.now() - new Date(iso).getTime();
+      const m = Math.floor(diff / 60000);
+      if (m < 1) return 'à l\'instant';
+      if (m < 60) return `il y a ${m}m`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `il y a ${h}h`;
+      const d = Math.floor(h / 24);
+      return `il y a ${d}j`;
+    }
+
+    function statusLabel(s) {
+      return { todo: 'Todo', in_progress: 'En cours', done: 'Terminé', waiting: 'En attente', blocked: 'Bloqué' }[s] || s;
+    }
+
+    // ===== Load data =====
+    async function loadAll() {
+      await Promise.all([loadTasks(), loadNews(), loadProjects()]);
+      updateStats();
+    }
+
+    async function loadTasks() {
+      const res = await fetch('/api/personal/tasks');
+      tasks = res.ok ? await res.json() : [];
+      renderTasks();
+    }
+
+    async function loadNews() {
+      const res = await fetch('/api/news');
+      news = res.ok ? await res.json() : [];
+      renderNews();
+    }
+
+    async function loadProjects() {
+      const res = await fetch('/api/projects');
+      projects = res.ok ? await res.json() : [];
+      renderDevSummary();
+    }
+
+    function updateStats() {
+      const activeTasks = tasks.filter(t => t.status !== 'done').length;
+      const devTasks = projects.reduce((sum, p) => sum + (p.taskCount || 0), 0);
+      const unread = news.filter(n => !n.read).length;
+      document.getElementById('statPersonalTasks').textContent = activeTasks;
+      document.getElementById('statDevTasks').textContent = devTasks;
+      document.getElementById('statUnreadNews').textContent = unread;
+      document.getElementById('statProjects').textContent = projects.length;
+    }
+
+    // ===== Tasks =====
+    function renderTasks() {
+      const list = document.getElementById('taskList');
+      let filtered = taskFilter === 'all' ? tasks : tasks.filter(t => t.status === taskFilter);
+      if (!filtered.length) {
+        list.innerHTML = '<div class="empty-state">Aucune tâche</div>';
+        return;
+      }
+      list.innerHTML = filtered.map(t => `
+        <div class="task-item" data-id="${t.id}">
+          <div class="task-row">
+            <div class="priority-dot ${t.priority}"></div>
+            <span class="cat-icon">${CAT_ICONS[t.category] || '📌'}</span>
+            <span class="task-title">${escHtml(t.title)}</span>
+            <span class="status-badge status-${t.status}">${statusLabel(t.status)}</span>
+          </div>
+          <div class="task-detail">
+            ${t.description ? `<div class="task-desc">${escHtml(t.description)}</div>` : ''}
+            ${t.notes && t.notes.length ? `<div class="task-notes">${t.notes.map(n => `
+              <div class="note-item">
+                <span class="note-author">${escHtml(n.author)}</span>
+                <span class="note-time"> · ${timeAgo(n.timestamp)}</span>
+                <div>${escHtml(n.text)}</div>
+              </div>`).join('')}</div>` : ''}
+            <div class="add-note-row">
+              <input type="text" placeholder="Ajouter une note..." class="note-input" data-id="${t.id}">
+              <button class="btn-sm primary" onclick="addNote('${t.id}', this)">→</button>
+            </div>
+            <div class="task-actions">
+              <select onchange="changeStatus('${t.id}', this.value)">
+                <option value="todo" ${t.status==='todo'?'selected':''}>Todo</option>
+                <option value="in_progress" ${t.status==='in_progress'?'selected':''}>En cours</option>
+                <option value="waiting" ${t.status==='waiting'?'selected':''}>En attente</option>
+                <option value="done" ${t.status==='done'?'selected':''}>Terminé</option>
+              </select>
+              <button class="btn-sm" onclick="deleteTask('${t.id}')">🗑 Supprimer</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('.task-item').forEach(el => {
+        el.querySelector('.task-row').addEventListener('click', () => {
+          el.classList.toggle('expanded');
+        });
+      });
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    async function changeStatus(id, status) {
+      await fetch(`/api/personal/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      await loadTasks();
+      updateStats();
+    }
+
+    async function deleteTask(id) {
+      if (!confirm('Supprimer cette tâche ?')) return;
+      await fetch(`/api/personal/tasks/${id}`, { method: 'DELETE' });
+      await loadTasks();
+      updateStats();
+    }
+
+    async function addNote(id, btn) {
+      const input = btn.parentElement.querySelector('.note-input');
+      const text = input.value.trim();
+      if (!text) return;
+      await fetch(`/api/personal/tasks/${id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ author: 'Ashwin', text })
+      });
+      await loadTasks();
+    }
+
+    // Task filters
+    document.getElementById('taskFilters').addEventListener('click', e => {
+      const btn = e.target.closest('.chip');
+      if (!btn) return;
+      taskFilter = btn.dataset.filter;
+      document.querySelectorAll('#taskFilters .chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      renderTasks();
+    });
+
+    // Task modal
+    document.getElementById('btnAddTask').addEventListener('click', () => {
+      document.getElementById('taskTitleInput').value = '';
+      document.getElementById('taskDescInput').value = '';
+      document.getElementById('taskModal').classList.add('open');
+    });
+    document.getElementById('taskModalCancel').addEventListener('click', () => {
+      document.getElementById('taskModal').classList.remove('open');
+    });
+    document.getElementById('taskModal').addEventListener('click', e => {
+      if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+    });
+    document.getElementById('taskModalSave').addEventListener('click', async () => {
+      const title = document.getElementById('taskTitleInput').value.trim();
+      if (!title) return;
+      await fetch('/api/personal/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description: document.getElementById('taskDescInput').value.trim(),
+          category: document.getElementById('taskCatInput').value,
+          priority: document.getElementById('taskPrioInput').value
+        })
+      });
+      document.getElementById('taskModal').classList.remove('open');
+      await loadTasks();
+      updateStats();
+    });
+
+    // ===== News =====
+    function renderNews() {
+      const list = document.getElementById('newsList');
+      let filtered = newsFilter === 'all' ? news : news.filter(n => n.category === newsFilter);
+      if (!filtered.length) {
+        list.innerHTML = '<div class="empty-state">Aucun article</div>';
+        return;
+      }
+      list.innerHTML = filtered.map(a => `
+        <div class="news-item ${a.read ? '' : 'unread'}" data-id="${a.id}">
+          <div class="news-row">
+            <span class="cat-badge cat-${a.category}">${CAT_LABELS[a.category] || a.category}</span>
+            <div style="flex:1">
+              <div class="news-title">${escHtml(a.title)}</div>
+              <div class="news-meta">${escHtml(a.source || '')}${a.source && a.publishedAt ? ' · ' : ''}${timeAgo(a.publishedAt)}</div>
+            </div>
+          </div>
+          <div class="news-detail">
+            ${a.summary ? `<div class="news-summary">${escHtml(a.summary)}</div>` : ''}
+            <div style="display:flex;gap:8px;align-items:center">
+              ${a.url ? `<a href="${escHtml(a.url)}" target="_blank" rel="noopener noreferrer" class="btn-sm primary">Lire →</a>` : ''}
+              <button class="btn-sm" onclick="deleteNews('${a.id}')">🗑</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('.news-item').forEach(el => {
+        el.addEventListener('click', async e => {
+          if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
+          const id = el.dataset.id;
+          el.classList.toggle('expanded');
+          if (el.classList.contains('expanded')) {
+            const article = news.find(n => n.id === id);
+            if (article && !article.read) {
+              await fetch(`/api/news/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ read: true })
+              });
+              article.read = true;
+              el.classList.remove('unread');
+              updateStats();
+            }
+          }
+        });
+      });
+    }
+
+    async function deleteNews(id) {
+      if (!confirm('Supprimer cet article ?')) return;
+      await fetch(`/api/news/${id}`, { method: 'DELETE' });
+      await loadNews();
+      updateStats();
+    }
+
+    // News filters
+    document.getElementById('newsFilters').addEventListener('click', e => {
+      const btn = e.target.closest('.chip');
+      if (!btn) return;
+      newsFilter = btn.dataset.filter;
+      document.querySelectorAll('#newsFilters .chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      renderNews();
+    });
+
+    // News modal
+    document.getElementById('btnAddNews').addEventListener('click', () => {
+      ['newsTitleInput','newsSummaryInput','newsUrlInput','newsSourceInput'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('newsModal').classList.add('open');
+    });
+    document.getElementById('newsModalCancel').addEventListener('click', () => {
+      document.getElementById('newsModal').classList.remove('open');
+    });
+    document.getElementById('newsModal').addEventListener('click', e => {
+      if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+    });
+    document.getElementById('newsModalSave').addEventListener('click', async () => {
+      const title = document.getElementById('newsTitleInput').value.trim();
+      if (!title) return;
+      await fetch('/api/news', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          summary: document.getElementById('newsSummaryInput').value.trim(),
+          url: document.getElementById('newsUrlInput').value.trim(),
+          source: document.getElementById('newsSourceInput').value.trim(),
+          category: document.getElementById('newsCatInput').value
+        })
+      });
+      document.getElementById('newsModal').classList.remove('open');
+      await loadNews();
+      updateStats();
+    });
+
+    // ===== Dev Summary =====
+    function renderDevSummary() {
+      const grid = document.getElementById('devGrid');
+      if (!projects.length) {
+        grid.innerHTML = '<div style="color:var(--text-subtle);font-size:13px">Aucun projet</div>';
+        return;
+      }
+      grid.innerHTML = projects.map(p => {
+        let dotClass = 'gray';
+        if (p.error) dotClass = 'gray';
+        else if (p.uncommittedCount > 0) dotClass = 'red';
+        else if (p.unpushedCount > 0) dotClass = 'yellow';
+        else dotClass = 'green';
+
+        return `
+          <div class="dev-card">
+            <div class="dev-card-header">
+              <div class="status-dot ${dotClass}"></div>
+              <div class="dev-card-name">${escHtml(p.name)}</div>
+            </div>
+            <div class="dev-card-desc">${escHtml(p.description || '')}</div>
+            <div class="dev-card-stats">
+              <span>📤 ${p.unpushedCount || 0} non poussés</span>
+              <span>📝 ${p.uncommittedCount || 0} non commités</span>
+              <span>✅ ${p.taskCount || 0} tâches</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ===== Init =====
+    loadAll();
+  </script>
+</body>
+</html>

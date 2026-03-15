@@ -27,7 +27,7 @@
     // Redirect if already authenticated
     fetch('/api/session')
       .then(r => r.json())
-      .then(d => { if (d.authenticated) window.location.href = '/dashboard.html'; });
+      .then(d => { if (d.authenticated) window.location.href = '/home.html'; });
 
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -43,7 +43,7 @@
         });
         const data = await res.json();
         if (res.ok && data.ok) {
-          window.location.href = '/dashboard.html';
+          window.location.href = '/home.html';
         } else {
           errorMsg.textContent = data.error || 'Invalid password';
           errorMsg.style.display = 'block';
