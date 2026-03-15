@@ -427,17 +427,57 @@
       0%, 100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.5); }
       50% { box-shadow: 0 0 0 8px rgba(248, 81, 73, 0); }
     }
-    /* Mic processing state */
-    .btn-mic.processing {
+
+    /* Voice preview bar */
+    .voice-preview-bar {
+      display: none;
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      bottom: calc(var(--input-bar-height, 80px) + 8px);
+      width: min(860px, calc(100vw - 32px));
+      background: #1e2330;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.45);
+      z-index: 200;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .voice-preview-bar.visible {
+      display: flex;
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .voice-preview-bar audio {
+      flex: 1;
+      min-width: 0;
+      height: 34px;
+      border-radius: 8px;
+      accent-color: var(--accent);
+    }
+    .voice-preview-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .voice-preview-btn:hover { background: var(--bg-hover, #2a2f40); }
+    .voice-preview-btn.btn-send-voice {
+      background: var(--accent);
       border-color: var(--accent);
-      color: var(--accent);
-      animation: mic-processing 0.9s ease-in-out infinite;
-      cursor: not-allowed;
+      color: white;
     }
-    @keyframes mic-processing {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.35; }
-    }
+    .voice-preview-btn.btn-send-voice:hover { opacity: 0.88; }
 
     /* Voice message bubble */
     .voice-bubble {
@@ -765,6 +805,13 @@
 
         <!-- Chat messages (hidden until session active) -->
         <div class="chat-messages" id="chatMessages" style="display:none"></div>
+
+        <!-- Voice recording preview bar -->
+        <div class="voice-preview-bar" id="voicePreviewBar">
+          <audio id="voicePreviewAudio" controls></audio>
+          <button class="voice-preview-btn" onclick="discardVoicePreview()">&#10060; Delete</button>
+          <button class="voice-preview-btn btn-send-voice" onclick="sendVoicePreview()">&#9989; Send</button>
+        </div>
 
         <!-- Input area (hidden until session active) -->
         <div class="chat-input-area" id="inputArea" style="display:none">
@@ -1496,27 +1543,23 @@
     let mediaRecorder = null;
     let audioChunks = [];
     let isRecording = false;
-    let isProcessing = false;
+    let pendingVoiceBlob = null;   // blob waiting for user preview confirm
+    let pendingVoiceMime = null;
 
     function setMicState(state) {
-      // state: 'idle' | 'recording' | 'processing'
+      // state: 'idle' | 'recording'
       isRecording = state === 'recording';
-      isProcessing = state === 'processing';
       const btn = document.getElementById('micBtn');
-      btn.classList.remove('recording', 'processing');
+      btn.classList.remove('recording');
       if (state === 'recording') {
         btn.classList.add('recording');
         btn.title = 'Tap to stop recording';
-      } else if (state === 'processing') {
-        btn.classList.add('processing');
-        btn.title = 'Processing...';
       } else {
         btn.title = 'Voice input';
       }
     }
 
     function toggleMic() {
-      if (isProcessing) return;
       if (isRecording) {
         stopRecording();
       } else {
@@ -1531,12 +1574,13 @@
         const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
           ? 'audio/webm;codecs=opus'
           : 'audio/webm';
+        pendingVoiceMime = mimeType;
         mediaRecorder = new MediaRecorder(stream, { mimeType });
         mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
-        mediaRecorder.onstop = async () => {
+        mediaRecorder.onstop = () => {
           stream.getTracks().forEach(t => t.stop());
-          const blob = new Blob(audioChunks, { type: mimeType });
-          await handleVoiceRecording(blob);
+          const blob = new Blob(audioChunks, { type: pendingVoiceMime });
+          showVoicePreview(blob);
         };
         mediaRecorder.start();
         setMicState('recording');
@@ -1548,9 +1592,37 @@
 
     function stopRecording() {
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        setMicState('processing');
         mediaRecorder.stop();
+        setMicState('idle');
       }
+    }
+
+    function showVoicePreview(blob) {
+      pendingVoiceBlob = blob;
+      const url = URL.createObjectURL(blob);
+      const audio = document.getElementById('voicePreviewAudio');
+      audio.src = url;
+      const bar = document.getElementById('voicePreviewBar');
+      bar.style.display = 'flex';
+      // Trigger transition on next frame
+      requestAnimationFrame(() => bar.classList.add('visible'));
+    }
+
+    function discardVoicePreview() {
+      const audio = document.getElementById('voicePreviewAudio');
+      if (audio.src) URL.revokeObjectURL(audio.src);
+      audio.src = '';
+      pendingVoiceBlob = null;
+      const bar = document.getElementById('voicePreviewBar');
+      bar.classList.remove('visible');
+      setTimeout(() => { bar.style.display = 'none'; }, 220);
+    }
+
+    async function sendVoicePreview() {
+      if (!pendingVoiceBlob) return;
+      const blob = pendingVoiceBlob;
+      discardVoicePreview();
+      await handleVoiceRecording(blob);
     }
 
     async function handleVoiceRecording(blob) {
@@ -1566,7 +1638,6 @@
 
         if (!text) {
           appendSystem('No speech detected.');
-          setMicState('idle');
           return;
         }
 
@@ -1582,8 +1653,7 @@
           ws.send(JSON.stringify({ type: 'voice_message', text, audioUrl }));
         }
       } catch (err) {
-        appendError('Transcription failed: ' + err.message);
-        setMicState('idle');
+        appendError('Transcription error: ' + err.message);
       }
     }
 
