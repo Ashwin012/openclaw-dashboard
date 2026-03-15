@@ -6,6 +6,107 @@
   <title>Project Detail — Dev Dashboard</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css">
+  <style>
+    /* Description truncation in expanded card */
+    .task-desc-truncated {
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text-muted, #9399b2);
+      font-size: 12px;
+      line-height: 1.55;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      margin-bottom: 2px;
+    }
+    .task-voir-plus {
+      display: inline;
+      color: #89b4fa;
+      background: none;
+      border: none;
+      padding: 0 0 0 4px;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: underline;
+      font-family: inherit;
+    }
+    .task-voir-plus:hover { opacity: 0.75; }
+    /* Short description preview on card */
+    .task-card-desc-preview {
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      color: var(--text-muted, #9399b2);
+      font-size: 11px;
+      line-height: 1.4;
+      margin: 3px 0 2px;
+    }
+    /* Full-description modal */
+    #descModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+    #descModal.open { display: flex; }
+    .desc-modal-box {
+      background: #1e1e2e;
+      border: 1px solid #313244;
+      border-radius: 10px;
+      max-width: 800px;
+      width: 90%;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+    }
+    .desc-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid #313244;
+      flex-shrink: 0;
+    }
+    .desc-modal-header h3 {
+      margin: 0;
+      font-size: 15px;
+      color: #cdd6f4;
+      font-weight: 600;
+    }
+    .desc-modal-close {
+      background: none;
+      border: none;
+      color: #9399b2;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      line-height: 1;
+    }
+    .desc-modal-close:hover { background: #313244; color: #cdd6f4; }
+    .desc-modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .desc-modal-body pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #cdd6f4;
+      font-family: inherit;
+      font-size: 13px;
+      line-height: 1.65;
+      margin: 0;
+    }
+  </style>
 </head>
 <body>
   <header class="app-header">
@@ -26,6 +127,19 @@
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <!-- Description Full-Text Modal -->
+  <div id="descModal" onclick="if(event.target===this)closeDescModal()">
+    <div class="desc-modal-box">
+      <div class="desc-modal-header">
+        <h3 id="descModalTitle"></h3>
+        <button class="desc-modal-close" onclick="closeDescModal()">&#10005;</button>
+      </div>
+      <div class="desc-modal-body">
+        <pre id="descModalBody"></pre>
+      </div>
+    </div>
+  </div>
 
   <!-- Task Modal -->
   <div class="modal-overlay" id="taskModal" style="display:none" onclick="if(event.target===this)closeTaskModal()">
@@ -657,6 +771,7 @@
             ${tagsHtml}
           </div>
           <div class="task-title">${escapeHtml(task.title)}</div>
+          ${task.description ? `<div class="task-card-desc-preview">${escapeHtml(task.description)}</div>` : ''}
           <div class="task-meta">
             <span class="task-assignee">&#128100; ${escapeHtml(task.assignee || 'unassigned')}</span>
             <span class="task-age">${age}</span>
@@ -710,8 +825,17 @@
 
         const detail = document.createElement('div');
         detail.className = 'task-card-detail';
+        const descHtml = (() => {
+          if (!task.description) return '';
+          const MAX = 300;
+          const desc = task.description;
+          if (desc.length <= MAX) {
+            return `<div class="task-detail-desc task-desc-truncated">${escapeHtml(desc)}</div>`;
+          }
+          return `<div class="task-detail-desc task-desc-truncated">${escapeHtml(desc.slice(0, MAX))}<button class="task-voir-plus" onclick="event.stopPropagation(); openDescModal('${taskId}')">… Voir plus</button></div>`;
+        })();
         detail.innerHTML = `
-          ${task.description ? `<div class="task-detail-desc">${escapeHtml(task.description)}</div>` : ''}
+          ${descHtml}
           <div class="task-detail-dates">
             <span>Créé : ${formatDateTime(task.createdAt)}</span>
             <span>Mis à jour : ${formatDateTime(task.updatedAt)}</span>
@@ -931,10 +1055,26 @@
       } catch (err) { showToast(err.message, 'error'); }
     }
 
-    // Close modal on Escape key
+    function openDescModal(taskId) {
+      const task = tasksCache?.find(t => t.id === taskId);
+      if (!task) return;
+      document.getElementById('descModalTitle').textContent = task.title;
+      document.getElementById('descModalBody').textContent = task.description || '';
+      document.getElementById('descModal').classList.add('open');
+    }
+
+    function closeDescModal() {
+      document.getElementById('descModal').classList.remove('open');
+    }
+
+    // Close modals on Escape key
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && document.getElementById('taskModal')?.style.display === 'flex') {
-        closeTaskModal();
+      if (e.key === 'Escape') {
+        if (document.getElementById('descModal')?.classList.contains('open')) {
+          closeDescModal();
+        } else if (document.getElementById('taskModal')?.style.display === 'flex') {
+          closeTaskModal();
+        }
       }
     });
 
