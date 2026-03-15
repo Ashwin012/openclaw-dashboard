@@ -393,6 +393,176 @@
     .badge-push.pushed { background: #3fb95022; color: #3fb950; border: 1px solid #3fb95044; }
     .badge-push.unpushed { background: #d2992222; color: #d29922; border: 1px solid #d2992244; }
 
+    /* ===== Tasks Overview ===== */
+    .tasks-overview {
+      margin-top: 28px;
+    }
+
+    .tasks-overview-header {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tasks-projects-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .tasks-projects-grid { grid-template-columns: 1fr; }
+    }
+
+    .tasks-project-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .tasks-project-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .tasks-project-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .tasks-view-all {
+      font-size: 11px;
+      color: var(--accent);
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: color 0.1s;
+    }
+
+    .tasks-view-all:hover { color: var(--accent-hover); }
+
+    .tasks-stats-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .task-stat-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .task-stat-badge.todo     { background: #8b949e22; color: #8b949e; border: 1px solid #8b949e44; }
+    .task-stat-badge.inprogress { background: #388bfd22; color: #388bfd; border: 1px solid #388bfd44; }
+    .task-stat-badge.review   { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
+    .task-stat-badge.done     { background: #3fb95022; color: #3fb950; border: 1px solid #3fb95044; }
+    .task-stat-badge.blocked  { background: #f8514922; color: #f85149; border: 1px solid #f8514944; }
+
+    .tasks-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .task-row {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border-muted);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .task-row:last-child { border-bottom: none; }
+
+    .task-priority-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 5px;
+    }
+
+    .task-priority-dot.critical { background: #f85149; }
+    .task-priority-dot.high     { background: #d29922; }
+    .task-priority-dot.medium   { background: #388bfd; }
+    .task-priority-dot.low      { background: #8b949e; }
+
+    .task-row-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .task-row-top {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .task-title {
+      font-size: 12px;
+      color: var(--text);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .task-status-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .task-status-badge.todo      { background: #8b949e22; color: #8b949e; border: 1px solid #8b949e44; }
+    .task-status-badge.in_progress { background: #388bfd22; color: #388bfd; border: 1px solid #388bfd44; }
+    .task-status-badge.review    { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
+    .task-status-badge.blocked   { background: #f8514922; color: #f85149; border: 1px solid #f8514944; }
+
+    .task-row-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+      flex-wrap: wrap;
+    }
+
+    .task-assignee {
+      font-size: 10px;
+      color: var(--text-subtle);
+    }
+
+    .task-updated {
+      font-size: 10px;
+      color: var(--text-subtle);
+    }
+
+    .tasks-empty {
+      padding: 16px 14px;
+      font-size: 12px;
+      color: var(--text-subtle);
+      font-style: italic;
+    }
+
     /* ===== Responsive ===== */
     @media (max-width: 640px) {
       .commit-message { font-size: 12px; }
@@ -634,6 +804,85 @@
       </div>`;
     }
 
+    // ===== Tasks Overview =====
+    const STATUS_LABELS = {
+      todo: 'Todo', in_progress: 'In Progress', review: 'Review', done: 'Done', blocked: 'Blocked'
+    };
+
+    function taskStatusBadge(status) {
+      const cls = status === 'in_progress' ? 'in_progress' : status;
+      const label = STATUS_LABELS[status] || status;
+      return `<span class="task-status-badge ${cls}">${escapeHtml(label)}</span>`;
+    }
+
+    function renderTasksOverview(projects, tasksByProject) {
+      const panels = projects.map(p => {
+        const tasks = tasksByProject[p.id] || [];
+
+        if (!tasks.length) {
+          return `<div class="tasks-project-panel">
+            <div class="tasks-project-header">
+              <span class="tasks-project-name">${escapeHtml(p.name)}</span>
+              <a class="tasks-view-all" href="/project.html?id=${escapeHtml(p.id)}&tab=tasks">View all tasks →</a>
+            </div>
+            <div class="tasks-empty">No tasks yet</div>
+          </div>`;
+        }
+
+        // Count by status
+        const counts = { todo: 0, in_progress: 0, review: 0, done: 0, blocked: 0 };
+        for (const t of tasks) {
+          if (counts[t.status] !== undefined) counts[t.status]++;
+          else counts.todo++;
+        }
+
+        const statsHtml = [
+          counts.todo      ? `<span class="task-stat-badge todo">${counts.todo} Todo</span>` : '',
+          counts.in_progress ? `<span class="task-stat-badge inprogress">${counts.in_progress} In Progress</span>` : '',
+          counts.review    ? `<span class="task-stat-badge review">${counts.review} Review</span>` : '',
+          counts.done      ? `<span class="task-stat-badge done">${counts.done} Done</span>` : '',
+          counts.blocked   ? `<span class="task-stat-badge blocked">${counts.blocked} Blocked</span>` : '',
+        ].join('');
+
+        // Active tasks (not done), sorted by updatedAt desc, max 5
+        const activeTasks = tasks
+          .filter(t => t.status !== 'done')
+          .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+          .slice(0, 5);
+
+        const taskRows = activeTasks.map(t => {
+          const priority = t.priority || 'medium';
+          return `<div class="task-row">
+            <div class="task-priority-dot ${escapeHtml(priority)}"></div>
+            <div class="task-row-main">
+              <div class="task-row-top">
+                <span class="task-title" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
+                ${taskStatusBadge(t.status)}
+              </div>
+              <div class="task-row-meta">
+                ${t.assignee ? `<span class="task-assignee">&#128100; ${escapeHtml(t.assignee)}</span>` : ''}
+                <span class="task-updated">${timeAgo(t.updatedAt)}</span>
+              </div>
+            </div>
+          </div>`;
+        }).join('');
+
+        return `<div class="tasks-project-panel">
+          <div class="tasks-project-header">
+            <span class="tasks-project-name">${escapeHtml(p.name)}</span>
+            <a class="tasks-view-all" href="/project.html?id=${escapeHtml(p.id)}&tab=tasks">View all tasks →</a>
+          </div>
+          <div class="tasks-stats-bar">${statsHtml}</div>
+          <div class="tasks-list">${taskRows || '<div class="tasks-empty">All tasks complete</div>'}</div>
+        </div>`;
+      });
+
+      return `<div class="tasks-overview">
+        <div class="tasks-overview-header">&#128203; Tasks Overview</div>
+        <div class="tasks-projects-grid">${panels.join('')}</div>
+      </div>`;
+    }
+
     function handleCommitClick(event, idx, projectId) {
       // If clicking a link inside, let the link handle it
       if (event.target.tagName === 'A') return;
@@ -657,12 +906,21 @@
         const colorMap = {};
         projects.forEach((p, i) => { colorMap[p.id] = PROJECT_COLORS[i % PROJECT_COLORS.length]; });
 
+        // Fetch tasks for all projects in parallel
+        const taskResults = await Promise.allSettled(
+          projects.map(p => fetch(`/api/projects/${encodeURIComponent(p.id)}/tasks`).then(r => r.ok ? r.json() : []))
+        );
+        const tasksByProject = {};
+        projects.forEach((p, i) => {
+          tasksByProject[p.id] = taskResults[i].status === 'fulfilled' ? taskResults[i].value : [];
+        });
+
         const activityWrapper = `<div class="activity-wrapper">
           ${renderAttentionSection(projects, colorMap)}
           ${renderRecentCommits(projects, colorMap)}
         </div>`;
 
-        content.innerHTML = renderProjectCards(projects) + activityWrapper;
+        content.innerHTML = renderProjectCards(projects) + renderTasksOverview(projects, tasksByProject) + activityWrapper;
       } catch (err) {
         document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load projects</h3><p>${err.message}</p></div>`;
       }
