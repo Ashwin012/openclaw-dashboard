@@ -519,26 +519,72 @@ app.post('/api/transcribe', requireAuth, transcribeUpload.single('audio'), async
   if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
 
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return res.status(503).json({ error: 'OPENAI_API_KEY not configured. Voice transcription unavailable.' });
+  const uuid = crypto.randomUUID();
+  const ext = req.file.mimetype.includes('ogg') ? 'ogg' : 'webm';
+  const filename = `${uuid}.${ext}`;
+  const audioFilePath = path.join(audioDashboardDir, filename);
+  const audioUrl = `/audio/${filename}`;
 
+  // Save audio file to .dashboard/audio/
+  fs.writeFileSync(audioFilePath, req.file.buffer);
+
+  // Try OpenAI Whisper API first
+  if (apiKey) {
+    try {
+      const { OpenAI, toFile } = require('openai');
+      const openai = new OpenAI({ apiKey });
+      const audioFile = await toFile(req.file.buffer, `recording.${ext}`, { type: req.file.mimetype });
+      const transcription = await openai.audio.transcriptions.create({
+        file: audioFile,
+        model: 'whisper-1'
+      });
+      return res.json({ text: transcription.text, audioUrl });
+    } catch (err) {
+      console.warn(`OpenAI transcription failed, falling back to local whisper: ${err.message}`);
+    }
+  }
+
+  // Fall back to local whisper CLI
   try {
-    // Save audio file to .dashboard/audio/ with a UUID filename
-    const uuid = crypto.randomUUID();
-    const ext = req.file.mimetype.includes('ogg') ? 'ogg' : 'webm';
-    const filename = `${uuid}.${ext}`;
-    fs.writeFileSync(path.join(audioDashboardDir, filename), req.file.buffer);
-    const audioUrl = `/audio/${filename}`;
+    const whisperBin = '/home/openclaw/.local/bin/whisper';
+    const outDir = '/tmp/whisper-out';
+    fs.mkdirSync(outDir, { recursive: true });
 
-    const { OpenAI, toFile } = require('openai');
-    const openai = new OpenAI({ apiKey });
-    const audioFile = await toFile(req.file.buffer, `recording.${ext}`, { type: req.file.mimetype });
-    const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
-      model: 'whisper-1'
+    await new Promise((resolve, reject) => {
+      const proc = spawn(whisperBin, [
+        audioFilePath,
+        '--model', 'base',
+        '--language', 'fr',
+        '--output_format', 'txt',
+        '--output_dir', outDir
+      ]);
+
+      const timer = setTimeout(() => {
+        proc.kill();
+        reject(new Error('Local whisper timed out after 30s'));
+      }, 30000);
+
+      proc.on('close', (code) => {
+        clearTimeout(timer);
+        if (code === 0) resolve();
+        else reject(new Error(`whisper exited with code ${code}`));
+      });
+
+      proc.on('error', (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
     });
-    res.json({ text: transcription.text, audioUrl });
+
+    // whisper names the output file after the input file basename
+    const baseName = path.basename(audioFilePath, path.extname(audioFilePath));
+    const outFile = path.join(outDir, `${baseName}.txt`);
+    const text = fs.readFileSync(outFile, 'utf8').trim();
+    fs.unlinkSync(outFile);
+
+    return res.json({ text, audioUrl });
   } catch (err) {
-    res.status(500).json({ error: `Transcription failed: ${err.message}` });
+    return res.status(500).json({ error: `Transcription failed: ${err.message}` });
   }
 });
 
