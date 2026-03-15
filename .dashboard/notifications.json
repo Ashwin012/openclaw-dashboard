@@ -1,13 +1,3 @@
 {
-  "pending": [
-    {
-      "projectName": "Afdex",
-      "taskTitle": "Audit de sécurité complet de la plateforme",
-      "taskId": "5f2a7fc5-5b02-4143-8702-b807f392ee20",
-      "fromStatus": "queued",
-      "toStatus": "in_progress",
-      "message": "🔄 Début du traitement par le worker",
-      "timestamp": "2026-03-15T17:30:51.469Z"
-    }
-  ]
+  "pending": []
 }

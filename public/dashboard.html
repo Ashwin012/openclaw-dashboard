@@ -365,9 +365,86 @@
       .card-commit-author { display: none; }
       .commit-message { font-size: 12px; }
     }
+    /* ===== Navbar ===== */
+    .home-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .home-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
+    .home-header .clock { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .header-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .btn-nav {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .btn-nav:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
+    .btn-logout-home {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-logout-home:hover { color: var(--red); border-color: var(--red); }
+    .hamburger-btn {
+      display: none;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 18px;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .hamburger-btn:hover { background: var(--bg-hover); }
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 56px;
+      left: 0;
+      right: 0;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 99;
+      flex-direction: column;
+      padding: 8px 16px 12px;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu .btn-nav { padding: 10px 14px; font-size: 14px; width: 100%; justify-content: flex-start; }
+    .mobile-menu .btn-logout-home { padding: 10px 14px; font-size: 14px; width: 100%; text-align: left; }
     @media (max-width: 768px) {
+      .home-header { height: auto; padding: 10px 16px; flex-wrap: wrap; row-gap: 4px; }
+      .home-header .logo { font-size: 1.1rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .home-header .clock { font-size: 12px; width: 100%; order: 2; padding-bottom: 2px; }
       .header-nav { display: none; }
       .hamburger-btn { display: inline-flex; }
+      .mobile-menu { top: 72px; }
     }
   </style>
 </head>
@@ -381,6 +458,7 @@
       <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
       <button class="btn-logout-home" id="logoutBtn">🚪 Déconnexion</button>
     </nav>
+    <div class="clock" id="clock">--:--:--</div>
   </header>
 
   <div class="mobile-menu" id="mobileMenu">
@@ -662,9 +740,8 @@
       }
     }
 
-    async function doLogout() {
-      await fetch('/api/logout', { method: 'POST' });
-      window.location.href = '/login.html';
+    function doLogout() {
+      fetch('/api/logout', {method:'POST'}).then(() => window.location.href = '/login.html');
     }
     document.getElementById('logoutBtn').addEventListener('click', doLogout);
     document.getElementById('logoutBtnMobile').addEventListener('click', doLogout);
@@ -680,6 +757,17 @@
         mobileMenu.classList.remove('open');
       }
     });
+
+    function updateClock() {
+      const now = new Date();
+      const mu = new Date(now.toLocaleString('en-US', { timeZone: 'Indian/Mauritius' }));
+      const hh = String(mu.getHours()).padStart(2, '0');
+      const mm = String(mu.getMinutes()).padStart(2, '0');
+      const ss = String(mu.getSeconds()).padStart(2, '0');
+      document.getElementById('clock').textContent = `🇲🇺 ${hh}:${mm}:${ss}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
 
     requireAuth();
     loadProjects();

@@ -756,7 +756,8 @@
       z-index: 100;
     }
     .home-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
-    .header-nav { display: flex; gap: 8px; align-items: center; }
+    .home-header .clock { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .header-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .btn-nav {
       padding: 5px 12px;
       border-radius: var(--radius);
@@ -815,14 +816,18 @@
     .mobile-menu .btn-nav { padding: 10px 14px; font-size: 14px; width: 100%; justify-content: flex-start; }
     .mobile-menu .btn-logout-home { padding: 10px 14px; font-size: 14px; width: 100%; text-align: left; }
     @media (max-width: 768px) {
+      .home-header { height: auto; padding: 10px 16px; flex-wrap: wrap; row-gap: 4px; }
+      .home-header .logo { font-size: 1.1rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .home-header .clock { font-size: 12px; width: 100%; order: 2; padding-bottom: 2px; }
       .header-nav { display: none; }
       .hamburger-btn { display: inline-flex; }
+      .mobile-menu { top: 72px; }
     }
   </style>
 </head>
 <body>
   <header class="home-header">
-    <div class="logo">&#9670; Dev Dashboard</div>
+    <div class="logo">◆ Dev Dashboard</div>
     <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
     <nav class="header-nav">
       <a href="/home.html" class="btn-nav">🏠 Accueil</a>
@@ -830,6 +835,7 @@
       <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
       <button class="btn-logout-home" id="logoutBtn">🚪 Déconnexion</button>
     </nav>
+    <div class="clock" id="clock">--:--:--</div>
   </header>
 
   <div class="mobile-menu" id="mobileMenu">
@@ -1843,9 +1849,8 @@
     }
 
     // ---- Init ----
-    async function doLogout() {
-      await fetch('/api/logout', { method: 'POST' });
-      window.location.href = '/login.html';
+    function doLogout() {
+      fetch('/api/logout', {method:'POST'}).then(() => window.location.href = '/login.html');
     }
     document.getElementById('logoutBtn').addEventListener('click', doLogout);
     document.getElementById('logoutBtnMobile').addEventListener('click', doLogout);
@@ -1861,6 +1866,17 @@
         mobileMenu.classList.remove('open');
       }
     });
+
+    function updateClock() {
+      const now = new Date();
+      const mu = new Date(now.toLocaleString('en-US', { timeZone: 'Indian/Mauritius' }));
+      const hh = String(mu.getHours()).padStart(2, '0');
+      const mm = String(mu.getMinutes()).padStart(2, '0');
+      const ss = String(mu.getSeconds()).padStart(2, '0');
+      document.getElementById('clock').textContent = `🇲🇺 ${hh}:${mm}:${ss}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
 
     // Close sidebar on mobile when clicking outside
     document.getElementById('chatMessages').addEventListener('click', () => {
