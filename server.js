@@ -1225,10 +1225,10 @@ app.post('/api/projects/:id/tasks/:taskId/dispatch', requireAuth, (req, res) => 
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   const now = new Date().toISOString();
-  task.status = 'in_progress';
+  task.status = 'queued';
   task.updatedAt = now;
   if (!task.notes) task.notes = [];
-  task.notes.push({ author: 'system', text: 'Tâche dispatchée pour traitement automatique', createdAt: now });
+  task.notes.push({ author: 'system', text: 'Tâche en file d\'attente — sera traitée au prochain cycle agent', createdAt: now });
   writeTasks(project, tasks);
 
   res.json({ success: true });

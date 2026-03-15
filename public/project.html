@@ -168,6 +168,7 @@
               <label>Status</label>
               <select id="taskStatus">
                 <option value="todo" selected>Todo</option>
+                <option value="queued">Queued</option>
                 <option value="in_progress">In Progress</option>
                 <option value="review">Review</option>
                 <option value="done">Done</option>
@@ -526,6 +527,7 @@
               <select id="filterStatus" onchange="applyTaskFilters()">
                 <option value="">All Statuses</option>
                 <option value="todo">Todo</option>
+                <option value="queued">Queued</option>
                 <option value="in_progress">In Progress</option>
                 <option value="review">Review</option>
                 <option value="done">Done</option>
@@ -723,6 +725,7 @@
       const filtered = getFilteredTasks();
       const columns = [
         { id: 'todo', label: 'Todo' },
+        { id: 'queued', label: '⏳ Queued' },
         { id: 'in_progress', label: 'In Progress' },
         { id: 'review', label: 'Review' },
         { id: 'done', label: 'Done' },
@@ -754,8 +757,9 @@
       const tagsHtml = task.tags && task.tags.length
         ? task.tags.slice(0, 2).map(tag => `<span class="task-tag">${escapeHtml(tag)}</span>`).join('')
         : '';
+      const isQueued = task.status === 'queued';
       return `
-        <div class="task-card"
+        <div class="task-card${isQueued ? ' queued-card' : ''}"
           data-task-id="${task.id}"
           draggable="true"
           ondragstart="handleDragStart(event, '${task.id}')"
@@ -763,7 +767,7 @@
           onclick="toggleTaskExpand('${task.id}', event)">
           <div class="task-card-top">
             <span class="priority-badge prio-${task.priority}">${task.priority}</span>
-            
+            ${isQueued ? '<span style="font-size:11px;color:#cba6f7;margin-left:4px">En attente</span>' : ''}
             ${tagsHtml}
           </div>
           <div class="task-title">${escapeHtml(task.title)}</div>
@@ -816,6 +820,10 @@
           ? `<div class="task-detail-actions">
                <button class="btn-edit-task" onclick="event.stopPropagation(); openTaskModal('${taskId}')">&#9999;&#65039; Éditer</button>
                <button class="btn-dispatch-task" id="dispatch-${taskId}" onclick="event.stopPropagation(); dispatchTask('${taskId}')">&#129302; Traiter maintenant</button>
+             </div>`
+          : task.status === 'queued'
+          ? `<div class="task-detail-actions">
+               <span style="font-size:12px;color:#cba6f7">⏳ En file d'attente — sera traitée au prochain cycle agent</span>
              </div>`
           : '';
 
@@ -1110,7 +1118,7 @@
         const data = await res.json();
         if (res.ok) {
           const task = tasksCache?.find(t => t.id === taskId);
-          if (task) { task.status = 'in_progress'; task.updatedAt = new Date().toISOString(); }
+          if (task) { task.status = 'queued'; task.updatedAt = new Date().toISOString(); }
           updateTasksBadge();
           renderKanban();
           showToast('Tâche envoyée à l\'agent');
