@@ -335,12 +335,13 @@
     .chat-input-area {
       background: var(--bg-surface);
       border-top: 1px solid var(--border);
-      padding: 16px 24px;
+      padding: 12px 16px;
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
       flex-shrink: 0;
     }
     .chat-input-row {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       align-items: flex-end;
       max-width: 900px;
       margin: 0 auto;
@@ -352,7 +353,7 @@
       color: var(--text);
       padding: 10px 14px;
       border-radius: var(--radius);
-      font-size: 14px;
+      font-size: 16px; /* 16px prevents iOS zoom */
       font-family: inherit;
       resize: none;
       min-height: 44px;
@@ -367,14 +368,18 @@
       background: var(--accent);
       color: #0d1117;
       border: none;
-      padding: 10px 18px;
+      padding: 10px 16px;
       border-radius: var(--radius);
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       white-space: nowrap;
       transition: opacity 0.15s;
-      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .btn-send:hover { opacity: 0.9; }
     .btn-send:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -383,7 +388,92 @@
       font-size: 11px;
       color: var(--text-subtle);
       margin-top: 6px;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
     }
+
+    /* Icon buttons (mic, attach) */
+    .btn-icon {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      min-width: 44px;
+      min-height: 44px;
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+      padding: 0;
+    }
+    .btn-icon:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .btn-icon:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Mic recording state */
+    .btn-mic.recording {
+      background: var(--red);
+      border-color: var(--red);
+      color: white;
+      animation: mic-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes mic-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.5); }
+      50% { box-shadow: 0 0 0 8px rgba(248, 81, 73, 0); }
+    }
+
+    /* Attachment previews */
+    .attachment-previews {
+      display: none;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px 0;
+      max-width: 900px;
+      margin: 0 auto 4px;
+    }
+    .attachment-previews.has-items { display: flex; }
+    .attachment-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 8px 4px 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      max-width: 220px;
+    }
+    .attachment-thumb {
+      width: 28px;
+      height: 28px;
+      object-fit: cover;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .attachment-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 130px;
+    }
+    .attachment-status { font-size: 12px; flex-shrink: 0; }
+    .attachment-remove {
+      background: none;
+      border: none;
+      color: var(--text-subtle);
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .attachment-remove:hover { color: var(--red); }
 
     /* Cost/info bar */
     .turn-info {
@@ -391,6 +481,14 @@
       color: var(--text-subtle);
       text-align: right;
       margin-top: 4px;
+    }
+
+    /* Mobile tweaks */
+    @media (max-width: 768px) {
+      .chat-messages { padding: 16px; }
+      .chat-input-area { padding: 10px 12px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+      .input-hint { display: none; }
+      .message { max-width: 95%; }
     }
   </style>
 </head>
@@ -444,14 +542,26 @@
 
     <!-- Input area (hidden until session active) -->
     <div class="chat-input-area" id="inputArea" style="display:none">
+      <!-- Attachment previews -->
+      <div class="attachment-previews" id="attachmentPreviews"></div>
       <div class="chat-input-row">
+        <!-- Hidden file input -->
+        <input type="file" id="fileInput" multiple
+          accept="image/*,.js,.ts,.jsx,.tsx,.py,.java,.go,.rs,.c,.cpp,.h,.cs,.rb,.php,.css,.html,.json,.yaml,.yml,.md,.txt,.sh,.env,.toml,.sql,.xml"
+          style="display:none" onchange="onFileSelected(event)">
+        <!-- Attach button -->
+        <button class="btn-icon btn-attach" id="attachBtn" title="Attach file" disabled onclick="openFilePicker()">&#128206;</button>
+        <!-- Textarea -->
         <textarea class="chat-textarea" id="chatInput"
-          placeholder="Type a message... (Ctrl+Enter to send)"
+          placeholder="Message..."
           rows="1"
           disabled
           onkeydown="onInputKeydown(event)"
           oninput="autoResize(this)"></textarea>
-        <button class="btn-send" id="sendBtn" disabled onclick="sendMessage()">Send &#9654;</button>
+        <!-- Mic button -->
+        <button class="btn-icon btn-mic" id="micBtn" title="Voice input" disabled onclick="toggleMic()">&#127908;</button>
+        <!-- Send button -->
+        <button class="btn-send" id="sendBtn" disabled onclick="sendMessage()">&#9654;</button>
       </div>
       <div class="input-hint">Ctrl+Enter to send &nbsp;·&nbsp; Claude Code is running in <span id="hintProjectPath" style="font-family:monospace"></span></div>
     </div>
@@ -509,19 +619,19 @@
 
     // ---- Input control ----
     function enableInput() {
-      const input = document.getElementById('chatInput');
-      const btn = document.getElementById('sendBtn');
       awaitingResponse = false;
-      input.disabled = false;
-      btn.disabled = false;
-      input.focus();
+      document.getElementById('chatInput').disabled = false;
+      document.getElementById('sendBtn').disabled = false;
+      document.getElementById('micBtn').disabled = false;
+      document.getElementById('attachBtn').disabled = false;
+      document.getElementById('chatInput').focus();
     }
 
     function disableInput() {
-      const input = document.getElementById('chatInput');
-      const btn = document.getElementById('sendBtn');
-      input.disabled = true;
-      btn.disabled = true;
+      document.getElementById('chatInput').disabled = true;
+      document.getElementById('sendBtn').disabled = true;
+      document.getElementById('micBtn').disabled = true;
+      document.getElementById('attachBtn').disabled = true;
     }
 
     function autoResize(el) {
@@ -918,8 +1028,21 @@
     function sendMessage() {
       if (awaitingResponse || !ws || ws.readyState !== WebSocket.OPEN) return;
       const input = document.getElementById('chatInput');
-      const text = input.value.trim();
-      if (!text) return;
+      let text = input.value.trim();
+
+      // Append uploaded attachment paths to the message
+      const ready = attachments.filter(a => a.uploadedPath);
+      if (!text && ready.length === 0) return;
+      if (ready.length > 0) {
+        const refs = ready.map(a => a.uploadedPath).join('\n');
+        text = text ? `${text}\n\nAttached files:\n${refs}` : `Files attached:\n${refs}`;
+      }
+
+      // Clear attachments UI
+      attachments = [];
+      const previews = document.getElementById('attachmentPreviews');
+      previews.innerHTML = '';
+      previews.classList.remove('has-items');
 
       input.value = '';
       input.style.height = 'auto';
@@ -931,6 +1054,214 @@
       showLoading();
 
       ws.send(JSON.stringify({ type: 'user_message', text }));
+    }
+
+    // ---- Voice Input ----
+    let recognition = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
+    function hasSpeechRecognition() {
+      return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
+    }
+
+    function setMicState(recording) {
+      isRecording = recording;
+      const btn = document.getElementById('micBtn');
+      if (recording) {
+        btn.classList.add('recording');
+        btn.title = 'Tap to stop recording';
+      } else {
+        btn.classList.remove('recording');
+        btn.title = 'Voice input';
+      }
+    }
+
+    function toggleMic() {
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    }
+
+    function startRecording() {
+      if (hasSpeechRecognition()) {
+        startWebSpeech();
+      } else {
+        startMediaRecorder();
+      }
+    }
+
+    function stopRecording() {
+      if (recognition) { try { recognition.stop(); } catch (e) {} }
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') { try { mediaRecorder.stop(); } catch (e) {} }
+      setMicState(false);
+      isRecording = false;
+    }
+
+    function startWebSpeech() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SR();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      const input = document.getElementById('chatInput');
+      const existingText = input.value;
+      let finalTranscript = existingText ? existingText.trimEnd() + ' ' : '';
+
+      recognition.onstart = () => setMicState(true);
+
+      recognition.onresult = (event) => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        input.value = finalTranscript + interim;
+        autoResize(input);
+      };
+
+      recognition.onerror = (e) => {
+        console.warn('Speech recognition error:', e.error);
+        setMicState(false);
+        isRecording = false;
+        recognition = null;
+        if (e.error !== 'no-speech' && e.error !== 'aborted') {
+          appendError('Voice input error: ' + e.error + '. Switching to fallback...');
+          startMediaRecorder();
+        }
+      };
+
+      recognition.onend = () => {
+        setMicState(false);
+        isRecording = false;
+        recognition = null;
+      };
+
+      recognition.start();
+    }
+
+    async function startMediaRecorder() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm';
+        mediaRecorder = new MediaRecorder(stream, { mimeType });
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(audioChunks, { type: mimeType });
+          await transcribeAudio(blob, mimeType);
+        };
+        mediaRecorder.start();
+        setMicState(true);
+      } catch (err) {
+        appendError('Microphone access denied: ' + err.message);
+      }
+    }
+
+    async function transcribeAudio(blob, mimeType) {
+      appendSystem('Transcribing audio...');
+      try {
+        const formData = new FormData();
+        formData.append('audio', blob, 'recording.webm');
+        const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Transcription failed');
+        if (data.text) {
+          const input = document.getElementById('chatInput');
+          input.value = (input.value ? input.value.trimEnd() + ' ' : '') + data.text;
+          autoResize(input);
+        }
+      } catch (err) {
+        appendError('Transcription failed: ' + err.message);
+      }
+    }
+
+    // ---- File Attachments ----
+    let attachments = []; // { file, uploadedPath, previewEl }
+
+    function openFilePicker() {
+      document.getElementById('fileInput').click();
+    }
+
+    function onFileSelected(event) {
+      Array.from(event.target.files).forEach(addAttachment);
+      event.target.value = '';
+    }
+
+    async function addAttachment(file) {
+      const attachment = { file, uploadedPath: null, previewEl: null };
+
+      const chip = document.createElement('div');
+      chip.className = 'attachment-chip';
+
+      if (file.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.className = 'attachment-thumb';
+        img.src = URL.createObjectURL(file);
+        chip.appendChild(img);
+      }
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'attachment-name';
+      nameSpan.textContent = file.name;
+      chip.appendChild(nameSpan);
+
+      const sizeSpan = document.createElement('span');
+      sizeSpan.className = 'attachment-status';
+      sizeSpan.textContent = ' (' + formatFileSize(file.size) + ') ⏳';
+      chip.appendChild(sizeSpan);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'attachment-remove';
+      removeBtn.textContent = '×';
+      removeBtn.onclick = () => removeAttachment(attachment);
+      chip.appendChild(removeBtn);
+
+      attachment.previewEl = chip;
+      attachments.push(attachment);
+
+      const previews = document.getElementById('attachmentPreviews');
+      previews.appendChild(chip);
+      previews.classList.add('has-items');
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch(`/api/projects/${projectId}/upload`, { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        attachment.uploadedPath = data.relativePath;
+        sizeSpan.textContent = ' (' + formatFileSize(file.size) + ') ✓';
+        sizeSpan.style.color = 'var(--green)';
+      } catch (err) {
+        sizeSpan.textContent = ' ✗';
+        sizeSpan.style.color = 'var(--red)';
+        chip.title = err.message;
+      }
+    }
+
+    function removeAttachment(attachment) {
+      attachments = attachments.filter(a => a !== attachment);
+      if (attachment.previewEl) attachment.previewEl.remove();
+      if (attachments.length === 0) {
+        document.getElementById('attachmentPreviews').classList.remove('has-items');
+      }
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + 'B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
     }
 
     // ---- Init ----

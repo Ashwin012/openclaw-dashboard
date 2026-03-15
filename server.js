@@ -9,6 +9,7 @@ const path = require('path');
 const http = require('http');
 const crypto = require('crypto');
 const WebSocket = require('ws');
+const multer = require('multer');
 
 const execAsync = promisify(exec);
 const app = express();
@@ -353,6 +354,73 @@ app.post('/api/projects/:id/instruct', requireAuth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ===== Transcription =====
+
+const transcribeUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 }
+});
+
+app.post('/api/transcribe', requireAuth, transcribeUpload.single('audio'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'OPENAI_API_KEY not configured. Voice transcription unavailable.' });
+
+  try {
+    const { OpenAI, toFile } = require('openai');
+    const openai = new OpenAI({ apiKey });
+    const audioFile = await toFile(req.file.buffer, 'recording.webm', { type: req.file.mimetype });
+    const transcription = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-1'
+    });
+    res.json({ text: transcription.text });
+  } catch (err) {
+    res.status(500).json({ error: `Transcription failed: ${err.message}` });
+  }
+});
+
+// ===== File Upload =====
+
+function makeAttachmentStorage() {
+  return multer.diskStorage({
+    destination: (req, file, cb) => {
+      const project = config.projects.find(p => p.id === req.params.id);
+      if (!project) return cb(new Error('Project not found'));
+      const dir = path.join(project.path, '.claude', 'uploads');
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+      const ts = Date.now();
+      const ext = path.extname(file.originalname);
+      const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_.-]/g, '_');
+      cb(null, `${ts}_${base}${ext}`);
+    }
+  });
+}
+
+const attachmentUpload = multer({
+  storage: makeAttachmentStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+app.post('/api/projects/:id/upload', requireAuth, attachmentUpload.single('file'), (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+  if (!req.file) return res.status(400).json({ error: 'No file provided' });
+  res.json({
+    ok: true,
+    filename: req.file.filename,
+    originalname: req.file.originalname,
+    filePath: req.file.path,
+    relativePath: path.relative(project.path, req.file.path),
+    size: req.file.size,
+    mimetype: req.file.mimetype
+  });
 });
 
 // ===== Chat / WebSocket =====
