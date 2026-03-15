@@ -849,6 +849,157 @@ app.post('/api/projects/:id/chat/sessions/:sessionId/resume', requireAuth, (req,
   res.json({ sessionId, model: persistent.model });
 });
 
+// ===== Tasks =====
+
+function getTasksPath(project) {
+  return path.join(project.path, '.claude', 'tasks.json');
+}
+
+function readTasks(project) {
+  const p = getTasksPath(project);
+  if (!fs.existsSync(p)) return [];
+  try {
+    const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+    return Array.isArray(data.tasks) ? data.tasks : [];
+  } catch { return []; }
+}
+
+function writeTasks(project, tasks) {
+  const dir = path.join(project.path, '.claude');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(getTasksPath(project), JSON.stringify({ tasks }, null, 2), 'utf8');
+}
+
+// Auth middleware that accepts session cookie OR Bearer token (password) for agent API access
+async function requireAuthOrBearer(req, res, next) {
+  if (req.session && req.session.authenticated) return next();
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+    try {
+      const hash = process.env.AUTH_PASSWORD_HASH;
+      if (hash && await bcrypt.compare(token, hash)) return next();
+    } catch {}
+  }
+  res.status(401).json({ error: 'Unauthorized' });
+}
+
+app.get('/api/projects/:id/tasks', requireAuth, (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  let tasks = readTasks(project);
+  const { status, priority, assignee, tags } = req.query;
+  if (status) tasks = tasks.filter(t => t.status === status);
+  if (priority) tasks = tasks.filter(t => t.priority === priority);
+  if (assignee) tasks = tasks.filter(t => t.assignee === assignee);
+  if (tags) {
+    const tagList = tags.split(',').map(t => t.trim()).filter(Boolean);
+    tasks = tasks.filter(t => t.tags && tagList.some(tag => t.tags.includes(tag)));
+  }
+  res.json(tasks);
+});
+
+app.post('/api/projects/:id/tasks', requireAuthOrBearer, (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const { title, description, status, priority, assignee, tags } = req.body;
+  if (!title || !title.trim()) return res.status(400).json({ error: 'Title required' });
+
+  const now = new Date().toISOString();
+  const task = {
+    id: crypto.randomUUID(),
+    title: title.trim(),
+    description: description || '',
+    status: status || 'todo',
+    priority: priority || 'medium',
+    assignee: assignee || 'agent',
+    createdAt: now,
+    updatedAt: now,
+    completedAt: null,
+    notes: [],
+    tags: Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [])
+  };
+
+  const tasks = readTasks(project);
+  tasks.push(task);
+  writeTasks(project, tasks);
+  res.status(201).json(task);
+});
+
+app.put('/api/projects/:id/tasks/:taskId', requireAuthOrBearer, (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const tasks = readTasks(project);
+  const idx = tasks.findIndex(t => t.id === req.params.taskId);
+  if (idx < 0) return res.status(404).json({ error: 'Task not found' });
+
+  const now = new Date().toISOString();
+  const task = tasks[idx];
+  const updates = req.body;
+
+  const allowed = ['title', 'description', 'status', 'priority', 'assignee', 'tags'];
+  for (const field of allowed) {
+    if (updates[field] !== undefined) {
+      if (field === 'tags' && !Array.isArray(updates[field])) {
+        task[field] = updates[field] ? updates[field].split(',').map(t => t.trim()).filter(Boolean) : [];
+      } else {
+        task[field] = updates[field];
+      }
+    }
+  }
+
+  if (updates.status === 'done' && !task.completedAt) {
+    task.completedAt = now;
+  } else if (updates.status && updates.status !== 'done') {
+    task.completedAt = null;
+  }
+
+  task.updatedAt = now;
+  tasks[idx] = task;
+  writeTasks(project, tasks);
+  res.json(task);
+});
+
+app.delete('/api/projects/:id/tasks/:taskId', requireAuth, (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const tasks = readTasks(project);
+  const idx = tasks.findIndex(t => t.id === req.params.taskId);
+  if (idx < 0) return res.status(404).json({ error: 'Task not found' });
+
+  tasks.splice(idx, 1);
+  writeTasks(project, tasks);
+  res.json({ ok: true });
+});
+
+app.post('/api/projects/:id/tasks/:taskId/notes', requireAuthOrBearer, (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const tasks = readTasks(project);
+  const task = tasks.find(t => t.id === req.params.taskId);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const { author, text } = req.body;
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Note text required' });
+
+  const note = {
+    author: author || 'agent',
+    text: text.trim(),
+    timestamp: new Date().toISOString()
+  };
+
+  if (!task.notes) task.notes = [];
+  task.notes.push(note);
+  task.updatedAt = new Date().toISOString();
+  writeTasks(project, tasks);
+  res.status(201).json(note);
+});
+
 const PORT = process.env.PORT || 8090;
 server.listen(PORT, () => {
   console.log(`Dev Dashboard running on http://localhost:${PORT}`);

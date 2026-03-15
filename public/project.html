@@ -26,6 +26,75 @@
 
   <div class="toast" id="toast"></div>
 
+  <!-- Task Modal -->
+  <div class="modal-overlay" id="taskModal" style="display:none" onclick="if(event.target===this)closeTaskModal()">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modalHeading">New Task</h3>
+        <button class="modal-close-btn" onclick="closeTaskModal()">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-form">
+          <div class="mform-row">
+            <label>Title <span style="color:var(--red)">*</span></label>
+            <input type="text" id="taskTitle" placeholder="Task title...">
+          </div>
+          <div class="mform-row">
+            <label>Description</label>
+            <textarea id="taskDesc" placeholder="Describe the task..." rows="3"></textarea>
+          </div>
+          <div class="mform-row-inline">
+            <div class="mform-col">
+              <label>Priority</label>
+              <select id="taskPriority">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+            <div class="mform-col">
+              <label>Status</label>
+              <select id="taskStatus">
+                <option value="todo" selected>Todo</option>
+                <option value="in_progress">In Progress</option>
+                <option value="review">Review</option>
+                <option value="done">Done</option>
+                <option value="blocked">Blocked</option>
+              </select>
+            </div>
+            <div class="mform-col">
+              <label>Assignee</label>
+              <input type="text" id="taskAssignee" value="agent" placeholder="agent / human / name">
+            </div>
+          </div>
+          <div class="mform-row">
+            <label>Tags <span style="color:var(--text-subtle);font-weight:400">(comma-separated)</span></label>
+            <input type="text" id="taskTags" placeholder="tests, stripe, backend">
+          </div>
+        </div>
+        <div class="modal-notes" id="modalNotes" style="display:none">
+          <h4>Notes</h4>
+          <div class="notes-timeline" id="notesTimeline"></div>
+          <div class="add-note-form">
+            <input type="text" id="noteAuthor" placeholder="Your name..." value="admin" style="width:140px">
+            <textarea id="noteText" placeholder="Add a note..." rows="2"></textarea>
+            <button class="btn-submit" onclick="submitNote()">Add Note</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div>
+          <button class="btn btn-reject" id="deleteTaskBtn" onclick="deleteTask()" style="display:none">&#128465; Delete</button>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-cancel" onclick="closeTaskModal()">Cancel</button>
+          <button class="btn-submit" id="saveTaskBtn" onclick="saveTask()">Create Task</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html.min.js"></script>
   <script>
     const params = new URLSearchParams(window.location.search);
@@ -35,6 +104,10 @@
     let activeTab = 'changes';
     let historyCache = null;
     let unpushedCache = null;
+    let tasksCache = null;
+    let taskFilters = { status: '', priority: '', assignee: '', tags: '' };
+    let draggedTaskId = null;
+    let editingTaskId = null;
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -139,12 +212,14 @@
       document.getElementById('tab-changes').classList.toggle('active', tab === 'changes');
       document.getElementById('tab-unpushed').classList.toggle('active', tab === 'unpushed');
       document.getElementById('tab-history').classList.toggle('active', tab === 'history');
+      document.getElementById('tab-tasks').classList.toggle('active', tab === 'tasks');
       document.getElementById('changesPane').style.display = tab === 'changes' ? '' : 'none';
       document.getElementById('unpushedPane').style.display = tab === 'unpushed' ? '' : 'none';
-      const histPane = document.getElementById('historyPane');
-      histPane.style.display = tab === 'history' ? '' : 'none';
+      document.getElementById('historyPane').style.display = tab === 'history' ? '' : 'none';
+      document.getElementById('tasksPane').style.display = tab === 'tasks' ? '' : 'none';
       if (tab === 'history' && historyCache === null) loadHistory();
       if (tab === 'unpushed' && unpushedCache === null) loadUnpushed();
+      if (tab === 'tasks') { if (tasksCache === null) loadTasks(); else renderKanban(); }
     }
 
     async function loadHistory() {
@@ -250,6 +325,7 @@
           <button class="tab-btn ${activeTab === 'changes' ? 'active' : ''}" id="tab-changes" onclick="switchTab('changes')">&#127381; Changes</button>
           <button class="tab-btn ${activeTab === 'unpushed' ? 'active' : ''}" id="tab-unpushed" onclick="switchTab('unpushed')">&#8593; Unpushed</button>
           <button class="tab-btn ${activeTab === 'history' ? 'active' : ''}" id="tab-history" onclick="switchTab('history')">&#128203; History</button>
+          <button class="tab-btn ${activeTab === 'tasks' ? 'active' : ''}" id="tab-tasks" onclick="switchTab('tasks')">&#9776; Tasks <span class="tab-badge" id="tasksBadge" style="display:none"></span></button>
           <div style="flex:1"></div>
           <a class="tab-btn" href="/chat.html?id=${escapeHtml(data.id)}" style="text-decoration:none;color:inherit;background:var(--bg-hover);border:1px solid var(--border);padding:6px 14px;border-radius:var(--radius)">&#128172; Chat</a>
         </div>
@@ -313,10 +389,43 @@
 
         <div id="historyPane" style="${activeTab === 'history' ? '' : 'display:none'}">
           <div class="loading"><div class="spinner"></div> Loading history...</div>
+        </div>
+
+        <div id="tasksPane" style="${activeTab === 'tasks' ? '' : 'display:none'}">
+          <div class="tasks-toolbar">
+            <div class="tasks-filters">
+              <select id="filterStatus" onchange="applyTaskFilters()">
+                <option value="">All Statuses</option>
+                <option value="todo">Todo</option>
+                <option value="in_progress">In Progress</option>
+                <option value="review">Review</option>
+                <option value="done">Done</option>
+                <option value="blocked">Blocked</option>
+              </select>
+              <select id="filterPriority" onchange="applyTaskFilters()">
+                <option value="">All Priorities</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+              <select id="filterAssignee" onchange="applyTaskFilters()">
+                <option value="">All Assignees</option>
+                <option value="agent">Agent</option>
+                <option value="human">Human</option>
+              </select>
+              <input type="text" id="filterTags" placeholder="Filter by tag..." oninput="applyTaskFilters()" class="task-filter-input">
+            </div>
+            <button class="btn btn-new-task" onclick="showNewTaskModal()">+ New Task</button>
+          </div>
+          <div class="kanban-board" id="kanbanBoard">
+            <div class="loading"><div class="spinner"></div> Loading tasks...</div>
+          </div>
         </div>`;
 
       if (activeTab === 'history' && historyCache === null) loadHistory();
       if (activeTab === 'unpushed' && unpushedCache === null) loadUnpushed();
+      if (activeTab === 'tasks') { if (tasksCache === null) loadTasks(); else { updateTasksBadge(); renderKanban(); } }
     }
 
     function setView(view) {
@@ -420,6 +529,321 @@
         showToast(err.message, 'error');
       }
     }
+
+    // ===== Task Manager =====
+
+    function timeAgo(iso) {
+      if (!iso) return '';
+      const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+      if (diff < 60) return `${diff}s ago`;
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      return `${Math.floor(diff / 86400)}d ago`;
+    }
+
+    async function loadTasks() {
+      const board = document.getElementById('kanbanBoard');
+      if (!board) return;
+      board.innerHTML = '<div class="loading"><div class="spinner"></div> Loading tasks...</div>';
+      try {
+        const res = await fetch(`/api/projects/${projectId}/tasks`);
+        if (!res.ok) throw new Error('Failed to load tasks');
+        tasksCache = await res.json();
+        updateTasksBadge();
+        renderKanban();
+      } catch (err) {
+        board.innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load tasks</h3><p>${escapeHtml(err.message)}</p></div>`;
+      }
+    }
+
+    function updateTasksBadge() {
+      const badge = document.getElementById('tasksBadge');
+      if (!badge || !tasksCache) return;
+      const nonDone = tasksCache.filter(t => t.status !== 'done').length;
+      badge.textContent = nonDone;
+      badge.style.display = nonDone > 0 ? '' : 'none';
+    }
+
+    function getFilteredTasks() {
+      if (!tasksCache) return [];
+      return tasksCache.filter(t => {
+        if (taskFilters.status && t.status !== taskFilters.status) return false;
+        if (taskFilters.priority && t.priority !== taskFilters.priority) return false;
+        if (taskFilters.assignee && t.assignee !== taskFilters.assignee) return false;
+        if (taskFilters.tags) {
+          const q = taskFilters.tags.toLowerCase();
+          if (!t.tags || !t.tags.some(tag => tag.toLowerCase().includes(q))) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderKanban() {
+      const board = document.getElementById('kanbanBoard');
+      if (!board) return;
+      const filtered = getFilteredTasks();
+      const columns = [
+        { id: 'todo', label: 'Todo' },
+        { id: 'in_progress', label: 'In Progress' },
+        { id: 'review', label: 'Review' },
+        { id: 'done', label: 'Done' },
+        { id: 'blocked', label: 'Blocked' }
+      ];
+      board.innerHTML = columns.map(col => {
+        const colTasks = filtered.filter(t => t.status === col.id);
+        return `
+          <div class="kanban-col">
+            <div class="kanban-col-header">
+              <span class="col-dot col-${col.id}"></span>
+              <span>${col.label}</span>
+              <span class="col-count">${colTasks.length}</span>
+            </div>
+            <div class="kanban-cards" id="col-${col.id}"
+              ondragover="handleDragOver(event)"
+              ondragleave="handleDragLeave(event)"
+              ondrop="handleDrop(event, '${col.id}')">
+              ${colTasks.map(t => renderTaskCard(t)).join('')}
+              ${colTasks.length === 0 ? '<div class="kanban-empty">Drop here</div>' : ''}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderTaskCard(task) {
+      const age = timeAgo(task.createdAt);
+      const noteCount = (task.notes || []).length;
+      const tagsHtml = task.tags && task.tags.length
+        ? task.tags.slice(0, 2).map(tag => `<span class="task-tag">${escapeHtml(tag)}</span>`).join('')
+        : '';
+      return `
+        <div class="task-card"
+          draggable="true"
+          ondragstart="handleDragStart(event, '${task.id}')"
+          ondragend="handleDragEnd(event)"
+          onclick="openTaskModal('${task.id}')">
+          <div class="task-card-top">
+            <span class="priority-badge prio-${task.priority}">${task.priority}</span>
+            ${tagsHtml}
+          </div>
+          <div class="task-title">${escapeHtml(task.title)}</div>
+          <div class="task-meta">
+            <span class="task-assignee">&#128100; ${escapeHtml(task.assignee || 'unassigned')}</span>
+            <span class="task-age">${age}</span>
+            ${noteCount > 0 ? `<span class="task-note-count">&#128172; ${noteCount}</span>` : ''}
+          </div>
+        </div>`;
+    }
+
+    function applyTaskFilters() {
+      taskFilters.status = document.getElementById('filterStatus')?.value || '';
+      taskFilters.priority = document.getElementById('filterPriority')?.value || '';
+      taskFilters.assignee = document.getElementById('filterAssignee')?.value || '';
+      taskFilters.tags = document.getElementById('filterTags')?.value || '';
+      renderKanban();
+    }
+
+    function handleDragStart(event, taskId) {
+      draggedTaskId = taskId;
+      event.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => event.currentTarget.classList.add('dragging'), 0);
+    }
+
+    function handleDragEnd(event) {
+      event.currentTarget.classList.remove('dragging');
+      draggedTaskId = null;
+      document.querySelectorAll('.kanban-cards.drag-over').forEach(el => el.classList.remove('drag-over'));
+    }
+
+    function handleDragOver(event) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      event.currentTarget.classList.add('drag-over');
+    }
+
+    function handleDragLeave(event) {
+      if (!event.currentTarget.contains(event.relatedTarget)) {
+        event.currentTarget.classList.remove('drag-over');
+      }
+    }
+
+    function handleDrop(event, newStatus) {
+      event.preventDefault();
+      event.currentTarget.classList.remove('drag-over');
+      if (!draggedTaskId) return;
+      const id = draggedTaskId;
+      draggedTaskId = null;
+      const task = tasksCache?.find(t => t.id === id);
+      if (task && task.status !== newStatus) updateTaskStatus(id, newStatus);
+    }
+
+    async function updateTaskStatus(taskId, newStatus) {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        });
+        if (res.ok) {
+          const updated = await res.json();
+          const idx = tasksCache.findIndex(t => t.id === taskId);
+          if (idx >= 0) tasksCache[idx] = updated;
+          updateTasksBadge();
+          renderKanban();
+        } else {
+          const d = await res.json();
+          showToast(d.error || 'Update failed', 'error');
+        }
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    function showNewTaskModal() {
+      editingTaskId = null;
+      document.getElementById('modalHeading').textContent = 'New Task';
+      document.getElementById('taskTitle').value = '';
+      document.getElementById('taskDesc').value = '';
+      document.getElementById('taskPriority').value = 'medium';
+      document.getElementById('taskStatus').value = 'todo';
+      document.getElementById('taskAssignee').value = 'agent';
+      document.getElementById('taskTags').value = '';
+      document.getElementById('modalNotes').style.display = 'none';
+      document.getElementById('deleteTaskBtn').style.display = 'none';
+      document.getElementById('saveTaskBtn').textContent = 'Create Task';
+      document.getElementById('taskModal').style.display = 'flex';
+      setTimeout(() => document.getElementById('taskTitle').focus(), 50);
+    }
+
+    function openTaskModal(taskId) {
+      const task = tasksCache?.find(t => t.id === taskId);
+      if (!task) return;
+      editingTaskId = taskId;
+      document.getElementById('modalHeading').textContent = 'Edit Task';
+      document.getElementById('taskTitle').value = task.title;
+      document.getElementById('taskDesc').value = task.description || '';
+      document.getElementById('taskPriority').value = task.priority;
+      document.getElementById('taskStatus').value = task.status;
+      document.getElementById('taskAssignee').value = task.assignee || '';
+      document.getElementById('taskTags').value = (task.tags || []).join(', ');
+      document.getElementById('modalNotes').style.display = '';
+      renderNotesTimeline(task.notes || []);
+      document.getElementById('noteText').value = '';
+      document.getElementById('deleteTaskBtn').style.display = '';
+      document.getElementById('saveTaskBtn').textContent = 'Save Changes';
+      document.getElementById('taskModal').style.display = 'flex';
+      setTimeout(() => document.getElementById('taskTitle').focus(), 50);
+    }
+
+    function closeTaskModal() {
+      document.getElementById('taskModal').style.display = 'none';
+      editingTaskId = null;
+    }
+
+    function renderNotesTimeline(notes) {
+      const timeline = document.getElementById('notesTimeline');
+      if (!notes || !notes.length) {
+        timeline.innerHTML = '<div class="notes-empty">No notes yet.</div>';
+        return;
+      }
+      timeline.innerHTML = notes.map(note => `
+        <div class="note-item">
+          <div class="note-meta">
+            <span class="note-author">${escapeHtml(note.author)}</span>
+            <span class="note-time">${formatDateTime(note.timestamp)}</span>
+          </div>
+          <div class="note-text">${escapeHtml(note.text)}</div>
+        </div>`).join('');
+      timeline.scrollTop = timeline.scrollHeight;
+    }
+
+    async function saveTask() {
+      const title = document.getElementById('taskTitle').value.trim();
+      if (!title) { showToast('Title is required', 'error'); return; }
+      const taskData = {
+        title,
+        description: document.getElementById('taskDesc').value.trim(),
+        priority: document.getElementById('taskPriority').value,
+        status: document.getElementById('taskStatus').value,
+        assignee: document.getElementById('taskAssignee').value.trim() || 'agent',
+        tags: document.getElementById('taskTags').value.split(',').map(t => t.trim()).filter(Boolean)
+      };
+      try {
+        const url = editingTaskId
+          ? `/api/projects/${projectId}/tasks/${editingTaskId}`
+          : `/api/projects/${projectId}/tasks`;
+        const method = editingTaskId ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(taskData)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          if (editingTaskId) {
+            const idx = tasksCache.findIndex(t => t.id === editingTaskId);
+            if (idx >= 0) tasksCache[idx] = data;
+          } else {
+            tasksCache.push(data);
+          }
+          updateTasksBadge();
+          renderKanban();
+          closeTaskModal();
+          showToast(editingTaskId ? 'Task updated' : 'Task created');
+        } else {
+          showToast(data.error || 'Failed to save task', 'error');
+        }
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function deleteTask() {
+      if (!editingTaskId || !confirm('Delete this task? This cannot be undone.')) return;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/tasks/${editingTaskId}`, { method: 'DELETE' });
+        if (res.ok) {
+          tasksCache = tasksCache.filter(t => t.id !== editingTaskId);
+          updateTasksBadge();
+          renderKanban();
+          closeTaskModal();
+          showToast('Task deleted');
+        } else {
+          const d = await res.json();
+          showToast(d.error || 'Delete failed', 'error');
+        }
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function submitNote() {
+      if (!editingTaskId) return;
+      const author = document.getElementById('noteAuthor').value.trim() || 'admin';
+      const text = document.getElementById('noteText').value.trim();
+      if (!text) { showToast('Note text required', 'error'); return; }
+      try {
+        const res = await fetch(`/api/projects/${projectId}/tasks/${editingTaskId}/notes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ author, text })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const task = tasksCache?.find(t => t.id === editingTaskId);
+          if (task) {
+            if (!task.notes) task.notes = [];
+            task.notes.push(data);
+            renderNotesTimeline(task.notes);
+            renderKanban();
+          }
+          document.getElementById('noteText').value = '';
+          showToast('Note added');
+        } else {
+          showToast(data.error || 'Failed to add note', 'error');
+        }
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.getElementById('taskModal')?.style.display === 'flex') {
+        closeTaskModal();
+      }
+    });
 
     async function loadProject() {
       if (!projectId) {
