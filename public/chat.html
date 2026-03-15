@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chat — Dev Dashboard</title>
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1e1e2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <style>
     html, body { height: 100%; overflow: hidden; }
@@ -744,6 +749,7 @@
     <div class="logo">&#9670; <span>Dev</span>Dashboard</div>
     <div class="header-spacer"></div>
     <a href="/home.html" class="btn-logout" style="text-decoration:none">&#127968; Home</a>
+    <a href="/profile.html" class="btn-logout" style="text-decoration:none">⚙️</a>
     <button class="btn-logout" id="logoutBtn">Sign out</button>
   </header>
 
@@ -1813,6 +1819,10 @@
       if (!d.authenticated) { window.location.href = '/login.html'; return; }
       init();
     });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
   </script>
 </body>
 </html>

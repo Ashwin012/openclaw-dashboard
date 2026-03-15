@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profil</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1e1e2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <style>
+    .profile-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .profile-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
+
+    .btn-nav {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .btn-nav:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
+
+    .btn-logout-home {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-logout-home:hover { color: var(--red); border-color: var(--red); }
+
+    .header-nav { display: flex; gap: 8px; align-items: center; }
+
+    .hamburger-btn {
+      display: none;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 18px;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .hamburger-btn:hover { background: var(--bg-hover); }
+
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 56px;
+      left: 0;
+      right: 0;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 99;
+      flex-direction: column;
+      padding: 8px 16px 12px;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu .btn-nav {
+      padding: 10px 14px;
+      font-size: 14px;
+      width: 100%;
+      justify-content: flex-start;
+    }
+    .mobile-menu .btn-logout-home {
+      padding: 10px 14px;
+      font-size: 14px;
+      width: 100%;
+      text-align: left;
+    }
+
+    .profile-main {
+      max-width: 480px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: var(--text);
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .form-row { margin-bottom: 16px; }
+    .form-row label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .form-row input {
+      width: 100%;
+      padding: 9px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+    .form-row input:focus { outline: none; border-color: var(--accent); }
+
+    .btn-save {
+      width: 100%;
+      padding: 10px;
+      background: #89b4fa;
+      color: #1e1e2e;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    .btn-save:hover { background: #74a8f8; }
+    .btn-save:disabled { opacity: 0.6; cursor: default; }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; pointer-events: auto; }
+    .toast.success { background: #1a4731; color: #3fb950; border: 1px solid #3fb950; }
+    .toast.error { background: #3d1c1c; color: #f85149; border: 1px solid #f85149; }
+
+    @media (max-width: 768px) {
+      .header-nav { display: none; }
+      .hamburger-btn { display: inline-flex; }
+    }
+  </style>
+</head>
+<body>
+  <header class="profile-header">
+    <div class="logo">Profil</div>
+    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
+    <nav class="header-nav">
+      <a href="/home.html" class="btn-nav">🏠 Home</a>
+      <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
+      <button class="btn-logout-home" id="logoutBtn">Déconnexion</button>
+    </nav>
+  </header>
+
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="/home.html" class="btn-nav">🏠 Home</a>
+    <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
+    <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
+    <button class="btn-logout-home" id="logoutBtnMobile">Déconnexion</button>
+  </div>
+
+  <main class="profile-main">
+    <div class="section-title">Changer le mot de passe</div>
+    <div class="card">
+      <form id="passwordForm">
+        <div class="form-row">
+          <label>Mot de passe actuel</label>
+          <input type="password" id="currentPassword" autocomplete="current-password" required>
+        </div>
+        <div class="form-row">
+          <label>Nouveau mot de passe</label>
+          <input type="password" id="newPassword" autocomplete="new-password" required>
+        </div>
+        <div class="form-row">
+          <label>Confirmer</label>
+          <input type="password" id="confirmPassword" autocomplete="new-password" required>
+        </div>
+        <button type="submit" class="btn-save" id="saveBtn">Enregistrer</button>
+      </form>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // Auth guard
+    fetch('/api/session').then(r => r.json()).then(d => {
+      if (!d.authenticated) window.location.href = '/login.html';
+    });
+
+    // Logout
+    async function doLogout() {
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.href = '/login.html';
+    }
+    document.getElementById('logoutBtn').addEventListener('click', doLogout);
+    document.getElementById('logoutBtnMobile').addEventListener('click', doLogout);
+
+    // Hamburger
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+    hamburgerBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      mobileMenu.classList.toggle('open');
+    });
+    document.addEventListener('click', e => {
+      if (!mobileMenu.contains(e.target) && e.target !== hamburgerBtn) {
+        mobileMenu.classList.remove('open');
+      }
+    });
+
+    // Toast
+    let toastTimer;
+    function showToast(msg, type) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `toast ${type} show`;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.classList.remove('show'); }, 3000);
+    }
+
+    // Password form
+    document.getElementById('passwordForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+
+      if (newPassword !== confirmPassword) {
+        showToast('Les mots de passe ne correspondent pas', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('saveBtn');
+      btn.disabled = true;
+      btn.textContent = 'Enregistrement...';
+
+      try {
+        const res = await fetch('/api/profile/password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentPassword, newPassword })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('Mot de passe mis à jour', 'success');
+          document.getElementById('passwordForm').reset();
+        } else {
+          showToast(data.error || 'Erreur', 'error');
+        }
+      } catch {
+        showToast('Erreur réseau', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Enregistrer';
+      }
+    });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>

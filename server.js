@@ -156,6 +156,30 @@ app.get('/api/session', (req, res) => {
   res.json({ authenticated: !!(req.session && req.session.authenticated) });
 });
 
+app.post('/api/profile/password', requireAuth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Champs manquants' });
+    }
+    const hash = process.env.AUTH_PASSWORD_HASH;
+    if (!hash) return res.status(500).json({ error: 'Server misconfigured' });
+    const match = await bcrypt.compare(currentPassword, hash);
+    if (!match) return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+    const newHash = await bcrypt.hash(newPassword, 10);
+    // Update .env file
+    const envPath = path.join(__dirname, '.env');
+    let envContent = fs.readFileSync(envPath, 'utf8');
+    envContent = envContent.replace(/^AUTH_PASSWORD_HASH=.*$/m, `AUTH_PASSWORD_HASH=${newHash}`);
+    fs.writeFileSync(envPath, envContent, 'utf8');
+    // Update in-memory env
+    process.env.AUTH_PASSWORD_HASH = newHash;
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ===== Projects =====
 
 async function getUnpushedCommits(project, branch) {
@@ -1433,6 +1457,45 @@ app.get('/api/notifications', (req, res) => {
     fs.renameSync(tmp, NOTIFICATIONS_PATH);
 
     res.json({ pending: notifications });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===== Profile / Password management =====
+
+const ENV_PATH = path.join(__dirname, '.env');
+
+app.post('/api/profile/password', requireAuth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Missing fields' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    const hash = process.env.AUTH_PASSWORD_HASH;
+    if (!hash) return res.status(500).json({ error: 'Server misconfigured' });
+
+    const match = await bcrypt.compare(currentPassword, hash);
+    if (!match) return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+
+    const newHash = await bcrypt.hash(newPassword, 12);
+
+    // Update .env file
+    let envContent = fs.readFileSync(ENV_PATH, 'utf8');
+    if (/^AUTH_PASSWORD_HASH=.*/m.test(envContent)) {
+      envContent = envContent.replace(/^AUTH_PASSWORD_HASH=.*/m, `AUTH_PASSWORD_HASH=${newHash}`);
+    } else {
+      envContent += `\nAUTH_PASSWORD_HASH=${newHash}`;
+    }
+    fs.writeFileSync(ENV_PATH, envContent, 'utf8');
+
+    // Update in-memory value
+    process.env.AUTH_PASSWORD_HASH = newHash;
+
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

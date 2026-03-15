@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard Ashwin</title>
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1e1e2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/icon-192.png">
   <style>
     /* ===== Home Page Overrides ===== */
     .home-header {
@@ -479,6 +484,7 @@
     <nav class="header-nav">
       <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
       <a href="https://openclaw.infozen-consulting.com" class="btn-nav" target="_blank">⚡ OpenClaw</a>
+      <a href="/profile.html" class="btn-nav">⚙️</a>
       <button class="btn-logout-home" id="logoutBtn">Déconnexion</button>
     </nav>
     <div class="clock" id="clock">--:--:--</div>
@@ -488,6 +494,7 @@
   <div class="mobile-menu" id="mobileMenu">
     <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
     <a href="https://openclaw.infozen-consulting.com" class="btn-nav" target="_blank">⚡ OpenClaw</a>
+    <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
     <button class="btn-logout-home" id="logoutBtnMobile">Déconnexion</button>
   </div>
 
@@ -1027,6 +1034,10 @@
 
     // ===== Init =====
     loadAll();
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
   </script>
 </body>
 </html>
