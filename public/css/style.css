@@ -24,10 +24,6 @@
   --shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
-html {
-  overflow-x: hidden;
-}
-
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
   background: var(--bg);
@@ -35,7 +31,6 @@ body {
   font-size: 14px;
   line-height: 1.5;
   min-height: 100vh;
-  overflow-x: hidden;
 }
 
 a { color: var(--accent); text-decoration: none; }
@@ -1548,6 +1543,8 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 
 /* Responsive */
 @media (max-width: 768px) {
+  html { overflow-x: hidden; }
+  body { overflow-x: hidden; }
   .project-layout { grid-template-columns: 1fr; }
   .file-tree { position: static; }
   .projects-grid { grid-template-columns: 1fr !important; }
