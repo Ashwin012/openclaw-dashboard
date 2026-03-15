@@ -20,6 +20,16 @@ const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), '
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.get("/login.html", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.sendFile(path.join(__dirname, "public", "login.html"));
+});
+// Temporary: force service worker update by adding cache-busting headers to sw.js
+app.get("/sw.js", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Clear-Site-Data", '"cache", "storage"');
+  res.sendFile(path.join(__dirname, "public", "sw.js"));
+});
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'fallback-secret',
