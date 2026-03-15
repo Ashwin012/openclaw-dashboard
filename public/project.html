@@ -652,7 +652,7 @@
           ondragend="handleDragEnd(event)"
           onclick="toggleTaskExpand('${task.id}', event)">
           <div class="task-card-top">
-            <span class="priority-badge prio-${task.priority}">${task.priority}</span>
+            
             ${tagsHtml}
           </div>
           <div class="task-title">${escapeHtml(task.title)}</div>
@@ -704,17 +704,10 @@
           ? `<div class="task-detail-actions"><button class="btn-edit-task" onclick="event.stopPropagation(); openTaskModal('${taskId}')">&#9999;&#65039; Éditer</button></div>`
           : '';
 
-        const allTags = (task.tags || []).map(t => `<span class="task-tag">${escapeHtml(t)}</span>`).join('');
-
         const detail = document.createElement('div');
         detail.className = 'task-card-detail';
         detail.innerHTML = `
-          <div class="task-detail-title">${escapeHtml(task.title)}</div>
           ${task.description ? `<div class="task-detail-desc">${escapeHtml(task.description)}</div>` : ''}
-          <div class="task-detail-meta">
-            <span class="priority-badge prio-${task.priority}">${task.priority}</span>
-            ${allTags}
-          </div>
           <div class="task-detail-dates">
             <span>Créé : ${formatDateTime(task.createdAt)}</span>
             <span>Mis à jour : ${formatDateTime(task.updatedAt)}</span>
