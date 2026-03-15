@@ -103,6 +103,7 @@
     let projectData = null;
     let activeTab = 'changes';
     let historyCache = null;
+    let historyFilter = 'all';
     let unpushedCache = null;
     let tasksCache = null;
     let taskFilters = { status: '', priority: '', assignee: '', tags: '' };
@@ -168,43 +169,59 @@
       return `<span class="hist-badge">${escapeHtml(action)}</span>`;
     }
 
-    function renderHistoryEntry(entry, index) {
-      const hasDiff = entry.action === 'approved' && entry.diff && entry.diff.trim();
-      const diffId = `hist-diff-${index}`;
-      const filesHtml = entry.files && entry.files.length
-        ? entry.files.map(f => `<span class="hist-file"><span class="file-status ${getStatusClass(f.status)}">${getStatusLabel(f.status)}</span> ${escapeHtml(f.path)}</span>`).join('')
-        : '<span style="color:var(--text-subtle);font-size:12px">No files recorded</span>';
-
-      return `
-        <div class="hist-entry">
-          <div class="hist-entry-header">
-            <div class="hist-meta">
-              ${actionLabel(entry.action)}
-              <span class="hist-time">&#128336; ${formatDateTime(entry.timestamp)}</span>
-              <span class="hist-user" title="User">&#128100; ${escapeHtml(entry.user || 'admin')}</span>
-            </div>
-            ${hasDiff ? `<button class="btn-toggle-diff" onclick="toggleDiff('${diffId}', this)">&#128269; Show diff</button>` : ''}
-          </div>
-          ${entry.message ? `<div class="hist-message">${escapeHtml(entry.message)}</div>` : ''}
-          <div class="hist-files">${filesHtml}</div>
-          ${hasDiff ? `<div class="hist-diff-wrap" id="${diffId}" style="display:none">${renderDiff(entry.diff, 'unified')}</div>` : ''}
-        </div>`;
-    }
-
     function toggleDiff(id, btn) {
       const el = document.getElementById(id);
       if (!el) return;
       const hidden = el.style.display === 'none';
       el.style.display = hidden ? 'block' : 'none';
-      btn.textContent = hidden ? '&#128269; Hide diff' : '&#128269; Show diff';
       btn.innerHTML = hidden ? '&#128269; Hide diff' : '&#128269; Show diff';
     }
 
-    function renderHistoryTab(entries) {
-      if (!entries || !entries.length) {
-        return '<div class="empty-state" style="padding:48px"><div class="icon">&#128203;</div><h3>No history yet</h3><p>Actions (approve, reject, instruct) will be recorded here.</p></div>';
+    function setHistoryFilter(filter) {
+      historyFilter = filter;
+      renderCommits();
+    }
+
+    function renderCommitCard(commit, index) {
+      const isAgent = commit.source === 'agent';
+      const badge = isAgent
+        ? '<span class="source-badge source-agent">&#129302; Agent</span>'
+        : '<span class="source-badge source-external">&#128100; External</span>';
+      return `
+        <div class="hist-entry">
+          <div class="hist-entry-header">
+            <div class="hist-meta">
+              <code class="commit-hash" title="${escapeHtml(commit.hash)}">${escapeHtml(commit.shortHash)}</code>
+              ${badge}
+              <span class="hist-user">&#128100; ${escapeHtml(commit.author)}</span>
+              <span class="hist-time">&#128336; ${timeAgo(commit.date)}</span>
+            </div>
+          </div>
+          <div class="hist-message">${escapeHtml(commit.message)}</div>
+          ${isAgent && commit.instruction ? `<div class="commit-instruction"><span class="instr-label">Instruction:</span> ${escapeHtml(commit.instruction)}</div>` : ''}
+        </div>`;
+    }
+
+    function renderCommits() {
+      const histPane = document.getElementById('historyPane');
+      if (!histPane) return;
+      const commits = historyCache || [];
+      const filtered = historyFilter === 'all' ? commits : commits.filter(c => c.source === historyFilter);
+      const agentCount = commits.filter(c => c.source === 'agent').length;
+      const externalCount = commits.filter(c => c.source === 'external').length;
+
+      const filterBar = `
+        <div class="commits-filter-bar">
+          <button class="filter-chip ${historyFilter === 'all' ? 'active' : ''}" onclick="setHistoryFilter('all')">All <span class="chip-count">${commits.length}</span></button>
+          <button class="filter-chip ${historyFilter === 'agent' ? 'active' : ''}" onclick="setHistoryFilter('agent')">&#129302; Agent <span class="chip-count">${agentCount}</span></button>
+          <button class="filter-chip ${historyFilter === 'external' ? 'active' : ''}" onclick="setHistoryFilter('external')">&#128100; External <span class="chip-count">${externalCount}</span></button>
+        </div>`;
+
+      if (!filtered.length) {
+        histPane.innerHTML = filterBar + '<div class="empty-state" style="padding:48px"><div class="icon">&#128203;</div><h3>No commits found</h3><p>No commits match the current filter.</p></div>';
+        return;
       }
-      return `<div class="hist-list">${entries.map((e, i) => renderHistoryEntry(e, i)).join('')}</div>`;
+      histPane.innerHTML = filterBar + `<div class="hist-list">${filtered.map((c, i) => renderCommitCard(c, i)).join('')}</div>`;
     }
 
     function switchTab(tab) {
@@ -226,10 +243,10 @@
       const histPane = document.getElementById('historyPane');
       histPane.innerHTML = '<div class="loading"><div class="spinner"></div> Loading history...</div>';
       try {
-        const res = await fetch(`/api/projects/${projectId}/history`);
-        if (!res.ok) throw new Error('Failed to load history');
+        const res = await fetch(`/api/projects/${projectId}/commits`);
+        if (!res.ok) throw new Error('Failed to load commits');
         historyCache = await res.json();
-        histPane.innerHTML = renderHistoryTab(historyCache);
+        renderCommits();
       } catch (err) {
         histPane.innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load history</h3><p>${escapeHtml(err.message)}</p></div>`;
       }

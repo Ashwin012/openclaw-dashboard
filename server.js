@@ -316,6 +316,46 @@ app.get('/api/projects/:id/history', requireAuth, (req, res) => {
   res.json(readHistory(project));
 });
 
+app.get('/api/projects/:id/commits', requireAuth, async (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  try {
+    const { stdout } = await execAsync(
+      'git log --format=\'{"hash":"%H","shortHash":"%h","author":"%an","email":"%ae","date":"%aI","message":"%s"}\' -50',
+      { cwd: project.path }
+    );
+
+    const lines = stdout.trim().split('\n').filter(l => l.trim());
+    const commits = [];
+    for (const line of lines) {
+      try { commits.push(JSON.parse(line)); } catch { /* skip malformed */ }
+    }
+
+    const history = readHistory(project);
+    // Build lookup: approved commit message -> history entry
+    const approvedByMsg = {};
+    for (const entry of history) {
+      if (entry.action === 'approved' && entry.message) {
+        approvedByMsg[entry.message] = entry;
+      }
+    }
+
+    const result = commits.map(commit => {
+      const histEntry = approvedByMsg[commit.message];
+      return {
+        ...commit,
+        source: histEntry ? 'agent' : 'external',
+        instruction: histEntry ? (histEntry.instruction || null) : null
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/projects/:id/approve', requireAuth, async (req, res) => {
   const project = config.projects.find(p => p.id === req.params.id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
