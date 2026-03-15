@@ -1154,6 +1154,131 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 }
 .task-age { margin-left: auto; }
 
+/* ===== Task Card Expanded Detail ===== */
+.task-card.expanded {
+  border-color: var(--accent);
+  box-shadow: 0 2px 12px rgba(88,166,255,0.2);
+}
+
+.task-card-detail {
+  border-top: 1px solid var(--border-muted);
+  margin-top: 6px;
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  user-select: text;
+  cursor: default;
+}
+
+.task-detail-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.task-detail-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.task-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.task-detail-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.task-detail-dates span {
+  font-size: 11px;
+  color: var(--text-subtle);
+}
+
+.task-detail-notes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.task-detail-notes-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
+.task-comment-bubble {
+  background: var(--bg);
+  border: 1px solid var(--border-muted);
+  border-radius: 6px;
+  padding: 7px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-comment-author {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.task-comment-time {
+  font-size: 11px;
+  color: var(--text-subtle);
+}
+
+.task-comment-text {
+  font-size: 12px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.no-comments {
+  font-size: 12px;
+  color: var(--text-subtle);
+  font-style: italic;
+}
+
+.task-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-edit-task {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  font-family: inherit;
+}
+.btn-edit-task:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* ===== Task Modal ===== */
 .modal-overlay {
   position: fixed;

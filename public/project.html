@@ -110,6 +110,7 @@
     let taskFilters = { status: '', priority: '', assignee: '', tags: '' };
     let draggedTaskId = null;
     let editingTaskId = null;
+    let expandedTaskId = null;
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -559,6 +560,15 @@
       return `${Math.floor(diff / 86400)}d ago`;
     }
 
+    function timeAgoFr(iso) {
+      if (!iso) return '';
+      const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+      if (diff < 60) return `il y a ${diff}s`;
+      if (diff < 3600) return `il y a ${Math.floor(diff / 60)} min`;
+      if (diff < 86400) return `il y a ${Math.floor(diff / 3600)}h`;
+      return `il y a ${Math.floor(diff / 86400)}j`;
+    }
+
     async function loadTasks() {
       const board = document.getElementById('kanbanBoard');
       if (!board) return;
@@ -599,6 +609,7 @@
     function renderKanban() {
       const board = document.getElementById('kanbanBoard');
       if (!board) return;
+      expandedTaskId = null;
       const filtered = getFilteredTasks();
       const columns = [
         { id: 'todo', label: 'Todo' },
@@ -635,10 +646,11 @@
         : '';
       return `
         <div class="task-card"
+          data-task-id="${task.id}"
           draggable="true"
           ondragstart="handleDragStart(event, '${task.id}')"
           ondragend="handleDragEnd(event)"
-          onclick="openTaskModal('${task.id}')">
+          onclick="toggleTaskExpand('${task.id}', event)">
           <div class="task-card-top">
             <span class="priority-badge prio-${task.priority}">${task.priority}</span>
             ${tagsHtml}
@@ -650,6 +662,72 @@
             ${noteCount > 0 ? `<span class="task-note-count">&#128172; ${noteCount}</span>` : ''}
           </div>
         </div>`;
+    }
+
+    function toggleTaskExpand(taskId, event) {
+      if (draggedTaskId) return;
+      const task = tasksCache?.find(t => t.id === taskId);
+      if (!task) return;
+      const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+      if (!card) return;
+
+      const isExpanded = expandedTaskId === taskId;
+
+      // Collapse any currently expanded card
+      if (expandedTaskId) {
+        const oldCard = document.querySelector(`.task-card[data-task-id="${expandedTaskId}"]`);
+        if (oldCard) {
+          const oldDetail = oldCard.querySelector('.task-card-detail');
+          if (oldDetail) oldDetail.remove();
+          oldCard.classList.remove('expanded');
+        }
+        expandedTaskId = null;
+      }
+
+      if (!isExpanded) {
+        expandedTaskId = taskId;
+        card.classList.add('expanded');
+
+        const notes = task.notes || [];
+        const notesHtml = notes.length === 0
+          ? '<div class="no-comments">Aucun commentaire</div>'
+          : notes.map(note => `
+            <div class="task-comment-bubble">
+              <div class="task-comment-header">
+                <span class="task-comment-author">${escapeHtml(note.author)}</span>
+                <span class="task-comment-time">${timeAgoFr(note.timestamp)}</span>
+              </div>
+              <div class="task-comment-text">${escapeHtml(note.text)}</div>
+            </div>`).join('');
+
+        const editBtn = task.status === 'todo'
+          ? `<div class="task-detail-actions"><button class="btn-edit-task" onclick="event.stopPropagation(); openTaskModal('${taskId}')">&#9999;&#65039; Éditer</button></div>`
+          : '';
+
+        const allTags = (task.tags || []).map(t => `<span class="task-tag">${escapeHtml(t)}</span>`).join('');
+
+        const detail = document.createElement('div');
+        detail.className = 'task-card-detail';
+        detail.innerHTML = `
+          <div class="task-detail-title">${escapeHtml(task.title)}</div>
+          ${task.description ? `<div class="task-detail-desc">${escapeHtml(task.description)}</div>` : ''}
+          <div class="task-detail-meta">
+            <span class="priority-badge prio-${task.priority}">${task.priority}</span>
+            ${allTags}
+          </div>
+          <div class="task-detail-dates">
+            <span>Créé : ${formatDateTime(task.createdAt)}</span>
+            <span>Mis à jour : ${formatDateTime(task.updatedAt)}</span>
+            ${task.completedAt ? `<span>Terminé : ${formatDateTime(task.completedAt)}</span>` : ''}
+          </div>
+          <div class="task-detail-notes-section">
+            <div class="task-detail-notes-label">Commentaires</div>
+            ${notesHtml}
+          </div>
+          ${editBtn}
+        `;
+        card.appendChild(detail);
+      }
     }
 
     function applyTaskFilters() {
