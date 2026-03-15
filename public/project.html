@@ -213,7 +213,9 @@
     const projectId = params.get('id');
     let currentView = 'unified';
     let projectData = null;
-    let activeTab = 'changes';
+    const validTabs = ['changes', 'unpushed', 'history', 'tasks'];
+    const tabParam = params.get('tab');
+    let activeTab = (tabParam && validTabs.includes(tabParam)) ? tabParam : 'changes';
     let historyCache = null;
     let historyFilter = 'all';
     let unpushedCache = null;

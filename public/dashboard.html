@@ -74,20 +74,20 @@
       line-height: 1.4;
     }
 
-    .review-btn {
+    .test-btn {
       font-size: 13px;
       font-weight: 600;
-      color: var(--accent);
+      color: #89b4fa;
       white-space: nowrap;
       flex-shrink: 0;
       padding: 4px 12px;
-      border: 1px solid var(--accent);
+      border: 1px solid #89b4fa;
       border-radius: 6px;
       transition: background 0.1s, color 0.1s;
     }
 
-    .review-btn:hover {
-      background: var(--accent);
+    .test-btn:hover {
+      background: #89b4fa;
       color: var(--bg);
     }
 
@@ -440,14 +440,14 @@
         if (!p.accessible) {
           return `<div class="project-card">
             <div class="card-header">
-              <div class="card-header-left">
+              <div class="card-header-left" style="cursor:pointer" onclick="window.location.href='/project.html?id=${escapeHtml(p.id)}'">
                 <span class="status-dot error"></span>
                 <div class="card-header-info">
                   <div class="project-name">${escapeHtml(p.name)}</div>
                   <div class="project-desc">${escapeHtml(p.description || '')}</div>
                 </div>
               </div>
-              <a class="review-btn" href="/project.html?id=${escapeHtml(p.id)}">Review &#8594;</a>
+              ${p.testUrl ? `<a class="test-btn" href="${escapeHtml(p.testUrl)}" target="_blank">Test &#128279;</a>` : ''}
             </div>
             <div class="card-section" style="color:var(--red);font-size:12px;opacity:0.8">
               &#10005; ${escapeHtml(p.error || 'Repository inaccessible')}
@@ -590,14 +590,14 @@
 
         return `<div class="project-card">
           <div class="card-header">
-            <div class="card-header-left">
+            <div class="card-header-left" style="cursor:pointer" onclick="window.location.href='/project.html?id=${escapeHtml(p.id)}'">
               <span class="status-dot ${dotClass}"></span>
               <div class="card-header-info">
                 <div class="project-name">${escapeHtml(p.name)}</div>
                 <div class="project-desc">${escapeHtml(p.description || '')}</div>
               </div>
             </div>
-            <a class="review-btn" href="/project.html?id=${escapeHtml(p.id)}">Review &#8594;</a>
+            ${p.testUrl ? `<a class="test-btn" href="${escapeHtml(p.testUrl)}" target="_blank">Test &#128279;</a>` : ''}
           </div>
           ${section1}
           ${section2}

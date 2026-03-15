@@ -4,13 +4,15 @@
       "id": "afdex",
       "name": "Afdex",
       "path": "/home/openclaw/projects/afdex",
-      "description": "STO Exchange Platform"
+      "description": "STO Exchange Platform",
+      "testUrl": "http://158.69.1.160:3084"
     },
     {
       "id": "champion-spirit",
       "name": "Champion Spirit",
       "path": "/home/openclaw/projects/champion-spirit/api",
-      "description": "Fitness Management Platform"
+      "description": "Fitness Management Platform",
+      "testUrl": "http://158.69.1.160:8083"
     }
   ]
 }
