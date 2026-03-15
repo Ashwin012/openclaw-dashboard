@@ -1582,8 +1582,8 @@ function proxyWorkerRequest(method, workerPath, res) {
   });
   req.on('error', err => {
     // Worker not running
-    if (workerPath === '/status') {
-      res.json({ running: false, task: null });
+    if (workerPath.startsWith('/status')) {
+      res.json({ running: false, tasks: {}, count: 0 });
     } else {
       res.status(503).json({ error: 'Worker not available', detail: err.message });
     }
@@ -1596,7 +1596,9 @@ app.get('/api/worker/status', requireAuth, (req, res) => {
 });
 
 app.post('/api/worker/stop', requireAuth, (req, res) => {
-  proxyWorkerRequest('POST', '/stop', res);
+  const project = req.query.project;
+  const workerPath = project ? `/stop?project=${encodeURIComponent(project)}` : '/stop';
+  proxyWorkerRequest('POST', workerPath, res);
 });
 
 // ===== Notifications (no auth — called by cron agent) =====

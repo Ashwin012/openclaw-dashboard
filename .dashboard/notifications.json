@@ -8,6 +8,15 @@
       "toStatus": "in_progress",
       "message": "🔄 Début du traitement par le worker",
       "timestamp": "2026-03-15T19:45:28.404Z"
+    },
+    {
+      "projectName": "Champion Spirit",
+      "taskTitle": "Corriger les 34 tests Pest en échec",
+      "taskId": "626e5a22-19ce-4d12-a28f-ca58b9577b0c",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-03-15T19:49:08.485Z"
     }
   ]
 }

@@ -17,8 +17,6 @@ const NVM_SOURCE = 'source /home/openclaw/.nvm/nvm.sh';
 const NVM_NODE_PATH = '/home/openclaw/.nvm/versions/node/v20.20.1/bin';
 const WORKER_PORT = 8091;
 const DASHBOARD_DIR = path.join(__dirname, '.dashboard');
-const PENDING_QUESTIONS_PATH = path.join(DASHBOARD_DIR, 'pending-questions.json');
-const PENDING_ANSWERS_PATH = path.join(DASHBOARD_DIR, 'pending-answers.json');
 
 // Warning thresholds in minutes (each emitted only once per task)
 const WARNING_THRESHOLDS_MIN = [30, 60, 120];
@@ -41,31 +39,9 @@ function logError(msg, err) {
   console.error(`[${new Date().toISOString()}] ERROR ${msg}`, err ? (err.message || err) : '');
 }
 
-// ─── Graceful shutdown ────────────────────────────────────────────────────────
-
-let shuttingDown = false;
-
-process.on('SIGTERM', () => {
-  log('SIGTERM received — shutting down');
-  shuttingDown = true;
-  if (currentProcess) {
-    log('Sending kill to Claude Code PTY');
-    try { currentProcess.ptyProc.kill(); } catch {}
-  }
-});
-
-process.on('SIGINT', () => {
-  log('SIGINT received — shutting down');
-  shuttingDown = true;
-  if (currentProcess) {
-    log('Sending kill to Claude Code PTY');
-    try { currentProcess.ptyProc.kill(); } catch {}
-  }
-});
-
-// ─── Current process tracking ─────────────────────────────────────────────────
+// ─── Active process tracking ──────────────────────────────────────────────────
 //
-// currentProcess: null | {
+// activeProcesses: Map<projectId, {
 //   ptyProc:        IPty,
 //   pid:            number,
 //   startTime:      Date,
@@ -78,9 +54,27 @@ process.on('SIGINT', () => {
 //   stoppedManually: boolean,
 //   getOutput:      () => string,
 //   getCurrentQuestion: () => object|null,
-// }
+// }>
 
-let currentProcess = null;
+const activeProcesses = new Map();
+
+// ─── Graceful shutdown ────────────────────────────────────────────────────────
+
+let shuttingDown = false;
+
+function killAllActive(signal) {
+  log(`${signal} received — shutting down`);
+  shuttingDown = true;
+  if (activeProcesses.size === 0) return;
+  log(`Sending kill to ${activeProcesses.size} active Claude Code PTY session(s)`);
+  for (const [projectId, proc] of activeProcesses) {
+    try { proc.ptyProc.kill(); } catch {}
+    log(`  Killed PTY for project [${projectId}]`);
+  }
+}
+
+process.on('SIGTERM', () => killAllActive('SIGTERM'));
+process.on('SIGINT', () => killAllActive('SIGINT'));
 
 // ─── ANSI / output helpers ────────────────────────────────────────────────────
 
@@ -126,34 +120,50 @@ function buildInstruction(task) {
   return parts.join(' ').replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-// ─── Pending question/answer helpers ─────────────────────────────────────────
+// ─── Pending question/answer helpers (per-project files) ─────────────────────
 
 function ensureDashboardDir() {
   if (!fs.existsSync(DASHBOARD_DIR)) fs.mkdirSync(DASHBOARD_DIR, { recursive: true });
 }
 
-function writePendingQuestion(data) {
+function pendingQuestionPath(projectId) {
+  return path.join(DASHBOARD_DIR, `pending-question-${projectId}.json`);
+}
+
+function pendingAnswerPath(projectId) {
+  return path.join(DASHBOARD_DIR, `pending-answer-${projectId}.json`);
+}
+
+function writePendingQuestion(projectId, data) {
   ensureDashboardDir();
-  const tmp = `${PENDING_QUESTIONS_PATH}.${process.pid}.tmp`;
+  const filePath = pendingQuestionPath(projectId);
+  const tmp = `${filePath}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
-  fs.renameSync(tmp, PENDING_QUESTIONS_PATH);
+  fs.renameSync(tmp, filePath);
 }
 
-function clearPendingQuestion() {
-  try { if (fs.existsSync(PENDING_QUESTIONS_PATH)) fs.unlinkSync(PENDING_QUESTIONS_PATH); } catch {}
-}
-
-function readPendingAnswer(taskId) {
-  if (!fs.existsSync(PENDING_ANSWERS_PATH)) return null;
+function clearPendingQuestion(projectId) {
   try {
-    const data = JSON.parse(fs.readFileSync(PENDING_ANSWERS_PATH, 'utf8'));
+    const p = pendingQuestionPath(projectId);
+    if (fs.existsSync(p)) fs.unlinkSync(p);
+  } catch {}
+}
+
+function readPendingAnswer(projectId, taskId) {
+  const p = pendingAnswerPath(projectId);
+  if (!fs.existsSync(p)) return null;
+  try {
+    const data = JSON.parse(fs.readFileSync(p, 'utf8'));
     if (data.taskId === taskId && data.answer) return data.answer;
   } catch {}
   return null;
 }
 
-function clearPendingAnswer() {
-  try { if (fs.existsSync(PENDING_ANSWERS_PATH)) fs.unlinkSync(PENDING_ANSWERS_PATH); } catch {}
+function clearPendingAnswer(projectId) {
+  try {
+    const p = pendingAnswerPath(projectId);
+    if (fs.existsSync(p)) fs.unlinkSync(p);
+  } catch {}
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -346,9 +356,33 @@ async function runQualityGates(projectPath) {
   return results;
 }
 
+// ─── Warning check (per-process, called every silence tick) ──────────────────
+
+function checkRunningWarnings(proc) {
+  if (!proc) return;
+
+  const elapsedMin = Math.floor((Date.now() - proc.startTime.getTime()) / 60_000);
+
+  for (const threshold of WARNING_THRESHOLDS_MIN) {
+    if (elapsedMin >= threshold && !proc.warned.has(threshold)) {
+      proc.warned.add(threshold);
+      const msg = `⚠️ Tâche en cours depuis ${elapsedMin} minutes`;
+      log(`  ${msg} (task [${proc.taskId}])`);
+      try {
+        updateTask(proc.projectPath, proc.taskId, t => {
+          addNote(t, 'Worker', msg);
+        });
+      } catch (err) {
+        logError('Failed to write warning note', err);
+      }
+    }
+  }
+}
+
 // ─── Core task processing (PTY interactive session) ───────────────────────────
 
 async function processTask(project, task) {
+  const projectId = project.id;
   const projectPath = project.path;
 
   log(`Processing task [${task.id}] "${task.title}" in "${project.name}"`);
@@ -390,7 +424,7 @@ async function processTask(project, task) {
       t.status = 'review';
       t.error = true;
     });
-    currentProcess = null;
+    activeProcesses.delete(projectId);
     return;
   }
 
@@ -408,13 +442,13 @@ async function processTask(project, task) {
   let resolveCompletion;
   const completionPromise = new Promise(res => { resolveCompletion = res; });
 
-  // Set currentProcess synchronously (before first await) so poll loop sees it
-  currentProcess = {
+  // Set activeProcesses entry synchronously (before first await) so poll loop sees it
+  const procInfo = {
     ptyProc,
     pid: ptyProc.pid,
     startTime: new Date(),
     taskId: task.id,
-    projectId: project.id,
+    projectId,
     projectPath,
     projectName: project.name,
     taskTitle: task.title,
@@ -423,6 +457,7 @@ async function processTask(project, task) {
     getOutput: () => rawOutput,
     getCurrentQuestion: () => currentQuestion,
   };
+  activeProcesses.set(projectId, procInfo);
 
   // ── PTY data ──
   ptyProc.onData(chunk => {
@@ -444,15 +479,14 @@ async function processTask(project, task) {
     const silence = Date.now() - lastOutputTime;
     const stripped = stripAnsi(rawOutput);
     const lastLine = getLastMeaningfulLine(stripped);
-    const cp = currentProcess;
 
     // Per-tick warning check
-    if (cp) checkRunningWarnings();
+    checkRunningWarnings(procInfo);
 
     switch (stage) {
 
       case 'initializing': {
-        const elapsed = Date.now() - (cp ? cp.startTime.getTime() : Date.now());
+        const elapsed = Date.now() - procInfo.startTime.getTime();
         const readyByPrompt = silence >= QUESTION_SILENCE_MS && isPromptLine(lastLine);
         const readyByTimeout = elapsed >= PTY_READY_TIMEOUT_MS;
 
@@ -482,14 +516,14 @@ async function processTask(project, task) {
           questionWarnEmitted = false;
           currentQuestion = {
             taskId: task.id,
-            projectId: project.id,
+            projectId,
             question: lastLine,
             context: stripped.slice(-500),
             timestamp: new Date().toISOString(),
             answered: false,
           };
           log(`  Question detected for task [${task.id}]: "${lastLine}"`);
-          writePendingQuestion(currentQuestion);
+          writePendingQuestion(projectId, currentQuestion);
           updateTask(projectPath, task.id, t => {
             addNote(t, 'Worker', `🤔 Claude Code pose une question: ${lastLine}`);
           });
@@ -528,11 +562,11 @@ async function processTask(project, task) {
         }
 
         // Poll for answer file
-        const answer = readPendingAnswer(task.id);
+        const answer = readPendingAnswer(projectId, task.id);
         if (answer) {
           log(`  Answer received for task [${task.id}]: "${answer}"`);
-          clearPendingAnswer();
-          clearPendingQuestion();
+          clearPendingAnswer(projectId);
+          clearPendingQuestion(projectId);
           currentQuestion = null;
           stage = 'running';
           lastOutputTime = Date.now();
@@ -547,11 +581,10 @@ async function processTask(project, task) {
   await completionPromise;
 
   clearInterval(silenceInterval);
-  clearPendingQuestion();
-  clearPendingAnswer();
+  clearPendingQuestion(projectId);
+  clearPendingAnswer(projectId);
 
-  const cp = currentProcess;
-  currentProcess = null;
+  activeProcesses.delete(projectId);
 
   if (shuttingDown) {
     process.exit(0);
@@ -561,13 +594,13 @@ async function processTask(project, task) {
   const truncated = truncateOutput(rawOutput);
   log(`  PTY finished for task [${task.id}] (exitCode=${exitCode}, reason=${exitReason})`);
 
-  if (cp && cp.stoppedManually) {
+  if (procInfo.stoppedManually) {
     updateTask(projectPath, task.id, t => {
       addNote(t, 'Worker', `Stoppée manuellement\n${truncated}`);
       t.status = 'review';
     });
-    addNotification(cp.projectName, cp.taskTitle, task.id, 'in_progress', 'review', '⏹ Tâche stoppée manuellement');
-    pushNotification('task_failed', cp.projectName, task.id, cp.taskTitle, '⏹ Tâche stoppée manuellement');
+    addNotification(procInfo.projectName, procInfo.taskTitle, task.id, 'in_progress', 'review', '⏹ Tâche stoppée manuellement');
+    pushNotification('task_failed', procInfo.projectName, task.id, procInfo.taskTitle, '⏹ Tâche stoppée manuellement');
     log(`Task [${task.id}] → review (stopped manually)`);
     return;
   }
@@ -598,46 +631,20 @@ async function processTask(project, task) {
     if (failed) t.error = true;
   });
 
-  const projectName = cp ? cp.projectName : project.name;
-  const taskTitle = cp ? cp.taskTitle : task.title;
-
   for (const qg of qualityResults) {
     const qgMsg = `Quality gate "${qg.gate}": ${qg.passed ? '✅ PASSED' : '❌ FAILED'}`;
-    pushNotification('quality_gate_result', projectName, task.id, taskTitle, qgMsg);
+    pushNotification('quality_gate_result', procInfo.projectName, task.id, procInfo.taskTitle, qgMsg);
   }
 
   const notifMsg = failed
     ? '❌ Erreur pendant le traitement — en review'
     : '🔍 Traitement terminé — en attente de review';
-  addNotification(projectName, taskTitle, task.id, 'in_progress', 'review', notifMsg);
+  addNotification(procInfo.projectName, procInfo.taskTitle, task.id, 'in_progress', 'review', notifMsg);
   pushNotification(
     failed ? 'task_failed' : 'task_completed',
-    projectName, task.id, taskTitle, notifMsg,
+    procInfo.projectName, task.id, procInfo.taskTitle, notifMsg,
   );
   log(`Task [${task.id}] "${task.title}" → review${failed ? ' (with error)' : ''}`);
-}
-
-// ─── Warning check (called every poll tick while Claude is running) ───────────
-
-function checkRunningWarnings() {
-  if (!currentProcess) return;
-
-  const elapsedMin = Math.floor((Date.now() - currentProcess.startTime.getTime()) / 60_000);
-
-  for (const threshold of WARNING_THRESHOLDS_MIN) {
-    if (elapsedMin >= threshold && !currentProcess.warned.has(threshold)) {
-      currentProcess.warned.add(threshold);
-      const msg = `⚠️ Tâche en cours depuis ${elapsedMin} minutes`;
-      log(`  ${msg} (task [${currentProcess.taskId}])`);
-      try {
-        updateTask(currentProcess.projectPath, currentProcess.taskId, t => {
-          addNote(t, 'Worker', msg);
-        });
-      } catch (err) {
-        logError('Failed to write warning note', err);
-      }
-    }
-  }
 }
 
 // ─── Config loader ────────────────────────────────────────────────────────────
@@ -656,15 +663,18 @@ function loadConfig() {
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
 
 async function pollOnce() {
-  if (currentProcess) {
-    checkRunningWarnings();
-    return;
-  }
-
   const config = loadConfig();
 
   for (const project of config.projects) {
     if (shuttingDown) break;
+
+    const projectId = project.id;
+
+    // If already running for this project, just check warnings and skip
+    if (activeProcesses.has(projectId)) {
+      checkRunningWarnings(activeProcesses.get(projectId));
+      continue;
+    }
 
     const data = readTasks(project.path);
     const queued = data.tasks.filter(t => t.status === 'queued');
@@ -681,10 +691,11 @@ async function pollOnce() {
 
     const task = queued[0];
 
-    // Fire and forget — processTask manages its own lifecycle via currentProcess
+    // Fire and forget — processTask manages its own lifecycle via activeProcesses
     processTask(project, task).catch(err => {
       logError(`Unexpected error in processTask [${task.id}]`, err);
-      if (currentProcess && currentProcess.taskId === task.id) {
+      const proc = activeProcesses.get(projectId);
+      if (proc && proc.taskId === task.id) {
         try {
           updateTask(project.path, task.id, t => {
             addNote(t, 'Worker', `Erreur inattendue: ${err.message || err}`);
@@ -692,12 +703,9 @@ async function pollOnce() {
             t.error = true;
           });
         } catch {}
-        currentProcess = null;
+        activeProcesses.delete(projectId);
       }
     });
-
-    // Only start one task per poll cycle
-    return;
   }
 }
 
@@ -706,7 +714,7 @@ function sleep(ms) {
 }
 
 async function main() {
-  log('Task worker started (PTY interactive mode)');
+  log('Task worker started (PTY interactive mode, parallel per-project)');
   log(`Poll interval: ${POLL_INTERVAL_MS / 1000}s | Quality gate timeout: ${QUALITY_GATE_TIMEOUT_MS / 60000}m`);
   log(`Projects: ${loadConfig().projects.map(p => p.name).join(', ')}`);
   log(`HTTP server on port ${WORKER_PORT}`);
@@ -743,63 +751,101 @@ function startHttpServer() {
   const server = http.createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
 
+    const url = new URL(req.url, 'http://localhost');
+    const pathname = url.pathname;
+    const projectParam = url.searchParams.get('project'); // optional project filter
+
     // ── GET /health ──
-    if (req.method === 'GET' && req.url === '/health') {
+    if (req.method === 'GET' && pathname === '/health') {
       res.writeHead(200);
       res.end(JSON.stringify({ ok: true }));
       return;
     }
 
     // ── GET /status ──
-    if (req.method === 'GET' && req.url === '/status') {
-      if (!currentProcess) {
+    if (req.method === 'GET' && pathname === '/status') {
+      if (activeProcesses.size === 0) {
         res.writeHead(200);
-        res.end(JSON.stringify({ running: false, task: null, pendingQuestion: null }));
+        res.end(JSON.stringify({ running: false, tasks: {}, count: 0 }));
         return;
       }
-      const durationMin = Math.floor((Date.now() - currentProcess.startTime.getTime()) / 60_000);
-      res.writeHead(200);
-      res.end(JSON.stringify({
-        running: true,
-        task: {
-          id: currentProcess.taskId,
-          title: currentProcess.taskTitle,
-          project: currentProcess.projectName,
-          projectId: currentProcess.projectId,
-          startedAt: currentProcess.startTime.toISOString(),
+      const tasks = {};
+      for (const [pid, proc] of activeProcesses) {
+        const durationMin = Math.floor((Date.now() - proc.startTime.getTime()) / 60_000);
+        tasks[pid] = {
+          id: proc.taskId,
+          title: proc.taskTitle,
+          project: proc.projectName,
+          projectId: proc.projectId,
+          startedAt: proc.startTime.toISOString(),
           durationMin,
-          pid: currentProcess.pid,
-        },
-        pendingQuestion: currentProcess.getCurrentQuestion(),
-      }));
+          pid: proc.pid,
+          pendingQuestion: proc.getCurrentQuestion(),
+        };
+      }
+      res.writeHead(200);
+      res.end(JSON.stringify({ running: true, tasks, count: activeProcesses.size }));
       return;
     }
 
     // ── POST /stop ──
-    if (req.method === 'POST' && req.url === '/stop') {
-      if (!currentProcess) {
+    if (req.method === 'POST' && pathname === '/stop') {
+      if (activeProcesses.size === 0) {
         res.writeHead(200);
         res.end(JSON.stringify({ ok: true, message: 'No task running' }));
         return;
       }
-      log(`Manual stop requested for task [${currentProcess.taskId}]`);
-      currentProcess.stoppedManually = true;
-      try { currentProcess.ptyProc.kill(); } catch {}
-      res.writeHead(200);
-      res.end(JSON.stringify({ ok: true, message: 'Stop signal sent' }));
+
+      if (projectParam) {
+        // Stop specific project
+        const proc = activeProcesses.get(projectParam);
+        if (!proc) {
+          res.writeHead(200);
+          res.end(JSON.stringify({ ok: true, message: `No task running for project "${projectParam}"` }));
+          return;
+        }
+        log(`Manual stop requested for task [${proc.taskId}] (project: ${projectParam})`);
+        proc.stoppedManually = true;
+        try { proc.ptyProc.kill(); } catch {}
+        res.writeHead(200);
+        res.end(JSON.stringify({ ok: true, message: `Stop signal sent to "${projectParam}"` }));
+      } else {
+        // Stop all
+        const stopped = [];
+        for (const [pid, proc] of activeProcesses) {
+          log(`Manual stop requested for task [${proc.taskId}] (project: ${pid})`);
+          proc.stoppedManually = true;
+          try { proc.ptyProc.kill(); } catch {}
+          stopped.push(pid);
+        }
+        res.writeHead(200);
+        res.end(JSON.stringify({ ok: true, message: `Stop signal sent to: ${stopped.join(', ')}` }));
+      }
       return;
     }
 
     // ── GET /question ──
-    if (req.method === 'GET' && req.url === '/question') {
-      const question = currentProcess ? currentProcess.getCurrentQuestion() : null;
-      res.writeHead(200);
-      res.end(JSON.stringify({ question }));
+    if (req.method === 'GET' && pathname === '/question') {
+      if (projectParam) {
+        const proc = activeProcesses.get(projectParam);
+        const question = proc ? proc.getCurrentQuestion() : null;
+        res.writeHead(200);
+        res.end(JSON.stringify({ question }));
+      } else {
+        // Return first question found across all projects
+        let question = null;
+        for (const proc of activeProcesses.values()) {
+          const q = proc.getCurrentQuestion();
+          if (q) { question = q; break; }
+        }
+        res.writeHead(200);
+        res.end(JSON.stringify({ question }));
+      }
       return;
     }
 
     // ── POST /answer ──
-    if (req.method === 'POST' && req.url === '/answer') {
+    if (req.method === 'POST' && pathname === '/answer') {
       let body;
       try { body = await readBody(req); } catch {
         res.writeHead(400);
@@ -813,23 +859,31 @@ function startHttpServer() {
         return;
       }
 
-      if (!currentProcess) {
+      if (!body.projectId || typeof body.projectId !== 'string') {
         res.writeHead(400);
-        res.end(JSON.stringify({ error: 'No active task' }));
+        res.end(JSON.stringify({ error: 'Missing projectId field' }));
+        return;
+      }
+
+      const proc = activeProcesses.get(body.projectId);
+      if (!proc) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: `No active task for project "${body.projectId}"` }));
         return;
       }
 
       const answerData = {
-        taskId: currentProcess.taskId,
+        taskId: proc.taskId,
         answer: body.answer,
         timestamp: new Date().toISOString(),
       };
       try {
         ensureDashboardDir();
-        const tmp = `${PENDING_ANSWERS_PATH}.${process.pid}.tmp`;
+        const p = pendingAnswerPath(body.projectId);
+        const tmp = `${p}.${process.pid}.tmp`;
         fs.writeFileSync(tmp, JSON.stringify(answerData, null, 2), 'utf8');
-        fs.renameSync(tmp, PENDING_ANSWERS_PATH);
-        log(`Answer written for task [${currentProcess.taskId}]: "${body.answer}"`);
+        fs.renameSync(tmp, p);
+        log(`Answer written for task [${proc.taskId}] (project: ${body.projectId}): "${body.answer}"`);
         res.writeHead(200);
         res.end(JSON.stringify({ ok: true }));
       } catch (err) {
@@ -841,12 +895,23 @@ function startHttpServer() {
     }
 
     // ── GET /output ──
-    if (req.method === 'GET' && req.url === '/output') {
-      const raw = currentProcess ? currentProcess.getOutput() : '';
-      const stripped = stripAnsi(raw);
-      const last2000 = stripped.slice(-2000);
-      res.writeHead(200);
-      res.end(JSON.stringify({ output: last2000, totalChars: stripped.length }));
+    if (req.method === 'GET' && pathname === '/output') {
+      if (projectParam) {
+        const proc = activeProcesses.get(projectParam);
+        const raw = proc ? proc.getOutput() : '';
+        const stripped = stripAnsi(raw);
+        const last2000 = stripped.slice(-2000);
+        res.writeHead(200);
+        res.end(JSON.stringify({ output: last2000, totalChars: stripped.length }));
+      } else {
+        // Return output for first active process
+        const proc = activeProcesses.values().next().value;
+        const raw = proc ? proc.getOutput() : '';
+        const stripped = stripAnsi(raw);
+        const last2000 = stripped.slice(-2000);
+        res.writeHead(200);
+        res.end(JSON.stringify({ output: last2000, totalChars: stripped.length }));
+      }
       return;
     }
 
