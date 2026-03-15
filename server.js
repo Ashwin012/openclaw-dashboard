@@ -7,7 +7,6 @@ const { promisify } = require('util');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const https = require('https');
 const crypto = require('crypto');
 const WebSocket = require('ws');
 const multer = require('multer');
@@ -18,16 +17,6 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ noServer: true });
 const chatSessions = new Map(); // sessionId -> { projectId, projectPath, model, process, ws, status }
 const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
-
-// ===== OpenClaw Gateway Token =====
-function getGatewayToken() {
-  if (process.env.GATEWAY_TOKEN) return process.env.GATEWAY_TOKEN;
-  if (process.env.OPENCLAW_GATEWAY_TOKEN) return process.env.OPENCLAW_GATEWAY_TOKEN;
-  try {
-    const cfg = JSON.parse(fs.readFileSync('/home/node/.openclaw/openclaw.json', 'utf8'));
-    return cfg?.gateway?.auth?.token || null;
-  } catch { return null; }
-}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -1227,7 +1216,7 @@ app.post('/api/projects/:id/tasks/:taskId/notes', requireAuthOrBearer, (req, res
   res.status(201).json(note);
 });
 
-app.post('/api/projects/:id/tasks/:taskId/dispatch', requireAuth, async (req, res) => {
+app.post('/api/projects/:id/tasks/:taskId/dispatch', requireAuth, (req, res) => {
   const project = config.projects.find(p => p.id === req.params.id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
@@ -1235,42 +1224,14 @@ app.post('/api/projects/:id/tasks/:taskId/dispatch', requireAuth, async (req, re
   const task = tasks.find(t => t.id === req.params.taskId);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
+  const now = new Date().toISOString();
   task.status = 'in_progress';
-  task.updatedAt = new Date().toISOString();
+  task.updatedAt = now;
+  if (!task.notes) task.notes = [];
+  task.notes.push({ author: 'system', text: 'Tâche dispatchée pour traitement automatique', createdAt: now });
   writeTasks(project, tasks);
 
-  const token = getGatewayToken();
-  if (!token) return res.status(500).json({ error: 'Gateway token not configured' });
-
-  const message = `Nouvelle tâche à traiter: ${task.title}. Description: ${task.description || '(aucune)'}. Task ID: ${task.id}. Quand tu as fini, mets à jour la tâche via l'API dashboard.`;
-
-  try {
-    await new Promise((resolve, reject) => {
-      const body = JSON.stringify({ agentId: req.params.id, message });
-      const options = {
-        hostname: 'openclaw.infozen-consulting.com',
-        port: 443,
-        path: '/api/sessions/send',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body),
-          'Authorization': `Bearer ${token}`
-        }
-      };
-      const httpReq = https.request(options, (httpRes) => {
-        httpRes.resume();
-        if (httpRes.statusCode >= 200 && httpRes.statusCode < 300) resolve();
-        else reject(new Error(`Gateway returned ${httpRes.statusCode}`));
-      });
-      httpReq.on('error', reject);
-      httpReq.write(body);
-      httpReq.end();
-    });
-    res.json({ success: true, message: 'Task dispatched' });
-  } catch (err) {
-    res.status(502).json({ error: `Failed to reach gateway: ${err.message}` });
-  }
+  res.json({ success: true });
 });
 
 // ===== /dev route (serve original projects dashboard) =====
