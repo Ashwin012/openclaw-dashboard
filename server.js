@@ -202,11 +202,22 @@ app.get('/api/projects', requireAuth, async (req, res) => {
         const unpushed = await getUnpushedCommits(p, branchName);
         const unpushedHashes = new Set(unpushed.map(c => c.hash));
 
-        // Get last 5 commits with source + push status
+        // Parse uncommitted changes from git status --porcelain
+        const uncommittedChanges = status.trim().split('\n').filter(l => l.trim()).map(line => {
+          const xy = line.substring(0, 2);
+          const file = line.substring(3).trim();
+          let statusCode;
+          if (xy === '??') statusCode = '?';
+          else if (xy[0] !== ' ' && xy[0] !== '?') statusCode = xy[0];
+          else statusCode = xy[1];
+          return { file, status: statusCode };
+        });
+
+        // Get last 10 commits with source + push status
         let recentCommits = [];
         try {
           const { stdout: commitLog } = await execAsync(
-            'git log --format=\'{"hash":"%H","shortHash":"%h","author":"%an","date":"%aI","message":"%s"}\' -5',
+            'git log --format=\'{"hash":"%H","shortHash":"%h","author":"%an","date":"%aI","message":"%s"}\' -10',
             { cwd: p.path }
           );
           const history = readHistory(p);
@@ -230,13 +241,30 @@ app.get('/api/projects', requireAuth, async (req, res) => {
           }
         } catch { /* ignore */ }
 
+        // Stats: commits in last 30 days
+        let totalCommitsLast30 = 0;
+        try {
+          const { stdout: cntRaw } = await execAsync('git log --since="30 days ago" --format="%H"', { cwd: p.path });
+          totalCommitsLast30 = cntRaw.trim().split('\n').filter(l => l.trim()).length;
+        } catch {}
+
+        const stats = {
+          totalCommits: totalCommitsLast30,
+          unpushedCount: unpushed.length,
+          uncommittedCount: uncommittedChanges.length,
+          lastCommitDate: lastLog.trim()
+        };
+
         return {
           ...p,
           branch: branchName,
           pendingChanges: changedFiles,
           unpushedCount: unpushed.length,
+          unpushedCommits: unpushed,
+          uncommittedChanges,
           lastActivity: lastLog.trim(),
           recentCommits,
+          stats,
           accessible: true
         };
       } catch (err) {
