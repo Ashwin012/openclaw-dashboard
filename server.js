@@ -299,32 +299,69 @@ app.get('/api/projects/:id', requireAuth, async (req, res) => {
   const project = config.projects.find(p => p.id === req.params.id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
+  const MAX_FILE_DIFF = 50 * 1024;    // 50KB per file
+  const MAX_TOTAL_DIFF = 512000;       // 500KB total
+  const MAX_FILES = 100;
+
   try {
     const { stdout: branch } = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: project.path });
     const { stdout: statusRaw } = await execAsync('git status --porcelain', { cwd: project.path });
-    const { stdout: diffRaw } = await execAsync('git diff HEAD', { cwd: project.path });
+    const { stdout: diffRaw } = await execAsync(
+      'git diff HEAD -- ":!vendor" ":!node_modules" ":!.next" ":!storage"',
+      { cwd: project.path }
+    );
     const { stdout: diffUntracked } = await execAsync(
       'git ls-files --others --exclude-standard', { cwd: project.path }
     );
 
     const statusLines = statusRaw.trim().split('\n').filter(l => l.trim());
-    const files = statusLines.map(line => {
+    const allFiles = statusLines.map(line => {
       const statusCode = line.substring(0, 2).trim();
       const filePath = line.substring(3).trim();
       return { status: statusCode, path: filePath };
     });
 
-    let fullDiff = diffRaw;
+    // Limit files to 100, add summary entry if truncated
+    const files = allFiles.length > MAX_FILES
+      ? [...allFiles.slice(0, MAX_FILES), { status: '...', path: `(${allFiles.length - MAX_FILES} more files not shown)` }]
+      : allFiles;
+
+    // Apply per-file 50KB limit to tracked file diffs
+    const fileDiffParts = diffRaw.split(/(?=^diff --git )/m).filter(p => p);
+    const processedParts = fileDiffParts.map(part => {
+      if (Buffer.byteLength(part, 'utf8') > MAX_FILE_DIFF) {
+        const headerLines = [];
+        for (const line of part.split('\n')) {
+          if (line.startsWith('@@')) break;
+          headerLines.push(line);
+        }
+        return headerLines.join('\n') + '\n(file diff too large to display)\n';
+      }
+      return part;
+    });
+    let fullDiff = processedParts.join('');
+
+    // Append untracked file diffs, respecting per-file limit
     const untrackedFiles = diffUntracked.trim().split('\n').filter(l => l.trim());
     for (const uf of untrackedFiles) {
       try {
         const content = fs.readFileSync(path.join(project.path, uf), 'utf8');
         const lines = content.split('\n');
-        const diffLines = lines.map(l => `+${l}`).join('\n');
-        fullDiff += `\ndiff --git a/${uf} b/${uf}\nnew file mode 100644\n--- /dev/null\n+++ b/${uf}\n@@ -0,0 +1,${lines.length} @@\n${diffLines}\n`;
+        const header = `\ndiff --git a/${uf} b/${uf}\nnew file mode 100644\n--- /dev/null\n+++ b/${uf}\n@@ -0,0 +1,${lines.length} @@\n`;
+        const body = lines.map(l => `+${l}`).join('\n') + '\n';
+        if (Buffer.byteLength(header + body, 'utf8') > MAX_FILE_DIFF) {
+          fullDiff += header + '(file diff too large to display)\n';
+        } else {
+          fullDiff += header + body;
+        }
       } catch (e) {
         // Binary or unreadable file, skip
       }
+    }
+
+    // Apply 500KB total diff limit
+    if (Buffer.byteLength(fullDiff, 'utf8') > MAX_TOTAL_DIFF) {
+      fullDiff = fullDiff.slice(0, MAX_TOTAL_DIFF) + '\n(diff truncated — too large)\n';
     }
 
     const { stdout: lastLog } = await execAsync('git log -1 --format="%ci|%s"', { cwd: project.path });
