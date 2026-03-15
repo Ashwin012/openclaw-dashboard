@@ -1047,7 +1047,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .col-todo { background: var(--text-subtle); }
 .col-queued { background: #cba6f7; }
 .col-in_progress { background: var(--accent); }
-.col-review { background: var(--purple); }
+.col-review { background: #fab387; }
 .col-done { background: var(--green); }
 .col-blocked { background: var(--red); }
 
@@ -1058,6 +1058,15 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .task-card.queued-card {
   animation: queued-pulse 2s ease-in-out infinite;
   border: 1px solid rgba(203, 166, 247, 0.3);
+}
+
+@keyframes review-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(250, 179, 135, 0); border-color: rgba(250, 179, 135, 0.3); }
+  50% { box-shadow: 0 0 8px 2px rgba(250, 179, 135, 0.4); border-color: rgba(250, 179, 135, 0.8); }
+}
+.task-card.review-card {
+  animation: review-pulse 2s ease-in-out infinite;
+  border: 1px solid rgba(250, 179, 135, 0.3);
 }
 
 .col-count {

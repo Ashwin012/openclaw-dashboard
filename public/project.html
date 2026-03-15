@@ -727,7 +727,7 @@
         { id: 'todo', label: 'Todo' },
         { id: 'queued', label: '⏳ Queued' },
         { id: 'in_progress', label: 'In Progress' },
-        { id: 'review', label: 'Review' },
+        { id: 'review', label: '🔍 Review' },
         { id: 'done', label: 'Done' },
         { id: 'blocked', label: 'Blocked' }
       ];
@@ -758,8 +758,9 @@
         ? task.tags.slice(0, 2).map(tag => `<span class="task-tag">${escapeHtml(tag)}</span>`).join('')
         : '';
       const isQueued = task.status === 'queued';
+      const isReview = task.status === 'review';
       return `
-        <div class="task-card${isQueued ? ' queued-card' : ''}"
+        <div class="task-card${isQueued ? ' queued-card' : ''}${isReview ? ' review-card' : ''}"
           data-task-id="${task.id}"
           draggable="true"
           ondragstart="handleDragStart(event, '${task.id}')"
@@ -768,6 +769,7 @@
           <div class="task-card-top">
             <span class="priority-badge prio-${task.priority}">${task.priority}</span>
             ${isQueued ? '<span style="font-size:11px;color:#cba6f7;margin-left:4px">En attente</span>' : ''}
+            ${isReview ? '<span style="font-size:11px;color:#fab387;margin-left:4px">🔍 En review</span>' : ''}
             ${tagsHtml}
           </div>
           <div class="task-title">${escapeHtml(task.title)}</div>
@@ -824,6 +826,11 @@
           : task.status === 'queued'
           ? `<div class="task-detail-actions">
                <span style="font-size:12px;color:#cba6f7">⏳ En file d'attente — sera traitée au prochain cycle agent</span>
+             </div>`
+          : task.status === 'review'
+          ? `<div class="task-detail-actions">
+               <button class="btn-dispatch-task" onclick="event.stopPropagation(); updateTaskStatus('${taskId}', 'done')" style="background:#0d4429;border-color:#3fb950;color:#3fb950">&#9989; Valider</button>
+               <button class="btn-edit-task" onclick="event.stopPropagation(); updateTaskStatus('${taskId}', 'queued')" style="border-color:#cba6f7;color:#cba6f7">&#128260; Renvoyer</button>
              </div>`
           : '';
 
