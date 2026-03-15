@@ -1,0 +1,16 @@
+{
+  "projects": [
+    {
+      "id": "afdex",
+      "name": "Afdex",
+      "path": "/home/openclaw/projects/afdex",
+      "description": "STO Exchange Platform"
+    },
+    {
+      "id": "champion-spirit",
+      "name": "Champion Spirit",
+      "path": "/home/openclaw/projects/champion-spirit/api",
+      "description": "Fitness Management Platform"
+    }
+  ]
+}

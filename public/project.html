@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Detail — Dev Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo">&#9670; <span>Dev</span>Dashboard</div>
+    <div class="header-spacer"></div>
+    <button class="btn-logout" id="logoutBtn">Sign out</button>
+  </header>
+
+  <div class="container">
+    <div class="breadcrumb">
+      <a href="/dashboard.html">&#8592; Projects</a>
+    </div>
+
+    <div id="content">
+      <div class="loading"><div class="spinner"></div> Loading project...</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html.min.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const projectId = params.get('id');
+    let currentView = 'unified';
+    let projectData = null;
+    let activeTab = 'changes';
+    let historyCache = null;
+    let unpushedCache = null;
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast toast-${type} show`;
+      setTimeout(() => { t.className = 'toast'; }, 3500);
+    }
+
+    function getStatusClass(status) {
+      if (status === 'M' || status === 'MM') return 'status-M';
+      if (status === 'A' || status === '??') return 'status-A';
+      if (status === 'D') return 'status-D';
+      return 'status-?';
+    }
+
+    function getStatusLabel(status) {
+      if (status.includes('M')) return 'M';
+      if (status.includes('A') || status === '??') return 'A';
+      if (status.includes('D')) return 'D';
+      return '?';
+    }
+
+    function renderDiff(diff, view) {
+      if (!diff || !diff.trim()) {
+        return '<div class="empty-state" style="padding:32px"><div class="icon">&#10003;</div><h3>No changes to display</h3></div>';
+      }
+      try {
+        const outputFormat = view === 'side-by-side' ? 'side-by-side' : 'line-by-line';
+        const diffJson = Diff2Html.parse(diff);
+        const html = Diff2Html.html(diffJson, {
+          drawFileList: false,
+          matching: 'lines',
+          outputFormat,
+          highlight: true,
+          renderNothingWhenEmpty: false
+        });
+        return html;
+      } catch (e) {
+        return `<pre style="padding:16px;color:var(--text-muted);font-size:12px;overflow:auto">${escapeHtml(diff)}</pre>`;
+      }
+    }
+
+    function formatDateTime(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso);
+      return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    function actionLabel(action) {
+      if (action === 'approved') return '<span class="hist-badge hist-approved">Approved</span>';
+      if (action === 'rejected') return '<span class="hist-badge hist-rejected">Rejected</span>';
+      if (action === 'instructed') return '<span class="hist-badge hist-instructed">Instructed</span>';
+      return `<span class="hist-badge">${escapeHtml(action)}</span>`;
+    }
+
+    function renderHistoryEntry(entry, index) {
+      const hasDiff = entry.action === 'approved' && entry.diff && entry.diff.trim();
+      const diffId = `hist-diff-${index}`;
+      const filesHtml = entry.files && entry.files.length
+        ? entry.files.map(f => `<span class="hist-file"><span class="file-status ${getStatusClass(f.status)}">${getStatusLabel(f.status)}</span> ${escapeHtml(f.path)}</span>`).join('')
+        : '<span style="color:var(--text-subtle);font-size:12px">No files recorded</span>';
+
+      return `
+        <div class="hist-entry">
+          <div class="hist-entry-header">
+            <div class="hist-meta">
+              ${actionLabel(entry.action)}
+              <span class="hist-time">&#128336; ${formatDateTime(entry.timestamp)}</span>
+              <span class="hist-user" title="User">&#128100; ${escapeHtml(entry.user || 'admin')}</span>
+            </div>
+            ${hasDiff ? `<button class="btn-toggle-diff" onclick="toggleDiff('${diffId}', this)">&#128269; Show diff</button>` : ''}
+          </div>
+          ${entry.message ? `<div class="hist-message">${escapeHtml(entry.message)}</div>` : ''}
+          <div class="hist-files">${filesHtml}</div>
+          ${hasDiff ? `<div class="hist-diff-wrap" id="${diffId}" style="display:none">${renderDiff(entry.diff, 'unified')}</div>` : ''}
+        </div>`;
+    }
+
+    function toggleDiff(id, btn) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const hidden = el.style.display === 'none';
+      el.style.display = hidden ? 'block' : 'none';
+      btn.textContent = hidden ? '&#128269; Hide diff' : '&#128269; Show diff';
+      btn.innerHTML = hidden ? '&#128269; Hide diff' : '&#128269; Show diff';
+    }
+
+    function renderHistoryTab(entries) {
+      if (!entries || !entries.length) {
+        return '<div class="empty-state" style="padding:48px"><div class="icon">&#128203;</div><h3>No history yet</h3><p>Actions (approve, reject, instruct) will be recorded here.</p></div>';
+      }
+      return `<div class="hist-list">${entries.map((e, i) => renderHistoryEntry(e, i)).join('')}</div>`;
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      document.getElementById('tab-changes').classList.toggle('active', tab === 'changes');
+      document.getElementById('tab-unpushed').classList.toggle('active', tab === 'unpushed');
+      document.getElementById('tab-history').classList.toggle('active', tab === 'history');
+      document.getElementById('changesPane').style.display = tab === 'changes' ? '' : 'none';
+      document.getElementById('unpushedPane').style.display = tab === 'unpushed' ? '' : 'none';
+      const histPane = document.getElementById('historyPane');
+      histPane.style.display = tab === 'history' ? '' : 'none';
+      if (tab === 'history' && historyCache === null) loadHistory();
+      if (tab === 'unpushed' && unpushedCache === null) loadUnpushed();
+    }
+
+    async function loadHistory() {
+      const histPane = document.getElementById('historyPane');
+      histPane.innerHTML = '<div class="loading"><div class="spinner"></div> Loading history...</div>';
+      try {
+        const res = await fetch(`/api/projects/${projectId}/history`);
+        if (!res.ok) throw new Error('Failed to load history');
+        historyCache = await res.json();
+        histPane.innerHTML = renderHistoryTab(historyCache);
+      } catch (err) {
+        histPane.innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load history</h3><p>${escapeHtml(err.message)}</p></div>`;
+      }
+    }
+
+    function renderUnpushedEntry(commit, index) {
+      const shortHash = commit.hash ? commit.hash.substring(0, 7) : '?';
+      const diffId = `unpushed-diff-${index}`;
+      const hasDiff = commit.diff && commit.diff.trim();
+      return `
+        <div class="hist-entry">
+          <div class="hist-entry-header">
+            <div class="hist-meta">
+              <code class="commit-hash">${escapeHtml(shortHash)}</code>
+              <span class="hist-user">&#128100; ${escapeHtml(commit.author)}</span>
+              <span class="hist-time">&#128336; ${formatDateTime(commit.date)}</span>
+            </div>
+            ${hasDiff ? `<button class="btn-toggle-diff" onclick="toggleDiff('${diffId}', this)">&#128269; Show diff</button>` : ''}
+          </div>
+          <div class="hist-message">${escapeHtml(commit.message)}</div>
+          ${hasDiff ? `<div class="hist-diff-wrap" id="${diffId}" style="display:none">${renderDiff(commit.diff, 'unified')}</div>` : ''}
+        </div>`;
+    }
+
+    async function loadUnpushed() {
+      const pane = document.getElementById('unpushedPane');
+      pane.innerHTML = '<div class="loading"><div class="spinner"></div> Loading unpushed commits...</div>';
+      try {
+        const res = await fetch(`/api/projects/${projectId}/unpushed`);
+        if (!res.ok) throw new Error('Failed to load unpushed commits');
+        unpushedCache = await res.json();
+        if (!unpushedCache.length) {
+          pane.innerHTML = '<div class="empty-state" style="padding:48px"><div class="icon">&#10003;</div><h3>All commits pushed</h3><p>Nothing waiting to be pushed to remote.</p></div>';
+          return;
+        }
+        pane.innerHTML = `
+          <div class="unpushed-actions">
+            <span class="unpushed-count">${unpushedCache.length} commit${unpushedCache.length !== 1 ? 's' : ''} ahead of remote</span>
+            <button class="btn btn-push" id="pushBtn" onclick="pushCommits()">&#8593; Push</button>
+          </div>
+          <div class="hist-list">${unpushedCache.map((c, i) => renderUnpushedEntry(c, i)).join('')}</div>`;
+      } catch (err) {
+        pane.innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load</h3><p>${escapeHtml(err.message)}</p></div>`;
+      }
+    }
+
+    async function pushCommits() {
+      const btn = document.getElementById('pushBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Pushing...'; }
+      try {
+        const res = await fetch(`/api/projects/${projectId}/push`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('Pushed successfully');
+          unpushedCache = null;
+          loadUnpushed();
+        } else {
+          showToast(data.error || 'Push failed', 'error');
+          if (btn) { btn.disabled = false; btn.innerHTML = '&#8593; Push'; }
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+        if (btn) { btn.disabled = false; btn.innerHTML = '&#8593; Push'; }
+      }
+    }
+
+    function renderPage(data) {
+      projectData = data;
+      const hasChanges = data.files && data.files.length > 0;
+
+      document.title = `${data.name} — Dev Dashboard`;
+
+      const fileTree = data.files && data.files.length
+        ? data.files.map(f => `
+            <div class="file-tree-item" onclick="scrollToFile('${escapeHtml(f.path)}')">
+              <span class="file-status ${getStatusClass(f.status)}">${getStatusLabel(f.status)}</span>
+              <span>${escapeHtml(f.path)}</span>
+            </div>`).join('')
+        : '<div style="color:var(--text-subtle);font-size:12px;padding:4px">No changed files</div>';
+
+      document.getElementById('content').innerHTML = `
+        <div class="project-header">
+          <div class="project-header-left">
+            <h1>${escapeHtml(data.name)}</h1>
+            <div class="desc">${escapeHtml(data.description)} &mdash; <code style="font-size:12px;color:var(--text-muted)">${escapeHtml(data.branch)}</code></div>
+          </div>
+          <span class="badge ${hasChanges ? 'badge-pending' : 'badge-clean'}">
+            ${hasChanges ? `${data.files.length} file${data.files.length !== 1 ? 's' : ''} changed` : 'Clean'}
+          </span>
+        </div>
+
+        <div class="tab-bar">
+          <button class="tab-btn ${activeTab === 'changes' ? 'active' : ''}" id="tab-changes" onclick="switchTab('changes')">&#127381; Changes</button>
+          <button class="tab-btn ${activeTab === 'unpushed' ? 'active' : ''}" id="tab-unpushed" onclick="switchTab('unpushed')">&#8593; Unpushed</button>
+          <button class="tab-btn ${activeTab === 'history' ? 'active' : ''}" id="tab-history" onclick="switchTab('history')">&#128203; History</button>
+        </div>
+
+        <div id="changesPane" style="${activeTab !== 'changes' ? 'display:none' : ''}">
+          <div class="project-layout">
+            <aside>
+              <div class="file-tree">
+                <h3>Changed Files</h3>
+                ${fileTree}
+              </div>
+            </aside>
+
+            <div class="diff-panel">
+              ${hasChanges ? `
+              <div class="actions-bar">
+                <h3>Actions</h3>
+                <div class="actions-row">
+                  <button class="btn btn-approve" onclick="showCommitForm()">&#10003; Approve &amp; Commit</button>
+                  <button class="btn btn-reject" onclick="rejectChanges()">&#10007; Reject Changes</button>
+                  <button class="btn btn-instruct" onclick="showInstructForm()">&#9998; Instruct</button>
+                </div>
+
+                <div class="commit-form" id="commitForm">
+                  <input type="text" id="commitMsg" placeholder="Commit message..." />
+                  <div class="form-btns">
+                    <button class="btn-submit" onclick="submitCommit()">Commit</button>
+                    <button class="btn-cancel" onclick="hideCommitForm()">Cancel</button>
+                  </div>
+                </div>
+
+                <div class="instruct-form" id="instructForm">
+                  <textarea id="instructText" placeholder="Enter instructions for the agent..."></textarea>
+                  <div class="form-btns">
+                    <button class="btn-submit" onclick="submitInstruct()">Save Instruction</button>
+                    <button class="btn-cancel" onclick="hideInstructForm()">Cancel</button>
+                  </div>
+                </div>
+              </div>
+              ` : ''}
+
+              <div class="diff-container">
+                <div class="diff-header">
+                  <h3>Diff</h3>
+                  <div class="view-toggle">
+                    <button class="view-btn active" id="btnUnified" onclick="setView('unified')">Unified</button>
+                    <button class="view-btn" id="btnSide" onclick="setView('side-by-side')">Side by side</button>
+                  </div>
+                </div>
+                <div class="diff-body" id="diffBody">
+                  ${renderDiff(data.diff, currentView)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="unpushedPane" style="${activeTab === 'unpushed' ? '' : 'display:none'}">
+          <div class="loading"><div class="spinner"></div> Loading unpushed commits...</div>
+        </div>
+
+        <div id="historyPane" style="${activeTab === 'history' ? '' : 'display:none'}">
+          <div class="loading"><div class="spinner"></div> Loading history...</div>
+        </div>`;
+
+      if (activeTab === 'history' && historyCache === null) loadHistory();
+      if (activeTab === 'unpushed' && unpushedCache === null) loadUnpushed();
+    }
+
+    function setView(view) {
+      currentView = view;
+      document.getElementById('btnUnified').classList.toggle('active', view === 'unified');
+      document.getElementById('btnSide').classList.toggle('active', view === 'side-by-side');
+      if (projectData) {
+        document.getElementById('diffBody').innerHTML = renderDiff(projectData.diff, view);
+      }
+    }
+
+    function scrollToFile(filePath) {
+      const els = document.querySelectorAll('.d2h-file-name');
+      for (const el of els) {
+        if (el.textContent.includes(filePath)) {
+          el.closest('.d2h-file-wrapper')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+      }
+    }
+
+    function showCommitForm() {
+      document.getElementById('commitForm').classList.add('visible');
+      document.getElementById('instructForm').classList.remove('visible');
+      document.getElementById('commitMsg').focus();
+    }
+    function hideCommitForm() {
+      document.getElementById('commitForm').classList.remove('visible');
+    }
+    function showInstructForm() {
+      document.getElementById('instructForm').classList.add('visible');
+      document.getElementById('commitForm').classList.remove('visible');
+      document.getElementById('instructText').focus();
+    }
+    function hideInstructForm() {
+      document.getElementById('instructForm').classList.remove('visible');
+    }
+
+    async function submitCommit() {
+      const msg = document.getElementById('commitMsg').value.trim();
+      if (!msg) { showToast('Please enter a commit message', 'error'); return; }
+      try {
+        const res = await fetch(`/api/projects/${projectId}/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          historyCache = null;
+          unpushedCache = null;
+          showToast('Changes committed successfully');
+          setTimeout(() => loadProject(), 1000);
+        } else {
+          showToast(data.error || 'Commit failed', 'error');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function rejectChanges() {
+      if (!confirm('Discard all changes? This cannot be undone.')) return;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/reject`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          historyCache = null; // invalidate history cache
+          showToast('Changes discarded');
+          setTimeout(() => loadProject(), 1000);
+        } else {
+          showToast(data.error || 'Reject failed', 'error');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function submitInstruct() {
+      const instruction = document.getElementById('instructText').value.trim();
+      if (!instruction) { showToast('Please enter an instruction', 'error'); return; }
+      try {
+        const res = await fetch(`/api/projects/${projectId}/instruct`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ instruction })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          historyCache = null; // invalidate history cache
+          showToast('Instruction saved');
+          document.getElementById('instructText').value = '';
+          hideInstructForm();
+        } else {
+          showToast(data.error || 'Failed to save instruction', 'error');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function loadProject() {
+      if (!projectId) {
+        document.getElementById('content').innerHTML = '<div class="empty-state"><h3>No project specified</h3></div>';
+        return;
+      }
+      try {
+        const res = await fetch(`/api/projects/${projectId}`);
+        if (res.status === 401) { window.location.href = '/login.html'; return; }
+        if (!res.ok) {
+          const d = await res.json();
+          document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Error</h3><p>${escapeHtml(d.error)}</p></div>`;
+          return;
+        }
+        const data = await res.json();
+        renderPage(data);
+      } catch (err) {
+        document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load</h3><p>${escapeHtml(err.message)}</p></div>`;
+      }
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.href = '/login.html';
+    });
+
+    // Auth check + load
+    fetch('/api/session').then(r => r.json()).then(d => {
+      if (!d.authenticated) window.location.href = '/login.html';
+      else loadProject();
+    });
+  </script>
+</body>
+</html>

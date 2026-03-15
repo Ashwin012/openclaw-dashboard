@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dev Dashboard — Login</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="login-wrapper">
+    <div class="login-card">
+      <h1>Dev Dashboard</h1>
+      <p class="subtitle">Git diff review for Claude Code changes</p>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter password" autofocus required>
+        </div>
+        <button type="submit" class="btn-primary">Sign in</button>
+        <div class="error-msg" id="errorMsg">Invalid password. Please try again.</div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Redirect if already authenticated
+    fetch('/api/session')
+      .then(r => r.json())
+      .then(d => { if (d.authenticated) window.location.href = '/dashboard.html'; });
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('errorMsg');
+      errorMsg.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          window.location.href = '/dashboard.html';
+        } else {
+          errorMsg.textContent = data.error || 'Invalid password';
+          errorMsg.style.display = 'block';
+        }
+      } catch (err) {
+        errorMsg.textContent = 'Network error. Please try again.';
+        errorMsg.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>

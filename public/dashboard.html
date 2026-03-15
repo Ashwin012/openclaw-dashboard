@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dev Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo">&#9670; <span>Dev</span>Dashboard</div>
+    <div class="header-spacer"></div>
+    <button class="btn-logout" id="logoutBtn">Sign out</button>
+  </header>
+
+  <div class="container">
+    <h1 class="page-title">Projects</h1>
+    <p class="page-subtitle">Select a project to review pending changes</p>
+
+    <div id="content">
+      <div class="loading"><div class="spinner"></div> Loading projects...</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    function requireAuth() {
+      fetch('/api/session').then(r => r.json()).then(d => {
+        if (!d.authenticated) window.location.href = '/login.html';
+      });
+    }
+
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast toast-${type} show`;
+      setTimeout(() => { t.className = 'toast'; }, 3000);
+    }
+
+    function timeAgo(dateStr) {
+      if (!dateStr) return 'unknown';
+      const d = new Date(dateStr);
+      const diff = Date.now() - d.getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(hrs / 24);
+      return `${days}d ago`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function activityIcon(action) {
+      if (action === 'approved') return '&#10003;';
+      if (action === 'rejected') return '&#10007;';
+      if (action === 'instructed') return '&#9998;';
+      return '&#8226;';
+    }
+
+    function activityClass(action) {
+      if (action === 'approved') return 'act-approved';
+      if (action === 'rejected') return 'act-rejected';
+      if (action === 'instructed') return 'act-instructed';
+      return '';
+    }
+
+    function renderRecentActivity(activity) {
+      if (!activity || !activity.length) return '';
+      const items = activity.map(a => `
+        <div class="act-item ${activityClass(a.action)}">
+          <span class="act-icon">${activityIcon(a.action)}</span>
+          <span class="act-text">${escapeHtml(a.message || a.action)}</span>
+          <span class="act-time">${timeAgo(a.timestamp)}</span>
+        </div>`).join('');
+      return `<div class="recent-activity"><div class="act-label">Recent activity</div>${items}</div>`;
+    }
+
+    async function loadProjects() {
+      try {
+        const res = await fetch('/api/projects');
+        if (res.status === 401) { window.location.href = '/login.html'; return; }
+        const projects = await res.json();
+
+        const content = document.getElementById('content');
+
+        if (!projects.length) {
+          content.innerHTML = '<div class="empty-state"><div class="icon">&#128193;</div><h3>No projects configured</h3><p>Add projects to config.json</p></div>';
+          return;
+        }
+
+        content.innerHTML = `<div class="projects-grid">${projects.map(p => {
+          const badgeClass = !p.accessible ? 'badge-error' : p.pendingChanges > 0 ? 'badge-pending' : 'badge-clean';
+          const badgeText = !p.accessible ? 'Error' : p.pendingChanges > 0 ? `${p.pendingChanges} pending` : 'Clean';
+          const unpushedBadge = p.accessible && p.unpushedCount > 0
+            ? `<span class="badge badge-unpushed">${p.unpushedCount} unpushed</span>`
+            : '';
+
+          return `<a class="project-card" href="/project.html?id=${p.id}">
+            <div class="project-card-header">
+              <div class="project-name">${escapeHtml(p.name)}</div>
+              <div class="project-badges">
+                <span class="badge ${badgeClass}">${badgeText}</span>
+                ${unpushedBadge}
+              </div>
+            </div>
+            <div class="project-desc">${escapeHtml(p.description)}</div>
+            <div class="project-meta">
+              <span>&#9135; ${escapeHtml(p.branch || 'unknown')}</span>
+              <span>&#128336; ${timeAgo(p.lastActivity)}</span>
+              <span style="word-break:break-all;font-size:11px;color:var(--text-subtle)">${escapeHtml(p.path)}</span>
+            </div>
+            ${renderRecentActivity(p.recentActivity)}
+          </a>`;
+        }).join('')}</div>`;
+      } catch (err) {
+        document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load projects</h3><p>${err.message}</p></div>`;
+      }
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.href = '/login.html';
+    });
+
+    requireAuth();
+    loadProjects();
+  </script>
+</body>
+</html>
