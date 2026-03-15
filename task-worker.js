@@ -677,7 +677,7 @@ async function pollOnce() {
     }
 
     const data = readTasks(project.path);
-    const queued = data.tasks.filter(t => t.status === 'queued');
+    const queued = (data.tasks || []).filter(t => t.status === 'queued');
     if (queued.length === 0) continue;
 
     log(`Project "${project.name}": ${queued.length} queued task(s)`);
@@ -713,12 +713,34 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+
+// ─── Startup recovery: reset orphaned in_progress tasks ─────────────────────
+function recoverOrphanedTasks() {
+  const config = loadConfig();
+  for (const project of config.projects) {
+    const data = readTasks(project.path);
+    let changed = false;
+    for (const task of (data.tasks || [])) {
+      if (task.status === 'in_progress') {
+        log(`Recovery: resetting orphaned task [${task.id.slice(0,8)}] in ${project.name} back to queued`);
+        task.status = 'queued';
+        addNote(task, 'Worker', '🔄 Tâche remise en queue après redémarrage du worker');
+        changed = true;
+      }
+    }
+    if (changed) {
+      writeTasks(project.path, data.tasks || []);
+    }
+  }
+}
+
 async function main() {
   log('Task worker started (PTY interactive mode, parallel per-project)');
   log(`Poll interval: ${POLL_INTERVAL_MS / 1000}s | Quality gate timeout: ${QUALITY_GATE_TIMEOUT_MS / 60000}m`);
   log(`Projects: ${loadConfig().projects.map(p => p.name).join(', ')}`);
   log(`HTTP server on port ${WORKER_PORT}`);
 
+  recoverOrphanedTasks();
   startHttpServer();
 
   while (!shuttingDown) {

@@ -17,6 +17,33 @@
       "toStatus": "in_progress",
       "message": "🔄 Début du traitement par le worker",
       "timestamp": "2026-03-15T19:49:08.485Z"
+    },
+    {
+      "projectName": "Afdex",
+      "taskTitle": "Audit de sécurité complet de la plateforme",
+      "taskId": "7066373c-4acb-45c7-b565-c822319f9b24",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-03-15T19:54:11.134Z"
+    },
+    {
+      "projectName": "Champion Spirit",
+      "taskTitle": "Corriger les 34 tests Pest en échec",
+      "taskId": "626e5a22-19ce-4d12-a28f-ca58b9577b0c",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-03-15T19:56:19.312Z"
+    },
+    {
+      "projectName": "Afdex",
+      "taskTitle": "Audit de sécurité complet de la plateforme",
+      "taskId": "7066373c-4acb-45c7-b565-c822319f9b24",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-03-15T19:56:49.321Z"
     }
   ]
 }
