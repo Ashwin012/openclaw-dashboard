@@ -661,6 +661,34 @@
       }
     }
 
+    // ===== Worker status =====
+
+    let workerStatus = null; // { running, task } or null
+
+    async function pollWorkerStatus() {
+      try {
+        const res = await fetch('/api/worker/status');
+        if (res.ok) workerStatus = await res.json();
+      } catch { workerStatus = null; }
+    }
+
+    async function stopWorker() {
+      if (!confirm('Stopper la tâche en cours ?')) return;
+      try {
+        const res = await fetch('/api/worker/stop', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('Signal d\'arrêt envoyé');
+          workerStatus = null;
+          setTimeout(() => loadTasks(), 2000);
+        } else {
+          showToast(data.error || 'Erreur', 'error');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
     // ===== Task Manager =====
 
     function timeAgo(iso) {
@@ -759,8 +787,17 @@
         : '';
       const isQueued = task.status === 'queued';
       const isReview = task.status === 'review';
+      const isInProgress = task.status === 'in_progress';
+
+      // Duration from worker status if this task is the one running
+      let durationHtml = '';
+      if (isInProgress && workerStatus && workerStatus.running && workerStatus.task && workerStatus.task.id === task.id) {
+        const dur = workerStatus.task.durationMin;
+        durationHtml = `<span style="font-size:11px;color:#89dceb;margin-left:4px">En cours depuis ${dur} min</span>`;
+      }
+
       return `
-        <div class="task-card${isQueued ? ' queued-card' : ''}${isReview ? ' review-card' : ''}"
+        <div class="task-card${isQueued ? ' queued-card' : ''}${isReview ? ' review-card' : ''}${isInProgress ? ' in-progress-card' : ''}"
           data-task-id="${task.id}"
           draggable="true"
           ondragstart="handleDragStart(event, '${task.id}')"
@@ -770,6 +807,8 @@
             <span class="priority-badge prio-${task.priority}">${task.priority}</span>
             ${isQueued ? '<span style="font-size:11px;color:#cba6f7;margin-left:4px">En attente</span>' : ''}
             ${isReview ? '<span style="font-size:11px;color:#fab387;margin-left:4px">🔍 En review</span>' : ''}
+            ${isInProgress ? '<span style="font-size:11px;color:#89dceb;margin-left:4px">⚙️ En cours</span>' : ''}
+            ${durationHtml}
             ${tagsHtml}
           </div>
           <div class="task-title">${escapeHtml(task.title)}</div>
@@ -826,6 +865,10 @@
           : task.status === 'queued'
           ? `<div class="task-detail-actions">
                <span style="font-size:12px;color:#cba6f7">⏳ En file d'attente — sera traitée au prochain cycle agent</span>
+             </div>`
+          : task.status === 'in_progress'
+          ? `<div class="task-detail-actions">
+               <button class="btn-edit-task" onclick="event.stopPropagation(); stopWorker()" style="background:#3b0808;border-color:#f38ba8;color:#f38ba8">&#9209; Stopper</button>
              </div>`
           : task.status === 'review'
           ? `<div class="task-detail-actions">
@@ -1144,7 +1187,16 @@
     // Auth check + load
     fetch('/api/session').then(r => r.json()).then(d => {
       if (!d.authenticated) window.location.href = '/login.html';
-      else loadProject();
+      else {
+        loadProject();
+        // Poll worker status every 15s to update in_progress card durations
+        pollWorkerStatus();
+        setInterval(async () => {
+          await pollWorkerStatus();
+          // Re-render kanban if tasks tab is active so duration updates
+          if (tasksCache && document.getElementById('kanbanBoard')) renderKanban();
+        }, 15_000);
+      }
     });
   </script>
 </body>

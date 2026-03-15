@@ -1380,6 +1380,37 @@ app.delete('/api/news/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// ===== Worker proxy endpoints =====
+
+const WORKER_URL = 'http://127.0.0.1:8091';
+
+function proxyWorkerRequest(method, workerPath, res) {
+  const req = http.request(`${WORKER_URL}${workerPath}`, { method }, workerRes => {
+    let body = '';
+    workerRes.on('data', chunk => { body += chunk; });
+    workerRes.on('end', () => {
+      res.status(workerRes.statusCode).set('Content-Type', 'application/json').send(body);
+    });
+  });
+  req.on('error', err => {
+    // Worker not running
+    if (workerPath === '/status') {
+      res.json({ running: false, task: null });
+    } else {
+      res.status(503).json({ error: 'Worker not available', detail: err.message });
+    }
+  });
+  req.end();
+}
+
+app.get('/api/worker/status', requireAuth, (req, res) => {
+  proxyWorkerRequest('GET', '/status', res);
+});
+
+app.post('/api/worker/stop', requireAuth, (req, res) => {
+  proxyWorkerRequest('POST', '/stop', res);
+});
+
 const PORT = process.env.PORT || 8090;
 server.listen(PORT, () => {
   console.log(`Dev Dashboard running on http://localhost:${PORT}`);
