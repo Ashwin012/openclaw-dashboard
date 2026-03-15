@@ -856,10 +856,11 @@
     async function loadSessions() {
       try {
         const res = await fetch(`/api/projects/${projectId}/chat/sessions`);
-        if (!res.ok) return;
+        if (!res.ok) return [];
         const sessions = await res.json();
         renderSessionsList(sessions);
-      } catch (e) {}
+        return sessions;
+      } catch (e) { return []; }
     }
 
     function renderSessionsList(sessions) {
@@ -1692,10 +1693,10 @@
         }
       } catch (e) {}
 
-      // Load session list in sidebar
-      await loadSessions();
+      // Load session list in sidebar (always from API, not localStorage)
+      const sessions = await loadSessions();
 
-      // Auto-reconnect stored session
+      // Auto-reconnect stored session from localStorage
       const storedSessionId = localStorage.getItem(storageKey('sessionId'));
       if (storedSessionId) {
         try {
@@ -1709,11 +1710,13 @@
         localStorage.removeItem(storageKey('sessionId'));
       }
 
-      // Collapse sidebar on mobile by default
-      if (window.innerWidth <= 768) {
-        sidebarCollapsed = true;
-        document.getElementById('sessionsSidebar').classList.add('collapsed');
+      // No localStorage session (e.g. after domain switch to https) — auto-load the most recent session from API
+      if (sessions && sessions.length > 0) {
+        await selectSession(sessions[0].id);
+        return;
       }
+
+      // No sessions at all — sidebar stays open so user can see it's empty
     }
 
     fetch('/api/session').then(r => r.json()).then(d => {
