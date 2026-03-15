@@ -21,7 +21,7 @@
     }
     .home-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
     .home-header .clock { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-    .header-nav { display: flex; gap: 8px; align-items: center; }
+    .header-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
     .btn-nav {
       padding: 5px 12px;
@@ -48,6 +48,52 @@
       cursor: pointer;
     }
     .btn-logout-home:hover { color: var(--red); border-color: var(--red); }
+
+    /* Hamburger button — hidden on desktop */
+    .hamburger-btn {
+      display: none;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 18px;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .hamburger-btn:hover { background: var(--bg-hover); }
+
+    /* Mobile dropdown menu */
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 56px;
+      left: 0;
+      right: 0;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 99;
+      flex-direction: column;
+      padding: 8px 16px 12px;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu .btn-nav {
+      padding: 10px 14px;
+      font-size: 14px;
+      width: 100%;
+      justify-content: flex-start;
+    }
+    .mobile-menu .btn-logout-home {
+      padding: 10px 14px;
+      font-size: 14px;
+      width: 100%;
+      text-align: left;
+    }
 
     .home-main { max-width: 1400px; margin: 0 auto; padding: 20px; }
 
@@ -392,23 +438,58 @@
       .stats-bar { grid-template-columns: repeat(2, 1fr); }
       .quick-links { grid-template-columns: repeat(2, 1fr); }
     }
+    @media (max-width: 768px) {
+      .home-header {
+        height: auto;
+        padding: 10px 16px;
+        flex-wrap: wrap;
+        row-gap: 4px;
+      }
+      .home-header .logo {
+        font-size: 1.1rem;
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .home-header .clock {
+        font-size: 12px;
+        width: 100%;
+        order: 2;
+        padding-bottom: 2px;
+      }
+      /* Hide regular nav, show hamburger */
+      .header-nav { display: none; }
+      .hamburger-btn { display: inline-flex; }
+      /* Adjust dropdown top to match dynamic header height */
+      .mobile-menu { top: 72px; }
+    }
+
     @media (max-width: 500px) {
       .stats-bar { grid-template-columns: 1fr 1fr; }
       .quick-links { grid-template-columns: 1fr 1fr; }
-      .home-header .clock { display: none; }
     }
   </style>
 </head>
 <body>
   <header class="home-header">
     <div class="logo">🏠 Dashboard Ashwin</div>
-    <div class="clock" id="clock">--:--:--</div>
+    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
     <nav class="header-nav">
       <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
       <a href="https://openclaw.infozen-consulting.com" class="btn-nav" target="_blank">⚡ OpenClaw</a>
       <button class="btn-logout-home" id="logoutBtn">Déconnexion</button>
     </nav>
+    <div class="clock" id="clock">--:--:--</div>
   </header>
+
+  <!-- Mobile dropdown menu -->
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
+    <a href="https://openclaw.infozen-consulting.com" class="btn-nav" target="_blank">⚡ OpenClaw</a>
+    <button class="btn-logout-home" id="logoutBtnMobile">Déconnexion</button>
+  </div>
 
   <main class="home-main">
     <!-- Stats bar -->
@@ -587,9 +668,24 @@
       if (!d.authenticated) window.location.href = '/login.html';
     });
 
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
+    async function doLogout() {
       await fetch('/api/logout', { method: 'POST' });
       window.location.href = '/login.html';
+    }
+    document.getElementById('logoutBtn').addEventListener('click', doLogout);
+    document.getElementById('logoutBtnMobile').addEventListener('click', doLogout);
+
+    // ===== Hamburger menu =====
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+    hamburgerBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      mobileMenu.classList.toggle('open');
+    });
+    document.addEventListener('click', e => {
+      if (!mobileMenu.contains(e.target) && e.target !== hamburgerBtn) {
+        mobileMenu.classList.remove('open');
+      }
     });
 
     // ===== Clock (UTC+4 Mauritius) =====
