@@ -10,6 +10,12 @@ const http = require('http');
 const crypto = require('crypto');
 const WebSocket = require('ws');
 const multer = require('multer');
+const {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} = require('@simplewebauthn/server');
 
 const execAsync = promisify(exec);
 const app = express();
@@ -184,6 +190,154 @@ app.post('/api/profile/password', requireAuth, async (req, res) => {
     fs.writeFileSync(envPath, envContent, 'utf8');
     // Update in-memory env
     process.env.AUTH_PASSWORD_HASH = newHash;
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===== Passkeys (WebAuthn) =====
+
+const PASSKEYS_FILE = path.join(__dirname, '.dashboard', 'passkeys.json');
+const RP_ID = 'dashboard.infozen-consulting.com';
+const RP_NAME = 'Dev Dashboard';
+const ORIGIN = 'https://dashboard.infozen-consulting.com';
+const passkeyChallenge = new Map(); // 'registration' | 'authentication' -> { challenge, timestamp }
+
+function loadPasskeys() {
+  if (!fs.existsSync(PASSKEYS_FILE)) return { credentials: [] };
+  try { return JSON.parse(fs.readFileSync(PASSKEYS_FILE, 'utf8')); }
+  catch { return { credentials: [] }; }
+}
+
+function savePasskeys(data) {
+  fs.mkdirSync(path.dirname(PASSKEYS_FILE), { recursive: true });
+  fs.writeFileSync(PASSKEYS_FILE, JSON.stringify(data, null, 2), 'utf8');
+}
+
+function cleanChallenges() {
+  const now = Date.now();
+  for (const [key, val] of passkeyChallenge) {
+    if (now - val.timestamp > 5 * 60 * 1000) passkeyChallenge.delete(key);
+  }
+}
+
+app.post('/api/passkeys/register-options', requireAuth, async (req, res) => {
+  try {
+    const data = loadPasskeys();
+    const excludeCredentials = data.credentials.map(c => ({ id: c.id, type: 'public-key' }));
+    const options = await generateRegistrationOptions({
+      rpName: RP_NAME,
+      rpID: RP_ID,
+      userName: 'ashwin',
+      userDisplayName: 'Ashwin',
+      attestationType: 'none',
+      excludeCredentials,
+      authenticatorSelection: { residentKey: 'preferred', userVerification: 'preferred' },
+    });
+    cleanChallenges();
+    passkeyChallenge.set('registration', { challenge: options.challenge, timestamp: Date.now() });
+    res.json(options);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/passkeys/register-verify', requireAuth, async (req, res) => {
+  try {
+    const entry = passkeyChallenge.get('registration');
+    if (!entry || Date.now() - entry.timestamp > 5 * 60 * 1000) {
+      return res.status(400).json({ error: 'Challenge expiré' });
+    }
+    const verification = await verifyRegistrationResponse({
+      response: req.body,
+      expectedChallenge: entry.challenge,
+      expectedOrigin: ORIGIN,
+      expectedRPID: RP_ID,
+    });
+    if (!verification.verified) return res.status(400).json({ error: 'Vérification échouée' });
+    passkeyChallenge.delete('registration');
+    const { registrationInfo } = verification;
+    const data = loadPasskeys();
+    data.credentials.push({
+      id: registrationInfo.credential.id,
+      publicKey: Buffer.from(registrationInfo.credential.publicKey).toString('base64'),
+      counter: registrationInfo.credential.counter,
+      deviceType: registrationInfo.credentialDeviceType,
+      backedUp: registrationInfo.credentialBackedUp,
+      addedAt: new Date().toISOString(),
+    });
+    savePasskeys(data);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/passkeys/auth-options', async (req, res) => {
+  try {
+    const data = loadPasskeys();
+    const allowCredentials = data.credentials.map(c => ({ id: c.id, type: 'public-key' }));
+    const options = await generateAuthenticationOptions({
+      rpID: RP_ID,
+      allowCredentials,
+      userVerification: 'preferred',
+    });
+    cleanChallenges();
+    passkeyChallenge.set('authentication', { challenge: options.challenge, timestamp: Date.now() });
+    res.json(options);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/passkeys/auth-verify', async (req, res) => {
+  try {
+    const entry = passkeyChallenge.get('authentication');
+    if (!entry || Date.now() - entry.timestamp > 5 * 60 * 1000) {
+      return res.status(400).json({ error: 'Challenge expiré' });
+    }
+    const data = loadPasskeys();
+    const storedCred = data.credentials.find(c => c.id === req.body.id);
+    if (!storedCred) return res.status(400).json({ error: 'Clé non reconnue' });
+    const verification = await verifyAuthenticationResponse({
+      response: req.body,
+      expectedChallenge: entry.challenge,
+      expectedOrigin: ORIGIN,
+      expectedRPID: RP_ID,
+      credential: {
+        id: storedCred.id,
+        publicKey: new Uint8Array(Buffer.from(storedCred.publicKey, 'base64')),
+        counter: storedCred.counter,
+      },
+    });
+    if (!verification.verified) return res.status(401).json({ error: 'Authentification échouée' });
+    passkeyChallenge.delete('authentication');
+    storedCred.counter = verification.authenticationInfo.newCounter;
+    savePasskeys(data);
+    req.session.authenticated = true;
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/passkeys', requireAuth, (req, res) => {
+  try {
+    const data = loadPasskeys();
+    res.json({ credentials: data.credentials.map(c => ({ id: c.id, deviceType: c.deviceType, backedUp: c.backedUp, addedAt: c.addedAt })) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/passkeys/:id', requireAuth, (req, res) => {
+  try {
+    const data = loadPasskeys();
+    const before = data.credentials.length;
+    data.credentials = data.credentials.filter(c => c.id !== req.params.id);
+    if (data.credentials.length === before) return res.status(404).json({ error: 'Clé non trouvée' });
+    savePasskeys(data);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -25,6 +25,13 @@
         <button type="submit" class="btn-primary">Sign in</button>
         <div class="error-msg" id="errorMsg">Invalid password. Please try again.</div>
       </form>
+
+      <div style="margin-top:16px; text-align:center; color:var(--text-muted,#888); font-size:13px;">ou</div>
+
+      <button id="passkeyBtn" type="button" class="btn-primary" style="margin-top:12px; width:100%; background:transparent; border:1px solid var(--border,#444); color:var(--text,#cdd6f4); display:flex; align-items:center; justify-content:center; gap:8px;">
+        🔑 Se connecter avec une clé d'accès
+      </button>
+      <div class="error-msg" id="passkeyError" style="display:none;"></div>
     </div>
   </div>
 
@@ -56,6 +63,36 @@
       } catch (err) {
         errorMsg.textContent = 'Network error. Please try again.';
         errorMsg.style.display = 'block';
+      }
+    });
+  </script>
+  <script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
+  <script>
+    document.getElementById('passkeyBtn').addEventListener('click', async () => {
+      const errorEl = document.getElementById('passkeyError');
+      errorEl.style.display = 'none';
+      try {
+        const optRes = await fetch('/api/passkeys/auth-options', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        if (!optRes.ok) throw new Error('Impossible d\'obtenir les options');
+        const options = await optRes.json();
+        const authResp = await SimpleWebAuthnBrowser.startAuthentication({ optionsJSON: options });
+        const verRes = await fetch('/api/passkeys/auth-verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(authResp),
+        });
+        const data = await verRes.json();
+        if (verRes.ok && data.ok) {
+          window.location.href = '/home.html';
+        } else {
+          errorEl.textContent = data.error || 'Authentification échouée';
+          errorEl.style.display = 'block';
+        }
+      } catch (err) {
+        if (err.name !== 'NotAllowedError') {
+          errorEl.textContent = err.message || 'Erreur lors de l\'authentification';
+          errorEl.style.display = 'block';
+        }
       }
     });
   </script>

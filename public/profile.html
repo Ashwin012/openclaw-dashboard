@@ -176,6 +176,30 @@
       .header-nav { display: none; }
       .hamburger-btn { display: inline-flex; }
     }
+
+    .passkey-list { list-style: none; padding: 0; margin: 0 0 16px 0; }
+    .passkey-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .passkey-item:last-child { border-bottom: none; }
+    .passkey-info { font-size: 13px; color: var(--text-muted); }
+    .passkey-info strong { display: block; color: var(--text); font-size: 14px; margin-bottom: 2px; }
+    .btn-delete-passkey {
+      padding: 4px 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--red, #f38ba8);
+      background: transparent;
+      color: var(--red, #f38ba8);
+      font-size: 12px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .btn-delete-passkey:hover { background: rgba(243,139,168,0.1); }
+    .passkey-empty { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
   </style>
 </head>
 <body>
@@ -197,6 +221,13 @@
   </div>
 
   <main class="profile-main">
+    <div class="section-title" style="margin-top:0;">Clés d'accès</div>
+    <div class="card" style="margin-bottom:32px;">
+      <ul class="passkey-list" id="passkeyList"></ul>
+      <div class="passkey-empty" id="passkeyEmpty" style="display:none;">Aucune clé d'accès enregistrée.</div>
+      <button id="addPasskeyBtn" type="button" class="btn-save" style="margin-top:0;">+ Ajouter une clé d'accès</button>
+    </div>
+
     <div class="section-title">Changer le mot de passe</div>
     <div class="card">
       <form id="passwordForm">
@@ -296,6 +327,93 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
+  </script>
+  <script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
+  <script>
+    async function loadPasskeys() {
+      try {
+        const res = await fetch('/api/passkeys');
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = document.getElementById('passkeyList');
+        const empty = document.getElementById('passkeyEmpty');
+        list.innerHTML = '';
+        if (!data.credentials || data.credentials.length === 0) {
+          empty.style.display = 'block';
+          return;
+        }
+        empty.style.display = 'none';
+        for (const cred of data.credentials) {
+          const date = new Date(cred.addedAt).toLocaleDateString('fr-FR');
+          const type = cred.deviceType === 'multiDevice' ? 'Multi-appareil' : 'Appareil unique';
+          const li = document.createElement('li');
+          li.className = 'passkey-item';
+          li.dataset.id = cred.id;
+          li.innerHTML = `
+            <div class="passkey-info">
+              <strong>🔑 ${type}${cred.backedUp ? ' · synchronisée' : ''}</strong>
+              Ajoutée le ${date}
+            </div>
+            <button class="btn-delete-passkey" data-id="${cred.id}">Supprimer</button>
+          `;
+          list.appendChild(li);
+        }
+      } catch {}
+    }
+
+    document.getElementById('passkeyList').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.btn-delete-passkey');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/passkeys/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast('Clé supprimée', 'success');
+          loadPasskeys();
+        } else {
+          const d = await res.json();
+          showToast(d.error || 'Erreur', 'error');
+        }
+      } catch {
+        showToast('Erreur réseau', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById('addPasskeyBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('addPasskeyBtn');
+      btn.disabled = true;
+      btn.textContent = 'En attente...';
+      try {
+        const optRes = await fetch('/api/passkeys/register-options', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        if (!optRes.ok) throw new Error('Impossible d\'obtenir les options');
+        const options = await optRes.json();
+        const regResp = await SimpleWebAuthnBrowser.startRegistration({ optionsJSON: options });
+        const verRes = await fetch('/api/passkeys/register-verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(regResp),
+        });
+        const data = await verRes.json();
+        if (verRes.ok && data.ok) {
+          showToast('Clé d\'accès ajoutée', 'success');
+          loadPasskeys();
+        } else {
+          showToast(data.error || 'Erreur', 'error');
+        }
+      } catch (err) {
+        if (err.name !== 'NotAllowedError') {
+          showToast(err.message || 'Erreur lors de l\'enregistrement', 'error');
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '+ Ajouter une clé d\'accès';
+      }
+    });
+
+    loadPasskeys();
   </script>
 </body>
 </html>
