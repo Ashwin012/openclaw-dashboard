@@ -1278,6 +1278,25 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   border-color: var(--accent);
   color: var(--accent);
 }
+.btn-dispatch-task {
+  background: #28a745;
+  border: 1px solid #28a745;
+  border-radius: var(--radius);
+  color: #fff;
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  font-family: inherit;
+}
+.btn-dispatch-task:hover {
+  background: #218838;
+  border-color: #218838;
+}
+.btn-dispatch-task:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
 
 /* ===== Task Modal ===== */
 .modal-overlay {

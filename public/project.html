@@ -701,7 +701,10 @@
             </div>`).join('');
 
         const editBtn = task.status === 'todo'
-          ? `<div class="task-detail-actions"><button class="btn-edit-task" onclick="event.stopPropagation(); openTaskModal('${taskId}')">&#9999;&#65039; Éditer</button></div>`
+          ? `<div class="task-detail-actions">
+               <button class="btn-edit-task" onclick="event.stopPropagation(); openTaskModal('${taskId}')">&#9999;&#65039; Éditer</button>
+               <button class="btn-dispatch-task" id="dispatch-${taskId}" onclick="event.stopPropagation(); dispatchTask('${taskId}')">&#129302; Traiter maintenant</button>
+             </div>`
           : '';
 
         const detail = document.createElement('div');
@@ -958,6 +961,33 @@
       await fetch('/api/logout', { method: 'POST' });
       window.location.href = '/login.html';
     });
+
+    async function dispatchTask(taskId) {
+      const btn = document.getElementById(`dispatch-${taskId}`);
+      if (!btn) return;
+      const original = btn.innerHTML;
+      btn.disabled = true;
+      btn.textContent = 'En cours...';
+      try {
+        const res = await fetch(`/api/projects/${projectId}/tasks/${taskId}/dispatch`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          const task = tasksCache?.find(t => t.id === taskId);
+          if (task) { task.status = 'in_progress'; task.updatedAt = new Date().toISOString(); }
+          updateTasksBadge();
+          renderKanban();
+          showToast('Tâche envoyée à l\'agent');
+        } else {
+          btn.innerHTML = original;
+          btn.disabled = false;
+          showToast(data.error || 'Erreur lors de l\'envoi', 'error');
+        }
+      } catch (err) {
+        btn.innerHTML = original;
+        btn.disabled = false;
+        showToast(err.message, 'error');
+      }
+    }
 
     // Auth check + load
     fetch('/api/session').then(r => r.json()).then(d => {
