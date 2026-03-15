@@ -479,23 +479,23 @@
 </head>
 <body>
   <header class="home-header">
-    <div class="logo">🏠 Dashboard Ashwin</div>
+    <div class="logo">◆ Dev Dashboard</div>
     <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
     <nav class="header-nav">
+      <a href="/home.html" class="btn-nav">🏠 Accueil</a>
       <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
-      <a href="https://openclaw.infozen-consulting.com" class="btn-nav" target="_blank">⚡ OpenClaw</a>
-      <a href="/profile.html" class="btn-nav">⚙️</a>
-      <button class="btn-logout-home" id="logoutBtn">Déconnexion</button>
+      <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
+      <button class="btn-logout-home" id="logoutBtn">🚪 Déconnexion</button>
     </nav>
     <div class="clock" id="clock">--:--:--</div>
   </header>
 
   <!-- Mobile dropdown menu -->
   <div class="mobile-menu" id="mobileMenu">
+    <a href="/home.html" class="btn-nav">🏠 Accueil</a>
     <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
-    <a href="https://openclaw.infozen-consulting.com" class="btn-nav" target="_blank">⚡ OpenClaw</a>
     <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
-    <button class="btn-logout-home" id="logoutBtnMobile">Déconnexion</button>
+    <button class="btn-logout-home" id="logoutBtnMobile">🚪 Déconnexion</button>
   </div>
 
   <main class="home-main">
@@ -675,9 +675,8 @@
       if (!d.authenticated) window.location.href = '/login.html';
     });
 
-    async function doLogout() {
-      await fetch('/api/logout', { method: 'POST' });
-      window.location.href = '/login.html';
+    function doLogout() {
+      fetch('/api/logout', { method: 'POST' }).then(() => window.location.href = '/login.html');
     }
     document.getElementById('logoutBtn').addEventListener('click', doLogout);
     document.getElementById('logoutBtnMobile').addEventListener('click', doLogout);

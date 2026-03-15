@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <style>
-    .profile-header {
+    .home-header {
       background: var(--bg-surface);
       border-bottom: 1px solid var(--border);
       padding: 0 20px;
@@ -23,7 +23,7 @@
       top: 0;
       z-index: 100;
     }
-    .profile-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
+    .home-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
 
     .btn-nav {
       padding: 5px 12px;
@@ -203,21 +203,22 @@
   </style>
 </head>
 <body>
-  <header class="profile-header">
-    <div class="logo">Profil</div>
+  <header class="home-header">
+    <div class="logo">&#9670; Dev Dashboard</div>
     <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
     <nav class="header-nav">
-      <a href="/home.html" class="btn-nav">🏠 Home</a>
+      <a href="/home.html" class="btn-nav">🏠 Accueil</a>
       <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
-      <button class="btn-logout-home" id="logoutBtn">Déconnexion</button>
+      <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
+      <button class="btn-logout-home" id="logoutBtn">🚪 Déconnexion</button>
     </nav>
   </header>
 
   <div class="mobile-menu" id="mobileMenu">
-    <a href="/home.html" class="btn-nav">🏠 Home</a>
+    <a href="/home.html" class="btn-nav">🏠 Accueil</a>
     <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
     <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
-    <button class="btn-logout-home" id="logoutBtnMobile">Déconnexion</button>
+    <button class="btn-logout-home" id="logoutBtnMobile">🚪 Déconnexion</button>
   </div>
 
   <main class="profile-main">

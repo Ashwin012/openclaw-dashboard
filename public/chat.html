@@ -742,16 +742,102 @@
       .input-hint { display: none; }
       .message { max-width: 95%; }
     }
+    /* ===== Navbar ===== */
+    .home-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .home-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
+    .header-nav { display: flex; gap: 8px; align-items: center; }
+    .btn-nav {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .btn-nav:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
+    .btn-logout-home {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-logout-home:hover { color: var(--red); border-color: var(--red); }
+    .hamburger-btn {
+      display: none;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 18px;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .hamburger-btn:hover { background: var(--bg-hover); }
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 56px;
+      left: 0;
+      right: 0;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 99;
+      flex-direction: column;
+      padding: 8px 16px 12px;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu .btn-nav { padding: 10px 14px; font-size: 14px; width: 100%; justify-content: flex-start; }
+    .mobile-menu .btn-logout-home { padding: 10px 14px; font-size: 14px; width: 100%; text-align: left; }
+    @media (max-width: 768px) {
+      .header-nav { display: none; }
+      .hamburger-btn { display: inline-flex; }
+    }
   </style>
 </head>
 <body>
-  <header class="app-header">
-    <div class="logo">&#9670; <span>Dev</span>Dashboard</div>
-    <div class="header-spacer"></div>
-    <a href="/home.html" class="btn-logout" style="text-decoration:none">&#127968; Home</a>
-    <a href="/profile.html" class="btn-logout" style="text-decoration:none">⚙️</a>
-    <button class="btn-logout" id="logoutBtn">Sign out</button>
+  <header class="home-header">
+    <div class="logo">&#9670; Dev Dashboard</div>
+    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
+    <nav class="header-nav">
+      <a href="/home.html" class="btn-nav">🏠 Accueil</a>
+      <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
+      <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
+      <button class="btn-logout-home" id="logoutBtn">🚪 Déconnexion</button>
+    </nav>
   </header>
+
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="/home.html" class="btn-nav">🏠 Accueil</a>
+    <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
+    <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
+    <button class="btn-logout-home" id="logoutBtnMobile">🚪 Déconnexion</button>
+  </div>
 
   <div class="chat-layout">
     <!-- Top bar -->
@@ -1757,9 +1843,23 @@
     }
 
     // ---- Init ----
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
+    async function doLogout() {
       await fetch('/api/logout', { method: 'POST' });
       window.location.href = '/login.html';
+    }
+    document.getElementById('logoutBtn').addEventListener('click', doLogout);
+    document.getElementById('logoutBtnMobile').addEventListener('click', doLogout);
+
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+    hamburgerBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      mobileMenu.classList.toggle('open');
+    });
+    document.addEventListener('click', e => {
+      if (!mobileMenu.contains(e.target) && e.target !== hamburgerBtn) {
+        mobileMenu.classList.remove('open');
+      }
     });
 
     // Close sidebar on mobile when clicking outside
