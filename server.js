@@ -255,6 +255,10 @@ app.get('/api/projects', requireAuth, async (req, res) => {
           lastCommitDate: lastLog.trim()
         };
 
+        const allTasks = readTasks(p);
+        const taskTotal = allTasks.length;
+        const taskCount = allTasks.filter(t => t.status !== 'done').length;
+
         return {
           ...p,
           branch: branchName,
@@ -266,10 +270,12 @@ app.get('/api/projects', requireAuth, async (req, res) => {
           lastActivity: lastLog.trim(),
           recentCommits,
           stats,
+          taskCount,
+          taskTotal,
           accessible: true
         };
       } catch (err) {
-        return { ...p, branch: 'unknown', pendingChanges: 0, unpushedCount: 0, uncommittedCount: 0, lastActivity: null, recentCommits: [], accessible: false, error: err.message };
+        return { ...p, branch: 'unknown', pendingChanges: 0, unpushedCount: 0, uncommittedCount: 0, lastActivity: null, recentCommits: [], accessible: false, taskCount: 0, taskTotal: 0, error: err.message };
       }
     }));
     res.json(projects);
