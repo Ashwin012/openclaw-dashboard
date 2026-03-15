@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dev-dashboard-v1';
+const CACHE_NAME = 'dev-dashboard-v2';
 
 const STATIC_ASSETS = [
   '/manifest.json',
