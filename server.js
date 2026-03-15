@@ -2,13 +2,19 @@ require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const crypto = require('crypto');
+const WebSocket = require('ws');
 
 const execAsync = promisify(exec);
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ noServer: true });
+const chatSessions = new Map(); // sessionId -> { projectId, projectPath, model, process, ws, status }
 const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
 
 app.use(express.json());
@@ -349,7 +355,176 @@ app.post('/api/projects/:id/instruct', requireAuth, async (req, res) => {
   }
 });
 
+// ===== Chat / WebSocket =====
+
+server.on('upgrade', (request, socket, head) => {
+  const pathname = new URL(request.url, 'http://localhost').pathname;
+  if (pathname.startsWith('/ws/chat/')) {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+wss.on('connection', (ws, req) => {
+  const pathname = new URL(req.url, 'http://localhost').pathname;
+  const sessionId = pathname.slice('/ws/chat/'.length);
+  const session = chatSessions.get(sessionId);
+
+  if (!session) {
+    ws.send(JSON.stringify({ type: 'error', error: 'Session not found or expired' }));
+    ws.close(1008, 'Session not found');
+    return;
+  }
+
+  // Close any previous WS connection for this session
+  if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+    try { session.ws.close(1000, 'Replaced by new connection'); } catch (e) {}
+  }
+
+  session.ws = ws;
+  session.status = 'active';
+
+  const claudeArgs = [
+    '--permission-mode', 'bypassPermissions',
+    '--output-format', 'stream-json',
+    '--input-format', 'stream-json',
+    '--model', session.model
+  ];
+
+  const claudeProc = spawn('claude', claudeArgs, {
+    cwd: session.projectPath,
+    env: { ...process.env },
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
+
+  session.process = claudeProc;
+
+  try { ws.send(JSON.stringify({ type: 'session_ready', sessionId, model: session.model })); } catch (e) {}
+
+  let stdoutBuf = '';
+  claudeProc.stdout.on('data', (chunk) => {
+    stdoutBuf += chunk.toString();
+    const lines = stdoutBuf.split('\n');
+    stdoutBuf = lines.pop();
+    for (const line of lines) {
+      if (line.trim() && ws.readyState === WebSocket.OPEN) {
+        try { ws.send(line); } catch (e) {}
+      }
+    }
+  });
+
+  claudeProc.stderr.on('data', (chunk) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send(JSON.stringify({ type: 'stderr', data: chunk.toString() })); } catch (e) {}
+    }
+  });
+
+  claudeProc.on('close', (code) => {
+    chatSessions.delete(sessionId);
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send(JSON.stringify({ type: 'session_end', code })); } catch (e) {}
+    }
+  });
+
+  claudeProc.on('error', (err) => {
+    chatSessions.delete(sessionId);
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send(JSON.stringify({ type: 'error', error: `Failed to start claude: ${err.message}` })); } catch (e) {}
+    }
+  });
+
+  ws.on('message', (data) => {
+    try {
+      const msg = JSON.parse(data.toString());
+      if (msg.type === 'user_message' && session.process && !session.process.killed) {
+        const input = JSON.stringify({
+          type: 'user',
+          message: { role: 'user', content: msg.text }
+        });
+        session.process.stdin.write(input + '\n');
+      }
+    } catch (e) { /* ignore parse errors */ }
+  });
+
+  ws.on('close', () => {
+    session.ws = null;
+    session.status = 'disconnected';
+    // Kill process when client disconnects
+    if (session.process && !session.process.killed) {
+      try { session.process.kill('SIGTERM'); } catch (e) {}
+    }
+    chatSessions.delete(sessionId);
+  });
+
+  ws.on('error', (err) => {
+    console.error('WebSocket error:', err.message);
+  });
+});
+
+app.post('/api/projects/:id/chat/start', requireAuth, (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  // Kill any existing session for this project
+  for (const [sid, sess] of chatSessions.entries()) {
+    if (sess.projectId === req.params.id) {
+      if (sess.process) { try { sess.process.kill(); } catch (e) {} }
+      if (sess.ws) { try { sess.ws.close(); } catch (e) {} }
+      chatSessions.delete(sid);
+    }
+  }
+
+  const { model = 'sonnet' } = req.body;
+  const modelMap = { sonnet: 'claude-sonnet-4-6', opus: 'claude-opus-4-6', haiku: 'claude-haiku-3-5' };
+  const resolvedModel = modelMap[model] || model;
+
+  const sessionId = crypto.randomUUID();
+  chatSessions.set(sessionId, {
+    projectId: req.params.id,
+    projectPath: project.path,
+    model: resolvedModel,
+    process: null,
+    ws: null,
+    status: 'pending'
+  });
+
+  res.json({ sessionId, model: resolvedModel });
+});
+
+app.post('/api/projects/:id/chat/stop', requireAuth, (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  for (const [sid, sess] of chatSessions.entries()) {
+    if (sess.projectId === req.params.id) {
+      if (sess.process) { try { sess.process.kill('SIGTERM'); } catch (e) {} }
+      if (sess.ws) { try { sess.ws.close(); } catch (e) {} }
+      chatSessions.delete(sid);
+    }
+  }
+
+  res.json({ ok: true });
+});
+
+app.get('/api/projects/:id/chat/status', requireAuth, (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  let activeSession = null;
+  for (const [sessionId, sess] of chatSessions.entries()) {
+    if (sess.projectId === req.params.id) {
+      activeSession = { sessionId, model: sess.model, status: sess.status };
+      break;
+    }
+  }
+
+  res.json({ active: !!activeSession, session: activeSession });
+});
+
 const PORT = process.env.PORT || 8090;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Dev Dashboard running on http://localhost:${PORT}`);
 });

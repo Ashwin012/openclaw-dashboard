@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat — Dev Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+
+    .chat-layout {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 56px); /* minus header */
+    }
+
+    /* Top bar */
+    .chat-topbar {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .chat-topbar .project-name {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .chat-topbar .sep { color: var(--border); }
+    .chat-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .chat-status .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--text-subtle);
+    }
+    .chat-status.active .dot { background: var(--green); }
+    .chat-status.error .dot { background: var(--red); }
+    .topbar-spacer { flex: 1; }
+    .topbar-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.15s;
+    }
+    .topbar-btn:hover { border-color: var(--text-muted); color: var(--text); }
+    .topbar-btn.danger:hover { border-color: var(--red); color: var(--red); }
+    .model-tag {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-family: monospace;
+    }
+
+    /* Messages area */
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Start panel (shown when no session) */
+    .chat-start-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      gap: 24px;
+    }
+    .start-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px 40px;
+      width: 420px;
+      max-width: 100%;
+      text-align: center;
+    }
+    .start-card h2 {
+      margin-bottom: 8px;
+      font-size: 20px;
+    }
+    .start-card p {
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      font-size: 13px;
+    }
+    .model-selector-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    .model-selector-group label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .model-select {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      width: 100%;
+      cursor: pointer;
+    }
+    .model-select:focus { outline: none; border-color: var(--accent); }
+    .custom-model-input {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-family: monospace;
+      width: 100%;
+      display: none;
+    }
+    .custom-model-input:focus { outline: none; border-color: var(--accent); }
+    .btn-start {
+      background: var(--accent);
+      color: #0d1117;
+      border: none;
+      padding: 10px 24px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      transition: opacity 0.15s;
+    }
+    .btn-start:hover { opacity: 0.9; }
+    .btn-start:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Messages */
+    .message {
+      display: flex;
+      gap: 10px;
+      max-width: 90%;
+    }
+    .message.user {
+      flex-direction: row-reverse;
+      align-self: flex-end;
+    }
+    .message.assistant, .message.system-msg, .message.error-msg {
+      align-self: flex-start;
+    }
+    .message.system-msg {
+      max-width: 100%;
+      align-self: center;
+    }
+
+    .msg-bubble {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .message.user .msg-bubble {
+      background: #1c3a6b;
+      border: 1px solid #2d5baa;
+      border-radius: 12px 12px 2px 12px;
+      color: #e6edf3;
+    }
+    .message.assistant .msg-bubble {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px 12px 12px 2px;
+      color: var(--text);
+      min-width: 60px;
+    }
+    .message.system-msg .msg-bubble {
+      background: transparent;
+      border: none;
+      color: var(--text-subtle);
+      font-size: 12px;
+      padding: 4px 0;
+    }
+    .message.error-msg .msg-bubble {
+      background: var(--red-bg);
+      border: 1px solid var(--red);
+      color: var(--red);
+      border-radius: 8px;
+    }
+
+    /* Avatar */
+    .msg-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+      align-self: flex-end;
+    }
+    .message.user .msg-avatar { background: #1c3a6b; border: 1px solid #2d5baa; }
+    .message.assistant .msg-avatar { background: var(--bg-card); border: 1px solid var(--border); }
+
+    /* Markdown content inside bubbles */
+    .msg-content p { margin: 0 0 8px; }
+    .msg-content p:last-child { margin-bottom: 0; }
+    .msg-content h1, .msg-content h2, .msg-content h3 { margin: 12px 0 6px; font-size: 1em; }
+    .msg-content code {
+      background: rgba(0,0,0,0.3);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 12px;
+    }
+    .msg-content pre {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      overflow-x: auto;
+      margin: 8px 0;
+    }
+    .msg-content pre code {
+      background: none;
+      padding: 0;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .msg-content ul, .msg-content ol { padding-left: 20px; margin: 6px 0; }
+    .msg-content li { margin: 2px 0; }
+    .msg-content blockquote {
+      border-left: 3px solid var(--border);
+      margin: 8px 0;
+      padding: 4px 12px;
+      color: var(--text-muted);
+    }
+    .msg-content table {
+      border-collapse: collapse;
+      margin: 8px 0;
+      font-size: 13px;
+    }
+    .msg-content th, .msg-content td {
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+    }
+    .msg-content th { background: var(--bg-hover); }
+    .msg-content a { color: var(--accent); }
+
+    /* Tool use cards */
+    .tool-card {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin: 8px 0;
+      overflow: hidden;
+    }
+    .tool-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .tool-header:hover { background: var(--bg-hover); }
+    .tool-icon { font-size: 14px; }
+    .tool-name {
+      font-family: monospace;
+      font-size: 12px;
+      color: var(--purple);
+      font-weight: 600;
+    }
+    .tool-chevron {
+      margin-left: auto;
+      color: var(--text-subtle);
+      font-size: 11px;
+      transition: transform 0.2s;
+    }
+    .tool-card.expanded .tool-chevron { transform: rotate(90deg); }
+    .tool-body {
+      display: none;
+      padding: 0 12px 12px;
+    }
+    .tool-card.expanded .tool-body { display: block; }
+    .tool-body pre {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px;
+      overflow-x: auto;
+      font-size: 11px;
+      margin: 0;
+      color: var(--text-muted);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Streaming cursor */
+    .streaming-cursor {
+      display: inline-block;
+      width: 2px;
+      height: 14px;
+      background: var(--accent);
+      margin-left: 2px;
+      vertical-align: middle;
+      animation: blink 0.8s infinite;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* Input area */
+    .chat-input-area {
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border);
+      padding: 16px 24px;
+      flex-shrink: 0;
+    }
+    .chat-input-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .chat-textarea {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-family: inherit;
+      resize: none;
+      min-height: 44px;
+      max-height: 200px;
+      line-height: 1.5;
+      transition: border-color 0.15s;
+    }
+    .chat-textarea:focus { outline: none; border-color: var(--accent); }
+    .chat-textarea:disabled { opacity: 0.5; cursor: not-allowed; }
+    .chat-textarea::placeholder { color: var(--text-subtle); }
+    .btn-send {
+      background: var(--accent);
+      color: #0d1117;
+      border: none;
+      padding: 10px 18px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+      height: 44px;
+    }
+    .btn-send:hover { opacity: 0.9; }
+    .btn-send:disabled { opacity: 0.4; cursor: not-allowed; }
+    .input-hint {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-subtle);
+      margin-top: 6px;
+    }
+
+    /* Cost/info bar */
+    .turn-info {
+      font-size: 11px;
+      color: var(--text-subtle);
+      text-align: right;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo">&#9670; <span>Dev</span>Dashboard</div>
+    <div class="header-spacer"></div>
+    <button class="btn-logout" id="logoutBtn">Sign out</button>
+  </header>
+
+  <div class="chat-layout">
+    <!-- Top bar -->
+    <div class="chat-topbar">
+      <a href="/dashboard.html" style="color:var(--text-muted);font-size:13px">&#8592; Projects</a>
+      <span class="sep">/</span>
+      <span class="project-name" id="topbarProject">Loading...</span>
+      <span class="sep">/</span>
+      <span style="color:var(--text-muted);font-size:13px">Chat</span>
+      <span id="modelTag" class="model-tag" style="display:none"></span>
+      <div class="topbar-spacer"></div>
+      <div class="chat-status" id="statusBadge">
+        <span class="dot"></span>
+        <span id="statusText">No session</span>
+      </div>
+      <button class="topbar-btn danger" id="stopBtn" style="display:none" onclick="stopSession()">&#9632; Stop</button>
+      <button class="topbar-btn" id="newSessionBtn" style="display:none" onclick="showStartPanel()">&#43; New Session</button>
+    </div>
+
+    <!-- Start panel -->
+    <div class="chat-start-panel" id="startPanel">
+      <div class="start-card">
+        <h2>&#128172; Start a Chat Session</h2>
+        <p id="startProjectName">Select a model and start chatting with Claude Code in your project directory.</p>
+        <div class="model-selector-group">
+          <label>Model</label>
+          <select class="model-select" id="modelSelect" onchange="onModelChange()">
+            <option value="sonnet">Sonnet — claude-sonnet-4-6</option>
+            <option value="opus">Opus — claude-opus-4-6</option>
+            <option value="haiku">Haiku — claude-haiku-3-5</option>
+            <option value="custom">Custom model ID...</option>
+          </select>
+          <input type="text" class="custom-model-input" id="customModelInput"
+            placeholder="e.g. claude-sonnet-4-6" />
+        </div>
+        <button class="btn-start" id="startBtn" onclick="startSession()">&#9654; Start Chat</button>
+      </div>
+    </div>
+
+    <!-- Chat messages (hidden until session active) -->
+    <div class="chat-messages" id="chatMessages" style="display:none"></div>
+
+    <!-- Input area (hidden until session active) -->
+    <div class="chat-input-area" id="inputArea" style="display:none">
+      <div class="chat-input-row">
+        <textarea class="chat-textarea" id="chatInput"
+          placeholder="Type a message... (Ctrl+Enter to send)"
+          rows="1"
+          disabled
+          onkeydown="onInputKeydown(event)"
+          oninput="autoResize(this)"></textarea>
+        <button class="btn-send" id="sendBtn" disabled onclick="sendMessage()">Send &#9654;</button>
+      </div>
+      <div class="input-hint">Ctrl+Enter to send &nbsp;·&nbsp; Claude Code is running in <span id="hintProjectPath" style="font-family:monospace"></span></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>
+    // ---- Setup ----
+    const params = new URLSearchParams(window.location.search);
+    const projectId = params.get('id');
+
+    let ws = null;
+    let sessionId = null;
+    let sessionModel = null;
+    let projectData = null;
+    let currentAssistantEl = null;  // DOM element being streamed into
+    let currentTextParts = [];      // accumulated text for current streaming message
+    let currentToolUses = {};       // id -> { name, inputJson }
+    let awaitingResponse = false;
+
+    // Configure marked with highlight.js
+    marked.setOptions({
+      highlight: (code, lang) => {
+        if (lang && hljs.getLanguage(lang)) {
+          return hljs.highlight(code, { language: lang }).value;
+        }
+        return hljs.highlightAuto(code).value;
+      },
+      breaks: true,
+      gfm: true
+    });
+
+    function escapeHtml(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ---- Model selector ----
+    function onModelChange() {
+      const val = document.getElementById('modelSelect').value;
+      const customInput = document.getElementById('customModelInput');
+      customInput.style.display = val === 'custom' ? 'block' : 'none';
+      if (val === 'custom') customInput.focus();
+    }
+
+    // ---- Status display ----
+    function setStatus(state, text) {
+      const badge = document.getElementById('statusBadge');
+      const statusText = document.getElementById('statusText');
+      badge.className = `chat-status ${state}`;
+      statusText.textContent = text;
+    }
+
+    // ---- Input control ----
+    function enableInput() {
+      const input = document.getElementById('chatInput');
+      const btn = document.getElementById('sendBtn');
+      awaitingResponse = false;
+      input.disabled = false;
+      btn.disabled = false;
+      input.focus();
+    }
+
+    function disableInput() {
+      const input = document.getElementById('chatInput');
+      const btn = document.getElementById('sendBtn');
+      input.disabled = true;
+      btn.disabled = true;
+    }
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+    }
+
+    function onInputKeydown(e) {
+      if (e.key === 'Enter' && e.ctrlKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    // ---- Session lifecycle ----
+    function showStartPanel() {
+      document.getElementById('startPanel').style.display = '';
+      document.getElementById('chatMessages').style.display = 'none';
+      document.getElementById('inputArea').style.display = 'none';
+      document.getElementById('stopBtn').style.display = 'none';
+      document.getElementById('newSessionBtn').style.display = 'none';
+      document.getElementById('modelTag').style.display = 'none';
+      setStatus('', 'No session');
+      if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+    }
+
+    function showChatPanel() {
+      document.getElementById('startPanel').style.display = 'none';
+      document.getElementById('chatMessages').style.display = '';
+      document.getElementById('inputArea').style.display = '';
+      document.getElementById('stopBtn').style.display = '';
+      document.getElementById('newSessionBtn').style.display = '';
+      if (sessionModel) {
+        const tag = document.getElementById('modelTag');
+        tag.textContent = sessionModel;
+        tag.style.display = '';
+      }
+    }
+
+    async function startSession() {
+      const btn = document.getElementById('startBtn');
+      btn.disabled = true;
+      btn.textContent = 'Starting...';
+
+      const selectVal = document.getElementById('modelSelect').value;
+      const model = selectVal === 'custom'
+        ? (document.getElementById('customModelInput').value.trim() || 'claude-sonnet-4-6')
+        : selectVal;
+
+      try {
+        const res = await fetch(`/api/projects/${projectId}/chat/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model })
+        });
+        if (res.status === 401) { window.location.href = '/login.html'; return; }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to start session');
+
+        sessionId = data.sessionId;
+        sessionModel = data.model;
+        showChatPanel();
+        connectWebSocket();
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = '▶ Start Chat';
+        appendError(`Failed to start session: ${err.message}`);
+      }
+    }
+
+    async function stopSession() {
+      if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+      try {
+        await fetch(`/api/projects/${projectId}/chat/stop`, { method: 'POST' });
+      } catch (e) {}
+      appendSystem('Session stopped.');
+      setStatus('', 'Stopped');
+      document.getElementById('stopBtn').style.display = 'none';
+      disableInput();
+      sessionId = null;
+    }
+
+    // ---- WebSocket ----
+    function connectWebSocket() {
+      setStatus('', 'Connecting...');
+      disableInput();
+
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${proto}//${location.host}/ws/chat/${sessionId}`);
+
+      ws.onopen = () => {
+        setStatus('active', 'Connected');
+      };
+
+      ws.onmessage = (e) => {
+        try {
+          const event = JSON.parse(e.data);
+          handleEvent(event);
+        } catch (err) {
+          console.error('Failed to parse WS message:', e.data, err);
+        }
+      };
+
+      ws.onclose = (e) => {
+        if (e.code !== 1000) {
+          setStatus('error', 'Disconnected');
+          appendSystem('Connection closed' + (e.reason ? `: ${e.reason}` : '.'));
+        }
+        disableInput();
+      };
+
+      ws.onerror = () => {
+        setStatus('error', 'Error');
+        appendError('WebSocket connection error.');
+      };
+    }
+
+    // ---- Event handler ----
+    function handleEvent(event) {
+      switch (event.type) {
+        case 'session_ready':
+          setStatus('active', 'Active');
+          appendSystem(`Session started · Model: ${event.model}`);
+          enableInput();
+          break;
+
+        case 'system':
+          if (event.subtype === 'init') {
+            // Init event — session is confirmed running
+            setStatus('active', 'Ready');
+          }
+          break;
+
+        case 'assistant': {
+          // Complete assistant message from stream-json
+          finalizeStreaming();
+          renderAssistantMessage(event.message);
+          break;
+        }
+
+        // Streaming events (if claude CLI streams token by token)
+        case 'message_start':
+          startStreamingMessage();
+          break;
+
+        case 'content_block_start':
+          if (event.content_block) {
+            if (event.content_block.type === 'text') {
+              appendStreamingText(event.content_block.text || '');
+            } else if (event.content_block.type === 'tool_use') {
+              currentToolUses[event.index] = {
+                name: event.content_block.name,
+                id: event.content_block.id,
+                inputJson: ''
+              };
+            }
+          }
+          break;
+
+        case 'content_block_delta':
+          if (event.delta) {
+            if (event.delta.type === 'text_delta') {
+              appendStreamingText(event.delta.text || '');
+            } else if (event.delta.type === 'input_json_delta') {
+              const tool = currentToolUses[event.index];
+              if (tool) tool.inputJson += event.delta.partial_json || '';
+            }
+          }
+          break;
+
+        case 'content_block_stop':
+          // Finalize the content block (tool use)
+          if (currentToolUses[event.index]) {
+            const tool = currentToolUses[event.index];
+            appendToolCard(tool.name, tool.inputJson);
+            delete currentToolUses[event.index];
+          }
+          break;
+
+        case 'message_delta':
+        case 'message_stop':
+          finalizeStreaming();
+          break;
+
+        case 'result':
+          setStatus('active', 'Idle');
+          enableInput();
+          if (event.total_cost_usd != null) {
+            const cost = `$${event.total_cost_usd.toFixed(4)}`;
+            const dur = event.duration_ms ? `${(event.duration_ms / 1000).toFixed(1)}s` : '';
+            appendSystem(`Turn complete · ${dur ? dur + ' · ' : ''}Cost: ${cost}`);
+          } else {
+            enableInput();
+          }
+          awaitingResponse = false;
+          break;
+
+        case 'error':
+          finalizeStreaming();
+          appendError(event.error || event.message || 'Unknown error');
+          setStatus('error', 'Error');
+          enableInput();
+          awaitingResponse = false;
+          break;
+
+        case 'session_end':
+          finalizeStreaming();
+          appendSystem(`Session ended (exit code: ${event.code ?? 'unknown'}).`);
+          setStatus('', 'Ended');
+          disableInput();
+          document.getElementById('stopBtn').style.display = 'none';
+          sessionId = null;
+          awaitingResponse = false;
+          break;
+
+        case 'stderr':
+          // Log stderr silently unless it looks like an error
+          if (event.data && event.data.trim()) {
+            console.warn('[claude stderr]', event.data);
+          }
+          break;
+
+        default:
+          console.log('[ws event]', event);
+      }
+    }
+
+    // ---- Message rendering ----
+    function scrollToBottom() {
+      const msgs = document.getElementById('chatMessages');
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function appendMessage(el) {
+      document.getElementById('chatMessages').appendChild(el);
+      scrollToBottom();
+    }
+
+    function appendSystem(text) {
+      const el = document.createElement('div');
+      el.className = 'message system-msg';
+      el.innerHTML = `<div class="msg-bubble">${escapeHtml(text)}</div>`;
+      appendMessage(el);
+    }
+
+    function appendError(text) {
+      const el = document.createElement('div');
+      el.className = 'message error-msg';
+      el.innerHTML = `<div class="msg-bubble">&#9888; ${escapeHtml(text)}</div>`;
+      appendMessage(el);
+    }
+
+    function appendUserMessage(text) {
+      const el = document.createElement('div');
+      el.className = 'message user';
+      el.innerHTML = `
+        <div class="msg-avatar">&#128100;</div>
+        <div class="msg-bubble"><div class="msg-content">${escapeHtml(text).replace(/\n/g,'<br>')}</div></div>`;
+      appendMessage(el);
+    }
+
+    function renderAssistantMessage(msg) {
+      if (!msg || !msg.content) return;
+      const el = createAssistantBubble();
+      const contentEl = el.querySelector('.msg-content');
+      let hasContent = false;
+
+      for (const block of msg.content) {
+        if (block.type === 'text' && block.text) {
+          const textEl = document.createElement('div');
+          textEl.innerHTML = marked.parse(block.text);
+          contentEl.appendChild(textEl);
+          hasContent = true;
+        } else if (block.type === 'tool_use') {
+          const card = buildToolCard(block.name, JSON.stringify(block.input, null, 2));
+          contentEl.appendChild(card);
+          hasContent = true;
+        }
+      }
+
+      if (!hasContent) return;
+      appendMessage(el);
+    }
+
+    function createAssistantBubble() {
+      const el = document.createElement('div');
+      el.className = 'message assistant';
+      el.innerHTML = `
+        <div class="msg-avatar">&#129302;</div>
+        <div class="msg-bubble"><div class="msg-content"></div></div>`;
+      return el;
+    }
+
+    function buildToolCard(name, inputStr) {
+      const card = document.createElement('div');
+      card.className = 'tool-card';
+      const icon = getToolIcon(name);
+      card.innerHTML = `
+        <div class="tool-header" onclick="toggleToolCard(this)">
+          <span class="tool-icon">${icon}</span>
+          <span class="tool-name">${escapeHtml(name)}</span>
+          <span class="tool-chevron">&#9654;</span>
+        </div>
+        <div class="tool-body">
+          <pre>${escapeHtml(inputStr)}</pre>
+        </div>`;
+      return card;
+    }
+
+    function getToolIcon(name) {
+      if (name.includes('read') || name.includes('view')) return '&#128065;';
+      if (name.includes('write') || name.includes('edit') || name.includes('create')) return '&#9998;';
+      if (name.includes('bash') || name.includes('exec') || name.includes('run') || name.includes('command')) return '&#128187;';
+      if (name.includes('list') || name.includes('dir') || name.includes('glob')) return '&#128193;';
+      if (name.includes('search') || name.includes('grep')) return '&#128269;';
+      if (name.includes('delete') || name.includes('remove')) return '&#128465;';
+      return '&#128295;';
+    }
+
+    function toggleToolCard(header) {
+      header.parentElement.classList.toggle('expanded');
+    }
+
+    // ---- Streaming support ----
+    function startStreamingMessage() {
+      if (currentAssistantEl) return; // already started
+      currentAssistantEl = createAssistantBubble();
+      currentTextParts = [];
+      currentToolUses = {};
+      appendMessage(currentAssistantEl);
+    }
+
+    function appendStreamingText(text) {
+      if (!currentAssistantEl) startStreamingMessage();
+      currentTextParts.push(text);
+      const contentEl = currentAssistantEl.querySelector('.msg-content');
+      // Find or create text div
+      let textDiv = contentEl.querySelector('.streaming-text');
+      if (!textDiv) {
+        textDiv = document.createElement('div');
+        textDiv.className = 'streaming-text';
+        contentEl.appendChild(textDiv);
+      }
+      textDiv.innerHTML = marked.parse(currentTextParts.join('')) + '<span class="streaming-cursor"></span>';
+      scrollToBottom();
+    }
+
+    function appendToolCard(name, inputJson) {
+      if (!currentAssistantEl) startStreamingMessage();
+      const contentEl = currentAssistantEl.querySelector('.msg-content');
+      let inputStr = inputJson;
+      try { inputStr = JSON.stringify(JSON.parse(inputJson), null, 2); } catch (e) {}
+      contentEl.appendChild(buildToolCard(name, inputStr));
+      scrollToBottom();
+    }
+
+    function finalizeStreaming() {
+      if (!currentAssistantEl) return;
+      // Remove cursor from streaming text
+      const cursor = currentAssistantEl.querySelector('.streaming-cursor');
+      if (cursor) cursor.remove();
+      currentAssistantEl = null;
+      currentTextParts = [];
+      currentToolUses = {};
+    }
+
+    // ---- Send message ----
+    function sendMessage() {
+      if (awaitingResponse || !ws || ws.readyState !== WebSocket.OPEN) return;
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      input.value = '';
+      input.style.height = 'auto';
+      awaitingResponse = true;
+      disableInput();
+      setStatus('active', 'Thinking...');
+
+      appendUserMessage(text);
+      startStreamingMessage(); // Pre-create assistant bubble for streaming
+
+      ws.send(JSON.stringify({ type: 'user_message', text }));
+    }
+
+    // ---- Init ----
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.href = '/login.html';
+    });
+
+    async function init() {
+      if (!projectId) {
+        document.getElementById('topbarProject').textContent = 'No project';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/projects/${projectId}`);
+        if (res.status === 401) { window.location.href = '/login.html'; return; }
+        if (res.ok) {
+          projectData = await res.json();
+          document.getElementById('topbarProject').textContent = projectData.name;
+          document.getElementById('startProjectName').textContent =
+            `Chat with Claude Code in ${projectData.name} (${projectData.description})`;
+          document.getElementById('hintProjectPath').textContent = projectData.path;
+          document.title = `${projectData.name} Chat — Dev Dashboard`;
+        }
+      } catch (e) {}
+    }
+
+    fetch('/api/session').then(r => r.json()).then(d => {
+      if (!d.authenticated) { window.location.href = '/login.html'; return; }
+      init();
+    });
+  </script>
+</body>
+</html>

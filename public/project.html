@@ -250,6 +250,8 @@
           <button class="tab-btn ${activeTab === 'changes' ? 'active' : ''}" id="tab-changes" onclick="switchTab('changes')">&#127381; Changes</button>
           <button class="tab-btn ${activeTab === 'unpushed' ? 'active' : ''}" id="tab-unpushed" onclick="switchTab('unpushed')">&#8593; Unpushed</button>
           <button class="tab-btn ${activeTab === 'history' ? 'active' : ''}" id="tab-history" onclick="switchTab('history')">&#128203; History</button>
+          <div style="flex:1"></div>
+          <a class="tab-btn" href="/chat.html?id=${escapeHtml(data.id)}" style="text-decoration:none;color:inherit;background:var(--bg-hover);border:1px solid var(--border);padding:6px 14px;border-radius:var(--radius)">&#128172; Chat</a>
         </div>
 
         <div id="changesPane" style="${activeTab !== 'changes' ? 'display:none' : ''}">
