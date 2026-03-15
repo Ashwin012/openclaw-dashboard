@@ -1,0 +1,20 @@
+{
+  "credentials": [
+    {
+      "id": "v8jF0tiwMRmU78iIZNd1t7dMfF8",
+      "publicKey": "pQECAyYgASFYIPQg9CRnPQZZEYrs3o+oEYGGIPDYhCslGyW3awZ2T4+WIlggrODZwUYjqeUz8h1LG0IKXi5QdqsZS6+mOsQAFDJ3cTU=",
+      "counter": 0,
+      "deviceType": "multiDevice",
+      "backedUp": true,
+      "addedAt": "2026-03-15T17:22:50.738Z"
+    },
+    {
+      "id": "KMjl1TPHR1kIruF-5TDOxw",
+      "publicKey": "pQECAyYgASFYIERhj+vMSpFXDsjq0t1an0Eq51hTQuBgpuyQpHJ93hDwIlggg331T3k8P6YkW1zjiKNtdNhSSdRIPEZDn/nYf6VzovQ=",
+      "counter": 0,
+      "deviceType": "multiDevice",
+      "backedUp": true,
+      "addedAt": "2026-03-15T17:23:32.358Z"
+    }
+  ]
+}

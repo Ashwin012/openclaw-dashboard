@@ -454,6 +454,7 @@
                 </div>
               </div>
               ${p.testUrl ? `<a class="test-btn" href="${escapeHtml(p.testUrl)}" target="_blank">Test &#128279;</a>` : ''}
+              ${p.githubUrl ? `<a class="test-btn" href="${escapeHtml(p.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4">GitHub</a>` : ''}
             </div>
             <div class="card-section" style="color:var(--red);font-size:12px;opacity:0.8">
               &#10005; ${escapeHtml(p.error || 'Repository inaccessible')}
@@ -604,6 +605,7 @@
               </div>
             </div>
             ${p.testUrl ? `<a class="test-btn" href="${escapeHtml(p.testUrl)}" target="_blank">Test &#128279;</a>` : ''}
+            ${p.githubUrl ? `<a class="test-btn" href="${escapeHtml(p.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4">GitHub</a>` : ''}
           </div>
           ${section1}
           ${section2}

@@ -459,6 +459,7 @@
               ${hasChanges ? `${data.files.length} file${data.files.length !== 1 ? 's' : ''} changed` : 'Clean'}
             </span>
             ${data.testUrl ? `<a href="${escapeHtml(data.testUrl)}" target="_blank" style="background:#89b4fa;color:#1e1e2e;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Test 🔗</a>` : ''}
+            ${data.githubUrl ? `<a href="${escapeHtml(data.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">GitHub</a>` : ''}
           </div>
         </div>
 
