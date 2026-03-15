@@ -175,6 +175,7 @@
     .cbadge.agent    { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
     .cbadge.external { background: #8b949e22; color: #8b949e; border: 1px solid #8b949e33; }
     .cbadge.unpushed { background: #d2992222; color: #d29922; border: 1px solid #d2992244; }
+    .cbadge.pushed   { background: #3fb95022; color: #3fb950; border: 1px solid #3fb95044; }
 
     /* ===== Section 2: Local Changes ===== */
     .changes-row {
@@ -241,7 +242,13 @@
     .change-file.Q { background: #8b949e22; color: #8b949e; border: 1px solid #8b949e44; }
     .change-file.R { background: #bc8cff22; color: #bc8cff; border: 1px solid #bc8cff44; }
 
-    /* ===== Section 3: Active Tasks (in card) ===== */
+    /* ===== Section 3: Pending Tasks (in card) ===== */
+    .pending-tasks-stats {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
     .card-tasks-stats {
       display: flex;
       flex-wrap: wrap;
@@ -468,7 +475,9 @@
             const srcBadge = c.source === 'agent'
               ? `<span class="cbadge agent">&#129302; Agent</span>`
               : `<span class="cbadge external">&#128100;</span>`;
-            const upBadge = isUnpushed ? `<span class="cbadge unpushed">&#8679;</span>` : '';
+            const upBadge = isUnpushed
+              ? `<span class="cbadge unpushed">&#8679; Unpushed</span>`
+              : `<span class="cbadge pushed">&#10003; Pushed</span>`;
             return `<div class="card-commit-row">
               <span class="card-commit-hash">${escapeHtml(c.shortHash || (c.hash || '').slice(0,7))}</span>
               <span class="card-commit-msg" title="${escapeHtml(c.message)}">${escapeHtml(c.message)}</span>
@@ -523,26 +532,24 @@
           section2 = `<div class="card-section">${innerHtml}</div>`;
         }
 
-        // --- Section 3: Active Tasks ---
+        // --- Section 3: Pending Tasks ---
         let section3 = '';
         const tasks = tasksByProject[p.id] || [];
-        const activeTasks = tasks.filter(t => t.status !== 'done');
-        if (activeTasks.length > 0) {
-          const counts = { todo: 0, in_progress: 0, review: 0, done: 0, blocked: 0 };
-          for (const t of tasks) {
+        const pendingTasks = tasks.filter(t => t.status !== 'done');
+        if (pendingTasks.length > 0) {
+          const counts = { todo: 0, in_progress: 0, review: 0, blocked: 0 };
+          for (const t of pendingTasks) {
             if (counts[t.status] !== undefined) counts[t.status]++;
-            else counts.todo++;
           }
 
-          const statsHtml = [
-            counts.todo       ? `<span class="task-stat-badge todo">${counts.todo} Todo</span>` : '',
-            counts.in_progress? `<span class="task-stat-badge inprogress">${counts.in_progress} In Progress</span>` : '',
-            counts.review     ? `<span class="task-stat-badge review">${counts.review} Review</span>` : '',
-            counts.done       ? `<span class="task-stat-badge done">${counts.done} Done</span>` : '',
-            counts.blocked    ? `<span class="task-stat-badge blocked">${counts.blocked} Blocked</span>` : '',
-          ].join('');
+          const statsParts = [
+            counts.todo        ? `${counts.todo} Todo` : '',
+            counts.in_progress ? `${counts.in_progress} In Progress` : '',
+            counts.review      ? `${counts.review} Review` : '',
+            counts.blocked     ? `${counts.blocked} Blocked` : '',
+          ].filter(Boolean).join(' · ');
 
-          const topTasks = activeTasks
+          const topTasks = pendingTasks
             .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
             .slice(0, 5);
 
@@ -557,8 +564,8 @@
           }).join('');
 
           section3 = `<div class="card-section">
-            <div class="card-section-title">&#128203; Active Tasks</div>
-            <div class="card-tasks-stats">${statsHtml}</div>
+            <div class="card-section-title">&#128204; Pending Tasks</div>
+            <div class="pending-tasks-stats">${escapeHtml(statsParts)}</div>
             <div class="card-task-list">${taskRows}</div>
             <a class="view-all-link" href="/project.html?id=${escapeHtml(p.id)}&tab=tasks">View all tasks &#8594;</a>
           </div>`;
