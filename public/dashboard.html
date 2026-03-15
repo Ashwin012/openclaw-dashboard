@@ -56,29 +56,48 @@
       return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    function activityIcon(action) {
-      if (action === 'approved') return '&#10003;';
-      if (action === 'rejected') return '&#10007;';
-      if (action === 'instructed') return '&#9998;';
-      return '&#8226;';
+    const PROJECT_COLORS = ['#388bfd', '#56d364', '#bc8cff', '#d29922', '#e06c75'];
+
+    function projectBadgeStyle(color) {
+      return `background:${color}22;color:${color};border:1px solid ${color};font-size:11px;padding:2px 7px;border-radius:4px;white-space:nowrap;font-weight:500;`;
     }
 
-    function activityClass(action) {
-      if (action === 'approved') return 'act-approved';
-      if (action === 'rejected') return 'act-rejected';
-      if (action === 'instructed') return 'act-instructed';
-      return '';
-    }
+    function renderGlobalActivity(projects) {
+      const colorMap = {};
+      projects.forEach((p, i) => { colorMap[p.id] = PROJECT_COLORS[i % PROJECT_COLORS.length]; });
 
-    function renderRecentActivity(activity) {
-      if (!activity || !activity.length) return '';
-      const items = activity.map(a => `
-        <div class="act-item ${activityClass(a.action)}">
-          <span class="act-icon">${activityIcon(a.action)}</span>
-          <span class="act-text">${escapeHtml(a.message || a.action)}</span>
-          <span class="act-time">${timeAgo(a.timestamp)}</span>
-        </div>`).join('');
-      return `<div class="recent-activity"><div class="act-label">Recent activity</div>${items}</div>`;
+      const allCommits = projects
+        .flatMap(p => (p.recentCommits || []))
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 10);
+
+      if (!allCommits.length) return '';
+
+      const items = allCommits.map(c => {
+        const color = colorMap[c.projectId] || '#888';
+        const sourceBadge = c.source === 'agent'
+          ? `<span class="ga-source ga-agent">&#129302; Agent</span>`
+          : `<span class="ga-source ga-external">&#128100; External</span>`;
+        const pushBadge = c.pushed
+          ? `<span class="ga-push ga-pushed">&#10003; Pushed</span>`
+          : `<span class="ga-push ga-unpushed">&#8679; Not pushed</span>`;
+        return `<a class="ga-item" href="/project.html?id=${escapeHtml(c.projectId)}">
+          <div class="ga-top">
+            <span class="ga-project" style="${projectBadgeStyle(color)}">${escapeHtml(c.projectName)}</span>
+            <span class="ga-message">${escapeHtml(c.message)}</span>
+          </div>
+          <div class="ga-meta">
+            <span class="ga-author">${escapeHtml(c.author)} &middot; ${timeAgo(c.date)}</span>
+            ${sourceBadge}
+            ${pushBadge}
+          </div>
+        </a>`;
+      }).join('');
+
+      return `<div class="ga-section">
+        <div class="ga-label">Recent Activity</div>
+        <div class="ga-list">${items}</div>
+      </div>`;
     }
 
     async function loadProjects() {
@@ -94,7 +113,7 @@
           return;
         }
 
-        content.innerHTML = `<div class="projects-grid">${projects.map(p => {
+        const projectsGrid = `<div class="projects-grid">${projects.map(p => {
           const badgeClass = !p.accessible ? 'badge-error' : p.pendingChanges > 0 ? 'badge-pending' : 'badge-clean';
           const badgeText = !p.accessible ? 'Error' : p.pendingChanges > 0 ? `${p.pendingChanges} pending` : 'Clean';
           const unpushedBadge = p.accessible && p.unpushedCount > 0
@@ -115,9 +134,10 @@
               <span>&#128336; ${timeAgo(p.lastActivity)}</span>
               <span style="word-break:break-all;font-size:11px;color:var(--text-subtle)">${escapeHtml(p.path)}</span>
             </div>
-            ${renderRecentActivity(p.recentActivity)}
           </a>`;
         }).join('')}</div>`;
+
+        content.innerHTML = projectsGrid + renderGlobalActivity(projects);
       } catch (err) {
         document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load projects</h3><p>${err.message}</p></div>`;
       }

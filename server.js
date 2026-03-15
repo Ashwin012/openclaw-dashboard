@@ -198,20 +198,49 @@ app.get('/api/projects', requireAuth, async (req, res) => {
         const { stdout: status } = await execAsync('git status --porcelain', { cwd: p.path });
         const { stdout: lastLog } = await execAsync('git log -1 --format="%ci"', { cwd: p.path });
         const changedFiles = status.trim().split('\n').filter(l => l.trim()).length;
-        const recentActivity = readHistory(p).slice(0, 5);
         const branchName = branch.trim();
         const unpushed = await getUnpushedCommits(p, branchName);
+        const unpushedHashes = new Set(unpushed.map(c => c.hash));
+
+        // Get last 5 commits with source + push status
+        let recentCommits = [];
+        try {
+          const { stdout: commitLog } = await execAsync(
+            'git log --format=\'{"hash":"%H","shortHash":"%h","author":"%an","date":"%aI","message":"%s"}\' -5',
+            { cwd: p.path }
+          );
+          const history = readHistory(p);
+          const approvedByMsg = {};
+          for (const entry of history) {
+            if (entry.action === 'approved' && entry.message) {
+              approvedByMsg[entry.message] = entry;
+            }
+          }
+          for (const line of commitLog.trim().split('\n').filter(l => l.trim())) {
+            try {
+              const commit = JSON.parse(line);
+              recentCommits.push({
+                ...commit,
+                source: approvedByMsg[commit.message] ? 'agent' : 'external',
+                pushed: !unpushedHashes.has(commit.hash),
+                projectId: p.id,
+                projectName: p.name
+              });
+            } catch { /* skip malformed */ }
+          }
+        } catch { /* ignore */ }
+
         return {
           ...p,
           branch: branchName,
           pendingChanges: changedFiles,
           unpushedCount: unpushed.length,
           lastActivity: lastLog.trim(),
-          recentActivity,
+          recentCommits,
           accessible: true
         };
       } catch (err) {
-        return { ...p, branch: 'unknown', pendingChanges: 0, unpushedCount: 0, lastActivity: null, recentActivity: [], accessible: false, error: err.message };
+        return { ...p, branch: 'unknown', pendingChanges: 0, unpushedCount: 0, lastActivity: null, recentCommits: [], accessible: false, error: err.message };
       }
     }));
     res.json(projects);
