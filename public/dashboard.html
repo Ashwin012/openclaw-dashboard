@@ -6,6 +6,163 @@
   <title>Dev Dashboard</title>
   <link rel="stylesheet" href="/css/style.css">
   <style>
+    /* ===== Project Cards (redesigned) ===== */
+    .projects-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .projects-grid { grid-template-columns: 1fr; }
+    }
+
+    .project-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .project-card-body {
+      padding: 18px 20px 14px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .project-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .project-card-title {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .project-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--accent);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .project-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .project-pending-badge {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .pending-has-changes {
+      background: var(--red-bg);
+      color: var(--red);
+      border: 1px solid var(--red);
+    }
+
+    .pending-clean {
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid var(--green);
+    }
+
+    .pending-error {
+      background: var(--red-bg);
+      color: var(--red);
+      border: 1px solid var(--red);
+      opacity: 0.6;
+    }
+
+    .project-last-commit {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .last-commit-msg {
+      font-size: 12px;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .last-commit-time {
+      font-size: 11px;
+      color: var(--text-subtle);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .project-card-footer {
+      padding: 10px 20px;
+      background: var(--bg-card);
+      border-top: 1px solid var(--border-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .project-card-footer-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .project-branch {
+      font-size: 11px;
+      color: var(--text-subtle);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .unpushed-indicator {
+      font-size: 11px;
+      color: var(--yellow);
+      white-space: nowrap;
+    }
+
+    .review-btn {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      white-space: nowrap;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      transition: color 0.1s;
+    }
+
+    .project-card:hover .review-btn { color: var(--accent-hover); }
+
     /* ===== Activity Layout ===== */
     .activity-wrapper {
       display: flex;
@@ -236,85 +393,10 @@
     .badge-push.pushed { background: #3fb95022; color: #3fb950; border: 1px solid #3fb95044; }
     .badge-push.unpushed { background: #d2992222; color: #d29922; border: 1px solid #d2992244; }
 
-    /* ===== Project Summary Cards ===== */
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 0;
-    }
-
-    .summary-card {
-      padding: 14px 16px;
-      border-right: 1px solid var(--border-muted);
-      border-bottom: 1px solid var(--border-muted);
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      text-decoration: none;
-      transition: background 0.1s;
-    }
-
-    .summary-card:hover { background: var(--bg-hover); }
-    .summary-card:last-child { border-right: none; }
-
-    .summary-card-top {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .summary-status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .dot-clean { background: #3fb950; }
-    .dot-unpushed { background: #d29922; }
-    .dot-uncommitted { background: #f85149; }
-
-    .summary-project-name {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .summary-last-commit {
-      font-size: 11px;
-      color: var(--text-subtle);
-    }
-
-    .summary-stats {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .summary-stat {
-      font-size: 11px;
-      padding: 2px 7px;
-      border-radius: 4px;
-      font-weight: 500;
-    }
-
-    .summary-stat.clean { background: #3fb95022; color: #3fb950; border: 1px solid #3fb95033; }
-    .summary-stat.warn { background: #d2992222; color: #d29922; border: 1px solid #d2992233; }
-    .summary-stat.danger { background: #f8514922; color: #f85149; border: 1px solid #f8514933; }
-    .summary-stat.neutral { background: var(--bg-card); color: var(--text-subtle); border: 1px solid var(--border); }
-
     /* ===== Responsive ===== */
     @media (max-width: 640px) {
       .commit-message { font-size: 12px; }
-      .summary-grid { grid-template-columns: 1fr 1fr; }
       .attention-files { gap: 3px; }
-    }
-
-    @media (max-width: 400px) {
-      .summary-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -374,7 +456,77 @@
       return `background:${color}22;color:${color};border:1px solid ${color}66;`;
     }
 
-    // ===== Section 1: Needs Attention =====
+    // ===== Project Cards =====
+    function renderProjectCards(projects) {
+      if (!projects.length) {
+        return '<div class="empty-state"><div class="icon">&#128193;</div><h3>No projects configured</h3><p>Add projects to config.json</p></div>';
+      }
+
+      const cards = projects.map(p => {
+        if (!p.accessible) {
+          return `<a class="project-card" href="/project.html?id=${escapeHtml(p.id)}">
+            <div class="project-card-body">
+              <div class="project-card-top">
+                <div class="project-card-title">
+                  <div class="project-name">${escapeHtml(p.name)}</div>
+                  <div class="project-desc">${escapeHtml(p.description || '')}</div>
+                </div>
+                <span class="project-pending-badge pending-error">&#10005; Error</span>
+              </div>
+              <div class="last-commit-msg" style="color:var(--red);opacity:0.7">${escapeHtml(p.error || 'Repository inaccessible')}</div>
+            </div>
+            <div class="project-card-footer">
+              <div class="project-card-footer-left"></div>
+              <span class="review-btn">Review &#8594;</span>
+            </div>
+          </a>`;
+        }
+
+        const pendingCount = p.pendingChanges || 0;
+        const unpushedCount = p.unpushedCount || 0;
+        const lastCommit = (p.recentCommits && p.recentCommits[0]) || null;
+        const lastMsg = lastCommit ? lastCommit.message : null;
+
+        const pendingBadge = pendingCount > 0
+          ? `<span class="project-pending-badge pending-has-changes">&#128221; ${pendingCount} pending</span>`
+          : `<span class="project-pending-badge pending-clean">&#10003; Clean</span>`;
+
+        const unpushedIndicator = unpushedCount > 0
+          ? `<span class="unpushed-indicator">&#8679; ${unpushedCount} unpushed</span>`
+          : '';
+
+        const lastCommitHtml = lastMsg
+          ? `<div class="project-last-commit">
+              <span class="last-commit-msg" title="${escapeHtml(lastMsg)}">${escapeHtml(lastMsg)}</span>
+              <span class="last-commit-time">${timeAgo(p.lastActivity)}</span>
+            </div>`
+          : `<div class="project-last-commit"><span class="last-commit-time">No commits yet</span></div>`;
+
+        return `<a class="project-card" href="/project.html?id=${escapeHtml(p.id)}">
+          <div class="project-card-body">
+            <div class="project-card-top">
+              <div class="project-card-title">
+                <div class="project-name">${escapeHtml(p.name)}</div>
+                <div class="project-desc">${escapeHtml(p.description || '')}</div>
+              </div>
+              ${pendingBadge}
+            </div>
+            ${lastCommitHtml}
+          </div>
+          <div class="project-card-footer">
+            <div class="project-card-footer-left">
+              <span class="project-branch">&#9135; ${escapeHtml(p.branch || 'unknown')}</span>
+              ${unpushedIndicator}
+            </div>
+            <span class="review-btn">Review &#8594;</span>
+          </div>
+        </a>`;
+      });
+
+      return `<div class="projects-grid">${cards.join('')}</div>`;
+    }
+
+    // ===== Needs Attention =====
     function renderAttentionSection(projects, colorMap) {
       const uncommittedProjects = projects.filter(p => p.accessible && p.uncommittedChanges && p.uncommittedChanges.length > 0);
       const unpushedProjects = projects.filter(p => p.accessible && p.unpushedCommits && p.unpushedCommits.length > 0);
@@ -437,7 +589,7 @@
       return html;
     }
 
-    // ===== Section 2: Recent Commits =====
+    // ===== Recent Commits =====
     function renderRecentCommits(projects, colorMap) {
       const allCommits = projects
         .flatMap(p => (p.recentCommits || []))
@@ -455,7 +607,7 @@
           ? `<span class="badge-push pushed">&#10003; Pushed</span>`
           : `<span class="badge-push unpushed">&#8679; Unpushed</span>`;
 
-        return `<div class="commit-item" onclick="toggleCommit(${idx})">
+        return `<div class="commit-item" onclick="handleCommitClick(event, ${idx}, '${escapeHtml(c.projectId)}')">
           <div class="commit-top">
             <span class="badge-proj" style="${projectBadgeStyle(color)}">${escapeHtml(c.projectName)}</span>
             <span class="commit-message" title="${escapeHtml(c.message)}">${escapeHtml(c.message)}</span>
@@ -482,61 +634,11 @@
       </div>`;
     }
 
-    function toggleCommit(idx) {
+    function handleCommitClick(event, idx, projectId) {
+      // If clicking a link inside, let the link handle it
+      if (event.target.tagName === 'A') return;
       const el = document.getElementById(`commit-expand-${idx}`);
       if (el) el.classList.toggle('open');
-    }
-
-    // ===== Section 3: Project Summary Cards =====
-    function renderProjectSummary(projects, colorMap) {
-      if (!projects.length) return '';
-
-      const cards = projects.map(p => {
-        if (!p.accessible) {
-          return `<a class="summary-card" href="/project.html?id=${escapeHtml(p.id)}">
-            <div class="summary-card-top">
-              <div class="summary-status-dot" style="background:#f85149"></div>
-              <div class="summary-project-name">${escapeHtml(p.name)}</div>
-            </div>
-            <div class="summary-last-commit">Inaccessible</div>
-          </a>`;
-        }
-
-        const uncommittedCount = (p.uncommittedChanges || []).length;
-        const unpushedCount = (p.unpushedCommits || []).length;
-        const dotClass = uncommittedCount > 0 ? 'dot-uncommitted' : unpushedCount > 0 ? 'dot-unpushed' : 'dot-clean';
-
-        const tasks = p.activeTasks || 0;
-        const color = colorMap[p.id];
-
-        let statsHtml = '';
-        if (uncommittedCount > 0) {
-          statsHtml += `<span class="summary-stat danger">&#128221; ${uncommittedCount} uncommitted</span>`;
-        }
-        if (unpushedCount > 0) {
-          statsHtml += `<span class="summary-stat warn">&#8679; ${unpushedCount} unpushed</span>`;
-        }
-        if (uncommittedCount === 0 && unpushedCount === 0) {
-          statsHtml += `<span class="summary-stat clean">&#10003; Clean</span>`;
-        }
-        if (p.stats && p.stats.totalCommits > 0) {
-          statsHtml += `<span class="summary-stat neutral">${p.stats.totalCommits} commits/30d</span>`;
-        }
-
-        return `<a class="summary-card" href="/project.html?id=${escapeHtml(p.id)}">
-          <div class="summary-card-top">
-            <div class="summary-status-dot ${dotClass}"></div>
-            <div class="summary-project-name" style="color:${color}">${escapeHtml(p.name)}</div>
-          </div>
-          <div class="summary-last-commit">Last commit ${timeAgo(p.lastActivity)}</div>
-          <div class="summary-stats">${statsHtml}</div>
-        </a>`;
-      });
-
-      return `<div class="activity-section">
-        <div class="activity-section-header">&#9635; Project Summary</div>
-        <div class="summary-grid">${cards.join('')}</div>
-      </div>`;
     }
 
     async function loadProjects() {
@@ -555,38 +657,12 @@
         const colorMap = {};
         projects.forEach((p, i) => { colorMap[p.id] = PROJECT_COLORS[i % PROJECT_COLORS.length]; });
 
-        // Project cards grid (existing)
-        const projectsGrid = `<div class="projects-grid">${projects.map(p => {
-          const badgeClass = !p.accessible ? 'badge-error' : p.pendingChanges > 0 ? 'badge-pending' : 'badge-clean';
-          const badgeText = !p.accessible ? 'Error' : p.pendingChanges > 0 ? `${p.pendingChanges} pending` : 'Clean';
-          const unpushedBadge = p.accessible && p.unpushedCount > 0
-            ? `<span class="badge badge-unpushed">${p.unpushedCount} unpushed</span>`
-            : '';
-
-          return `<a class="project-card" href="/project.html?id=${p.id}">
-            <div class="project-card-header">
-              <div class="project-name">${escapeHtml(p.name)}</div>
-              <div class="project-badges">
-                <span class="badge ${badgeClass}">${badgeText}</span>
-                ${unpushedBadge}
-              </div>
-            </div>
-            <div class="project-desc">${escapeHtml(p.description)}</div>
-            <div class="project-meta">
-              <span>&#9135; ${escapeHtml(p.branch || 'unknown')}</span>
-              <span>&#128336; ${timeAgo(p.lastActivity)}</span>
-              <span style="word-break:break-all;font-size:11px;color:var(--text-subtle)">${escapeHtml(p.path)}</span>
-            </div>
-          </a>`;
-        }).join('')}</div>`;
-
         const activityWrapper = `<div class="activity-wrapper">
           ${renderAttentionSection(projects, colorMap)}
           ${renderRecentCommits(projects, colorMap)}
-          ${renderProjectSummary(projects, colorMap)}
         </div>`;
 
-        content.innerHTML = projectsGrid + activityWrapper;
+        content.innerHTML = renderProjectCards(projects) + activityWrapper;
       } catch (err) {
         document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load projects</h3><p>${err.message}</p></div>`;
       }

@@ -170,7 +170,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 
 .projects-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
 }
 
@@ -1358,7 +1358,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 @media (max-width: 768px) {
   .project-layout { grid-template-columns: 1fr; }
   .file-tree { position: static; }
-  .projects-grid { grid-template-columns: 1fr; }
+  .projects-grid { grid-template-columns: 1fr !important; }
   .container { padding: 16px; }
   .kanban-board { grid-template-columns: 1fr; }
   .mform-row-inline { flex-direction: column; }
