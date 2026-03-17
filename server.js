@@ -1700,10 +1700,38 @@ app.get('/api/news/feed', requireAuth, (req, res) => {
   res.json({ updatedAt: data.updatedAt, articles });
 });
 
-app.post('/api/news/summarize', requireAuth, (req, res) => {
+app.post('/api/news/summarize', requireAuth, async (req, res) => {
+  const { execFile } = require('child_process');
+  const newsPath = path.join(__dirname, 'data', 'news.json');
   const data = readNewsFeed();
   const articles = data.articles || [];
-  const count = articles.filter(a => !a.summary || a.summary === a.title || a.summary.includes('Je ne')).length;
+  const needSummary = articles.filter(a => !a.summary || a.summary === a.title || a.summary.includes('Je ne'));
+  const count = needSummary.length;
+  if (count === 0) return res.json({ count: 0, status: 'nothing_to_do' });
+  // Fire and forget: spawn summarize script
+  const script = `
+import json, subprocess, sys, os
+path = "${newsPath.replace(/\\/g, '/')}"
+d = json.load(open(path))
+updated = 0
+for a in d["articles"]:
+    s = a.get("summary","")
+    if not s or s == a["title"] or "Je ne" in s:
+        try:
+            prompt = f"Résume cet article en français, 3-5 lignes, style journalistique. Titre: {a['title']}. Ne dis JAMAIS 'je ne peux pas'. Si tu n'as que le titre, reformule-le en 2-3 phrases informatives.\\n"
+            result = subprocess.run(["claude", "--print", "-p", prompt], capture_output=True, text=True, timeout=30, env={**os.environ, "CLAUDE_CODE_OAUTH_TOKEN": os.environ.get("CLAUDE_CODE_OAUTH_TOKEN","")})
+            if result.returncode == 0 and result.stdout.strip():
+                a["summary"] = result.stdout.strip()
+                updated += 1
+        except: pass
+json.dump(d, open(path,"w"), indent=2, ensure_ascii=False)
+print(f"Updated {updated} articles")
+`;
+  const env = { ...process.env, CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN || '' };
+  const child = execFile('python3', ['-c', script], { env, timeout: 600000 }, (err) => {
+    if (err) console.error('Summarize error:', err.message);
+  });
+  child.unref();
   res.json({ count, status: 'triggered' });
 });
 

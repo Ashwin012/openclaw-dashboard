@@ -908,7 +908,7 @@
       </div>
 
     <!-- Facturation Section -->
-    <div class="panel" id="invoicingPanel" style="flex:none;margin-bottom:20px">
+    <div class="panel" id="invoicingPanel" style="flex:none;margin-bottom:20px;max-width:600px">
       <div class="panel-header">
         <span class="panel-title">💰 Facturation</span>
         <button class="btn-sm" onclick="showInvoiceHistoryModal()" title="Historique">📋</button>
@@ -1840,7 +1840,7 @@
         const tl = document.createElement('div');
         tl.className = 'inv-timeline';
         const events = inv.events || [];
-        const allEvents = [{ type: 'created', at: inv.createdAt }].concat(events);
+        const allEvents = events;
         const evCfg = {
           created:  { icon: '📄', label: 'Créée le',             dotClass: 'inv-tl-dot-created' },
           sent:     { icon: '📤', label: 'Facture envoyée le',   dotClass: 'inv-tl-dot-sent' },
