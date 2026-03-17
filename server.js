@@ -1931,17 +1931,27 @@ app.get('/api/trading-status', requireAuth, async (req, res) => {
     };
 
     const base = 'http://45.77.131.11:8000';
-    const [kpis, positions, summary, status, balance] = await Promise.allSettled([
+    const [kpis, positions, summary, status, balance, trades] = await Promise.allSettled([
       runWithRetry(`${base}/api/kpis`),
       runWithRetry(`${base}/api/positions`),
       runWithRetry(`${base}/api/summary`),
       runWithRetry(`${base}/api/bot/status`),
-      runWithRetry(`${base}/api/balance`)
+      runWithRetry(`${base}/api/balance`),
+      runWithRetry(`${base}/api/user_trades`)
     ]);
 
-    // bot/status returns an array of log lines, check if bot is running
+    // bot/status returns nested dict: { default: { bot_name: { strategy: { status: "running" } } } }
     const statusData = status.status === 'fulfilled' ? status.value : null;
-    const isRunning = Array.isArray(statusData) ? statusData.some(l => typeof l === 'string' && (l.includes('Bot running') || l.includes('started') || l.includes('RUNNING'))) : (statusData && statusData.is_running);
+    let isRunning = false;
+    if (statusData && typeof statusData === 'object' && !Array.isArray(statusData)) {
+      // Walk nested structure to find any status === "running"
+      const walk = (obj) => {
+        if (!obj || typeof obj !== 'object') return;
+        if (obj.status === 'running') { isRunning = true; return; }
+        for (const v of Object.values(obj)) walk(v);
+      };
+      walk(statusData);
+    }
 
     // Filter active positions (non-zero positionAmt)
     const posData = positions.status === 'fulfilled' ? positions.value : null;
@@ -1958,6 +1968,7 @@ app.get('/api/trading-status', requireAuth, async (req, res) => {
       summary: summary.status === 'fulfilled' ? summary.value : null,
       status: { is_running: isRunning },
       balance: { wallet: walletBalance, unrealizedPnl },
+      trades: trades.status === 'fulfilled' ? (Array.isArray(trades.value) ? trades.value.slice(-50) : []) : [],
       errors: {
         kpis: kpis.status === 'rejected' ? kpis.reason.message : null,
         positions: positions.status === 'rejected' ? positions.reason.message : null,
