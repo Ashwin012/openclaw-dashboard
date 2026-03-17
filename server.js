@@ -1930,7 +1930,7 @@ app.get('/api/trading-status', requireAuth, async (req, res) => {
       }
     };
 
-    const base = 'http://localhost:8000';
+    const base = 'http://45.77.131.11:8000';
     const [kpis, positions, summary, status] = await Promise.allSettled([
       runWithRetry(`${base}/api/data/kpis`),
       runWithRetry(`${base}/api/data/positions`),
