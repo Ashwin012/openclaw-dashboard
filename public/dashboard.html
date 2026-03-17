@@ -542,7 +542,7 @@
                 <span class="status-dot error"></span>
                 <div class="card-header-info">
                   <div class="project-name">${escapeHtml(p.name)}</div>
-                  <div class="project-desc">${escapeHtml(p.description || '')}</div>
+                  <div class="project-desc">${escapeHtml(p.description || '')}${p.repos && p.repos.length > 1 ? ` <span style="color:var(--text-muted);font-size:11px;margin-left:6px">&#128230; ${p.repos.length} repos</span>` : ''}</div>
                 </div>
               </div>
               <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
@@ -697,7 +697,7 @@
               <span class="status-dot ${dotClass}"></span>
               <div class="card-header-info">
                 <div class="project-name">${escapeHtml(p.name)}</div>
-                <div class="project-desc">${escapeHtml(p.description || '')}</div>
+                <div class="project-desc">${escapeHtml(p.description || '')}${p.repos && p.repos.length > 1 ? ` <span style="color:var(--text-muted);font-size:11px;margin-left:6px">&#128230; ${p.repos.length} repos</span>` : ''}</div>
               </div>
             </div>
             <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">

@@ -924,6 +924,7 @@
         <span class="panel-title">📰 Veille News</span>
         <span class="news-feed-updated" id="newsFeedUpdated" style="font-size:11px;color:var(--text-muted);margin-left:8px">–</span>
         <button class="btn-sm" onclick="loadNewsFeed()">🔄</button>
+        <button class="btn-sm" id="summarizeBtn" onclick="triggerNewsSummary()" style="margin-left:4px;background:var(--bg-surface);color:var(--text-muted);border:1px solid var(--border)">🔄 Résumer</button>
       </div>
 
       <div class="news-cat-tabs" id="newsCatTabs">
@@ -1746,6 +1747,24 @@
       // Initial load + auto-refresh every 5 minutes
       loadNewsFeed();
       setInterval(loadNewsFeed, 300000);
+
+      window.triggerNewsSummary = async function() {
+        const btn = document.getElementById('summarizeBtn');
+        if (!btn) return;
+        btn.textContent = '⏳ Lancé...';
+        btn.disabled = true;
+        try {
+          const res = await fetch('/api/news/summarize', { method: 'POST' });
+          const data = await res.json();
+          alert(`${data.count} article${data.count !== 1 ? 's' : ''} à résumer — résumé lancé !`);
+        } catch (e) {
+          alert('Erreur lors du déclenchement du résumé');
+        }
+        setTimeout(() => {
+          btn.textContent = '🔄 Résumer';
+          btn.disabled = false;
+        }, 3000);
+      };
     })();
   </script>
 

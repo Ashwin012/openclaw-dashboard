@@ -24,6 +24,12 @@ const wss = new WebSocket.Server({ noServer: true });
 const chatSessions = new Map(); // sessionId -> { projectId, projectPath, model, process, ws, status }
 const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
 
+function resolveRepoPath(project, repoName) {
+  if (!repoName || !project.repos) return project.path;
+  const repo = project.repos.find(r => r.name === repoName);
+  return repo ? repo.path : project.path;
+}
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.get("/login.html", (req, res) => {
@@ -479,16 +485,17 @@ app.get('/api/projects/:id', requireAuth, async (req, res) => {
   const MAX_FILE_DIFF = 50 * 1024;    // 50KB per file
   const MAX_TOTAL_DIFF = 512000;       // 500KB total
   const MAX_FILES = 100;
+  const repoPath = resolveRepoPath(project, req.query.repo);
 
   try {
-    const { stdout: branch } = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: project.path });
-    const { stdout: statusRaw } = await execAsync('git status --porcelain', { cwd: project.path });
+    const { stdout: branch } = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: repoPath });
+    const { stdout: statusRaw } = await execAsync('git status --porcelain', { cwd: repoPath });
     const { stdout: diffRaw } = await execAsync(
       'git diff HEAD -- ":!vendor" ":!node_modules" ":!.next" ":!storage"',
-      { cwd: project.path }
+      { cwd: repoPath }
     );
     const { stdout: diffUntracked } = await execAsync(
-      'git ls-files --others --exclude-standard', { cwd: project.path }
+      'git ls-files --others --exclude-standard', { cwd: repoPath }
     );
 
     const statusLines = statusRaw.trim().split('\n').filter(l => l.trim());
@@ -522,7 +529,7 @@ app.get('/api/projects/:id', requireAuth, async (req, res) => {
     const untrackedFiles = diffUntracked.trim().split('\n').filter(l => l.trim());
     for (const uf of untrackedFiles) {
       try {
-        const content = fs.readFileSync(path.join(project.path, uf), 'utf8');
+        const content = fs.readFileSync(path.join(repoPath, uf), 'utf8');
         const lines = content.split('\n');
         const header = `\ndiff --git a/${uf} b/${uf}\nnew file mode 100644\n--- /dev/null\n+++ b/${uf}\n@@ -0,0 +1,${lines.length} @@\n`;
         const body = lines.map(l => `+${l}`).join('\n') + '\n';
@@ -541,7 +548,7 @@ app.get('/api/projects/:id', requireAuth, async (req, res) => {
       fullDiff = fullDiff.slice(0, MAX_TOTAL_DIFF) + '\n(diff truncated — too large)\n';
     }
 
-    const { stdout: lastLog } = await execAsync('git log -1 --format="%ci|%s"', { cwd: project.path });
+    const { stdout: lastLog } = await execAsync('git log -1 --format="%ci|%s"', { cwd: repoPath });
     const [lastDate, ...subjectParts] = lastLog.trim().split('|');
 
     res.json({
@@ -551,6 +558,7 @@ app.get('/api/projects/:id', requireAuth, async (req, res) => {
       diff: fullDiff,
       lastCommitDate: lastDate,
       lastCommitMessage: subjectParts.join('|'),
+      activeRepo: req.query.repo || null,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -604,12 +612,13 @@ app.post("/api/projects/:id/pull", requireAuth, async (req, res) => {  const pro
 app.get('/api/projects/:id/branches', requireAuth, async (req, res) => {
   const project = config.projects.find(p => p.id === req.params.id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
+  const repoPath = resolveRepoPath(project, req.query.repo);
 
   try {
-    const { stdout: currentRaw } = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: project.path });
+    const { stdout: currentRaw } = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: repoPath });
     const current = currentRaw.trim();
 
-    const { stdout: branchesRaw } = await execAsync('git branch -a', { cwd: project.path });
+    const { stdout: branchesRaw } = await execAsync('git branch -a', { cwd: repoPath });
     const seen = new Set();
     const branches = branchesRaw.split('\n')
       .map(b => b.replace(/^\*?\s+/, '').replace(/^remotes\/origin\//, '').trim())
@@ -625,24 +634,25 @@ app.get('/api/projects/:id/branches', requireAuth, async (req, res) => {
 app.post('/api/projects/:id/checkout', requireAuth, async (req, res) => {
   const project = config.projects.find(p => p.id === req.params.id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
+  const repoPath = resolveRepoPath(project, req.query.repo);
 
   const { branch } = req.body;
   if (!branch) return res.status(400).json({ error: 'branch is required' });
 
   try {
-    const { stdout: statusRaw } = await execAsync('git status --porcelain', { cwd: project.path });
+    const { stdout: statusRaw } = await execAsync('git status --porcelain', { cwd: repoPath });
     const hasChanges = statusRaw.trim().length > 0;
     let stashPopResult = null;
 
     if (hasChanges) {
-      await execAsync('git stash', { cwd: project.path });
+      await execAsync('git stash', { cwd: repoPath });
     }
 
-    await execAsync(`git checkout ${branch}`, { cwd: project.path });
+    await execAsync(`git checkout ${branch}`, { cwd: repoPath });
 
     if (hasChanges) {
       try {
-        const { stdout, stderr } = await execAsync('git stash pop', { cwd: project.path });
+        const { stdout, stderr } = await execAsync('git stash pop', { cwd: repoPath });
         stashPopResult = (stdout + stderr).trim();
       } catch (popErr) {
         stashPopResult = popErr.message;
@@ -650,6 +660,26 @@ app.post('/api/projects/:id/checkout', requireAuth, async (req, res) => {
     }
 
     res.json({ ok: true, branch, stashed: hasChanges, stashPopResult });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/projects/:id/repos', requireAuth, async (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const repos = project.repos || [{ name: 'main', path: project.path }];
+  try {
+    const result = await Promise.all(repos.map(async (repo) => {
+      try {
+        const { stdout } = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: repo.path });
+        return { ...repo, branch: stdout.trim() };
+      } catch {
+        return { ...repo, branch: 'unknown' };
+      }
+    }));
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1668,6 +1698,13 @@ app.get('/api/news/feed', requireAuth, (req, res) => {
   const { category } = req.query;
   if (category && category !== 'all') articles = articles.filter(a => a.category === category);
   res.json({ updatedAt: data.updatedAt, articles });
+});
+
+app.post('/api/news/summarize', requireAuth, (req, res) => {
+  const data = readNewsFeed();
+  const articles = data.articles || [];
+  const count = articles.filter(a => !a.summary || a.summary === a.title || a.summary.includes('Je ne')).length;
+  res.json({ count, status: 'triggered' });
 });
 
 app.post('/api/news/:id/like', requireAuth, (req, res) => {
