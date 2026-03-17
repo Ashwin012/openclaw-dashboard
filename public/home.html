@@ -1843,22 +1843,38 @@
         const { clients, invoices } = _invoiceData;
         const paid = invoices.filter(i => i.status === 'paid');
         if (paid.length === 0) { alert('Aucune facture payée'); return; }
-        let html = '<div class="news-modal-overlay open" id="invoiceHistoryModal" onclick="if(event.target===this){this.remove();document.body.classList.remove('body-modal-open')}">';
-        html += '<div class="news-modal-card" style="max-width:600px;max-height:80vh;overflow-y:auto">';
-        html += '<button class="news-modal-close" onclick="document.getElementById('invoiceHistoryModal').remove();document.body.classList.remove('body-modal-open')">&times;</button>';
-        html += '<h3 style="margin:0 0 16px;font-size:16px">📋 Historique des factures</h3>';
+        // Remove existing modal if any
+        const existing = document.getElementById('invoiceHistoryModal');
+        if (existing) existing.remove();
+        const overlay = document.createElement('div');
+        overlay.className = 'news-modal-overlay open';
+        overlay.id = 'invoiceHistoryModal';
+        overlay.onclick = function(e) { if (e.target === overlay) { overlay.remove(); document.body.classList.remove('body-modal-open'); } };
+        const card = document.createElement('div');
+        card.className = 'news-modal-card';
+        card.style.cssText = 'max-width:600px;max-height:80vh;overflow-y:auto';
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'news-modal-close';
+        closeBtn.innerHTML = '&times;';
+        closeBtn.onclick = function() { overlay.remove(); document.body.classList.remove('body-modal-open'); };
+        card.appendChild(closeBtn);
+        const title = document.createElement('h3');
+        title.style.cssText = 'margin:0 0 16px;font-size:16px';
+        title.textContent = '\u{1F4CB} Historique des factures';
+        card.appendChild(title);
         paid.forEach(inv => {
-          const paidDate = inv.paidAt ? new Date(inv.paidAt).toLocaleDateString('fr-FR') : '—';
-          html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-muted);flex-wrap:wrap">
-            <span style="font-weight:600;flex:1;min-width:100px">${clientName(clients, inv.clientId)}</span>
-            <span style="color:var(--text-muted);font-size:12px">${inv.invoiceNumber || inv.id}</span>
-            <span style="font-weight:600">${fmt(inv.amount, inv.currency)}</span>
-            <span class="badge badge-paid">Payé</span>
-            <span style="color:var(--text-muted);font-size:11px">le ${paidDate}</span>
-          </div>`;
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-muted);flex-wrap:wrap';
+          const paidDate = inv.paidAt ? new Date(inv.paidAt).toLocaleDateString('fr-FR') : '\u2014';
+          row.innerHTML = '<span style="font-weight:600;flex:1;min-width:100px">' + clientName(clients, inv.clientId) + '</span>'
+            + '<span style="color:var(--text-muted);font-size:12px">' + (inv.invoiceNumber || inv.id) + '</span>'
+            + '<span style="font-weight:600">' + fmt(inv.amount, inv.currency) + '</span>'
+            + '<span class="badge badge-paid">Pay\u00e9</span>'
+            + '<span style="color:var(--text-muted);font-size:11px">le ' + paidDate + '</span>';
+          card.appendChild(row);
         });
-        html += '</div></div>';
-        document.body.insertAdjacentHTML('beforeend', html);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
         document.body.classList.add('body-modal-open');
       };
 
