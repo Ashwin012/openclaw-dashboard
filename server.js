@@ -1960,6 +1960,52 @@ app.delete('/api/invoices/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/invoices/:id', requireAuth, (req, res) => {
+  const data = readInvoices();
+  const inv = data.invoices.find(i => i.id === req.params.id);
+  if (!inv) return res.status(404).json({ error: 'Invoice not found' });
+  const now = new Date();
+  if (inv.status !== 'paid') {
+    const due = new Date(inv.dueDate);
+    if (now > due) {
+      inv.status = 'overdue';
+      inv.daysOverdue = Math.floor((now - due) / (1000 * 60 * 60 * 24));
+    } else {
+      inv.status = 'pending';
+      inv.daysUntilDue = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+    }
+  }
+  res.json(inv);
+});
+
+app.post('/api/invoices/:id/event', requireAuth, (req, res) => {
+  const data = readInvoices();
+  const inv = data.invoices.find(i => i.id === req.params.id);
+  if (!inv) return res.status(404).json({ error: 'Invoice not found' });
+  if (!inv.events) inv.events = [];
+  const { type, note } = req.body;
+  const now = new Date().toISOString();
+  inv.events.push({ type, at: now, note: note || '' });
+  if (type === 'paid') { inv.status = 'paid'; inv.paidAt = now; }
+  if (type === 'sent') { inv.sentAt = now; }
+  writeInvoices(data);
+  res.json({ ok: true, invoice: inv });
+});
+
+app.delete('/api/invoices/:id/event-last', requireAuth, (req, res) => {
+  const data = readInvoices();
+  const inv = data.invoices.find(i => i.id === req.params.id);
+  if (!inv) return res.status(404).json({ error: 'Invoice not found' });
+  if (!inv.events) inv.events = [];
+  const removed = inv.events.pop();
+  if (removed && removed.type === 'paid') {
+    inv.status = 'pending';
+    inv.paidAt = null;
+  }
+  writeInvoices(data);
+  res.json({ ok: true, invoice: inv });
+});
+
 // Client CRUD
 app.post('/api/invoices/clients', requireAuth, (req, res) => {
   const data = readInvoices();

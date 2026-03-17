@@ -777,66 +777,71 @@
     }
 
     /* ===== Facturation Section ===== */
-    .invoice-row {
+    .inv-row {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 0;
+      gap: 8px;
+      padding: 8px 4px;
       border-bottom: 1px solid rgba(255,255,255,0.05);
-      font-size: 13px;
-    }
-    .invoice-row:last-child { border-bottom: none; }
-    .invoice-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .invoice-dot-pending { background: #fab387; box-shadow: 0 0 6px rgba(250,179,135,0.45); }
-    .invoice-dot-overdue { background: #f38ba8; box-shadow: 0 0 6px rgba(243,139,168,0.45); }
-    .invoice-info { flex: 1; min-width: 0; }
-    .invoice-client { font-weight: 700; color: #cdd6f4; font-size: 13px; }
-    .invoice-num { color: var(--text-muted); font-size: 11px; margin-left: 4px; }
-    .invoice-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin-right: 4px; }
-    .invoice-amount { font-weight: 700; font-size: 15px; color: #cdd6f4; white-space: nowrap; }
-    .invoice-due { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 9px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 700;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .badge-pending { color: #fab387; background: rgba(250,179,135,0.15); }
-    .badge-overdue { color: #f38ba8; background: rgba(243,139,168,0.15); }
-    .badge-paid    { color: #a6e3a1; background: rgba(166,227,161,0.15); }
-    .btn-mark-paid {
-      padding: 4px 8px;
-      border-radius: var(--radius);
-      border: none;
-      background: transparent;
-      color: #a6e3a1;
-      font-size: 14px;
       cursor: pointer;
-      flex-shrink: 0;
-      opacity: 0;
-      transition: opacity 0.15s;
+      border-radius: 4px;
+      transition: background 0.1s;
     }
-    .invoice-row:hover .btn-mark-paid { opacity: 1; }
-    .invoice-summary {
-      padding: 10px 0 2px;
-      font-size: 12px;
-      color: var(--text-muted);
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
+    .inv-row:last-of-type { border-bottom: none; }
+    .inv-row:hover { background: rgba(255,255,255,0.04); }
+    .inv-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .inv-dot-pending { background: #fab387; }
+    .inv-dot-overdue { background: #f38ba8; }
+    .inv-client { font-weight: 700; font-size: 13px; color: #cdd6f4; }
+    .inv-sep { color: #6c7086; font-size: 12px; }
+    .inv-num { color: #6c7086; font-size: 11px; }
+    .inv-amount { font-weight: 700; font-size: 14px; color: #cdd6f4; white-space: nowrap; }
+    .inv-badge {
+      display: inline-flex; align-items: center;
+      padding: 1px 7px; border-radius: 20px;
+      font-size: 10px; font-weight: 700; white-space: nowrap; flex-shrink: 0;
     }
-    .invoice-overdue-warn { color: #f38ba8; font-weight: 600; }
+    .inv-badge-pending { color: #fab387; background: rgba(250,179,135,0.15); }
+    .inv-badge-overdue { color: #f38ba8; background: rgba(243,139,168,0.15); }
+    .inv-summary { padding: 8px 4px 2px; font-size: 11px; color: #6c7086; }
+    .inv-overdue-warn { color: #f38ba8; }
+    /* Timeline */
+    .inv-timeline { position: relative; padding-left: 20px; margin-bottom: 16px; }
+    .inv-timeline::before {
+      content: ''; position: absolute; left: 7px; top: 8px; bottom: 8px;
+      width: 2px; background: rgba(255,255,255,0.1);
+    }
+    .inv-tl-item {
+      position: relative; display: flex; align-items: flex-start;
+      gap: 8px; padding: 5px 0; font-size: 12px; color: #cdd6f4;
+    }
+    .inv-tl-dot {
+      position: absolute; left: -16px; top: 7px;
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .inv-tl-dot-created { background: #6c7086; }
+    .inv-tl-dot-sent    { background: #89b4fa; }
+    .inv-tl-dot-reminder { background: #f9e2af; }
+    .inv-tl-dot-paid    { background: #a6e3a1; }
+    /* Detail modal actions */
+    .inv-detail-actions {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .inv-action-btn {
+      padding: 7px 12px; border-radius: var(--radius);
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05); color: #cdd6f4;
+      font-size: 12px; cursor: pointer; transition: background 0.15s;
+    }
+    .inv-action-btn:hover { background: rgba(255,255,255,0.1); }
+    .inv-action-btn-green { background: rgba(166,227,161,0.15); color: #a6e3a1; border-color: rgba(166,227,161,0.3); }
+    .inv-action-btn-green:hover { background: rgba(166,227,161,0.25); }
+    .inv-action-btn-subtle { background: transparent; color: #6c7086; border-color: rgba(255,255,255,0.06); }
+    .inv-action-btn-subtle:hover { color: #cdd6f4; background: rgba(255,255,255,0.05); }
     @media (max-width: 600px) {
-      .invoice-row { flex-wrap: wrap; }
-      .invoice-right { flex-direction: row; align-items: center; gap: 8px; margin-right: 0; width: 100%; justify-content: space-between; }
+      .inv-detail-actions { flex-direction: column; }
+      .inv-action-btn { width: 100%; text-align: center; }
     }
   </style>
 </head>
@@ -908,7 +913,7 @@
         <span class="panel-title">💰 Facturation</span>
         <button class="btn-sm" onclick="showInvoiceHistoryModal()" title="Historique">📋</button>
       </div>
-      <div id="invoiceBody" style="padding:12px 16px;overflow:visible;flex:none">
+      <div id="invoiceBody" style="padding:12px;overflow:visible;flex:none">
         <div style="color:var(--text-muted);font-size:13px;">Chargement…</div>
       </div>
     </div>
@@ -1748,6 +1753,7 @@
     // ===== Facturation =====
     (function() {
       let _invoiceData = null;
+      let _currentDetailId = null;
 
       function fmt(amount, currency) {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currency || 'USD', maximumFractionDigits: 0 }).format(amount);
@@ -1764,102 +1770,197 @@
         return c ? c.name : id;
       }
 
-      function closeInvoiceHistoryModal() {
-        const overlay = document.getElementById('invoiceHistoryModal');
-        if (overlay) overlay.remove();
-        const _sy = parseInt(document.body.style.top || '0') * -1;
-        document.body.style.top = '';
-        document.body.classList.remove('body-modal-open');
-        window.scrollTo(0, _sy);
+      function daysDiff(isoDate) {
+        return Math.ceil((new Date(isoDate) - new Date()) / (1000 * 60 * 60 * 24));
       }
 
-      window.renderInvoices = function(data) {
-        _invoiceData = data;
-        const body = document.getElementById('invoiceBody');
-        if (!data || !data.invoices) {
-          body.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Aucune donnée</div>';
-          return;
+      function closeModal(id) {
+        const overlay = document.getElementById(id);
+        if (!overlay) return;
+        overlay.remove();
+        const sy = parseInt(document.body.style.top || '0') * -1;
+        document.body.style.top = '';
+        document.body.classList.remove('body-modal-open');
+        window.scrollTo(0, sy);
+      }
+
+      function openModal(overlay) {
+        document.body.style.top = '-' + window.scrollY + 'px';
+        document.body.classList.add('body-modal-open');
+        document.body.appendChild(overlay);
+      }
+
+      function renderDetailContent(box, inv, clients) {
+        const existing = box.querySelector('.inv-detail-body');
+        if (existing) existing.remove();
+
+        const body = document.createElement('div');
+        body.className = 'news-modal-body inv-detail-body';
+
+        // Info grid
+        const info = document.createElement('div');
+        info.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:16px;font-size:13px;';
+        function infoItem(label, value) {
+          const el = document.createElement('div');
+          el.innerHTML = `<div style="font-size:10px;color:#6c7086;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">${label}</div><div style="color:#cdd6f4;font-weight:600">${value}</div>`;
+          return el;
         }
-        const { clients, invoices } = data;
-        const unpaid = invoices.filter(i => i.status !== 'paid');
+        info.appendChild(infoItem('Montant', fmt(inv.amount, inv.currency)));
+        const statusLabel = inv.status === 'paid' ? '✅ Payé' : inv.status === 'overdue' ? '⚠️ En retard' : '⏳ En attente';
+        info.appendChild(infoItem('Statut', statusLabel));
+        if (inv.periodStart) info.appendChild(infoItem('Période', fmtDate(inv.periodStart) + ' – ' + fmtDate(inv.periodEnd)));
+        info.appendChild(infoItem('Échéance', fmtDate(inv.dueDate)));
+        body.appendChild(info);
 
-        let html = '<div class="invoice-list">';
+        // Timeline header
+        const tlTitle = document.createElement('div');
+        tlTitle.style.cssText = 'font-size:11px;color:#6c7086;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;';
+        tlTitle.textContent = 'Historique';
+        body.appendChild(tlTitle);
 
-        if (unpaid.length === 0) {
-          html += '<div style="color:var(--text-muted);font-size:13px;padding:6px 0;">Aucune facture en attente 🎉</div>';
-        } else {
-          unpaid.forEach(inv => {
-            const isPending = inv.status === 'pending';
-            const dotClass = isPending ? 'invoice-dot-pending' : 'invoice-dot-overdue';
-            const badgeClass = isPending ? 'badge-pending' : 'badge-overdue';
-            const badgeLabel = isPending
-              ? (inv.daysUntilDue != null ? 'J-' + inv.daysUntilDue : 'En attente')
-              : (inv.daysOverdue != null ? 'J+' + inv.daysOverdue : 'En retard');
-            html += `<div class="invoice-row" id="inv-row-${inv.id}">
-              <span class="invoice-dot ${dotClass}"></span>
-              <span class="invoice-info">
-                <span class="invoice-client">${clientName(clients, inv.clientId)}</span>
-                <span class="invoice-num">· ${inv.invoiceNumber || inv.id}</span>
-              </span>
-              <span class="invoice-right">
-                <span class="invoice-amount">${fmt(inv.amount, inv.currency)}</span>
-                <span class="invoice-due">Éch. ${fmtDate(inv.dueDate)}</span>
-              </span>
-              <span class="badge ${badgeClass}">${badgeLabel}</span>
-              <button class="btn-mark-paid" onclick="markInvoicePaid('${inv.id}')" title="Marquer payé">✅</button>
-            </div>`;
-          });
+        const tl = document.createElement('div');
+        tl.className = 'inv-timeline';
+        const events = inv.events || [];
+        const allEvents = [{ type: 'created', at: inv.createdAt }].concat(events);
+        const evCfg = {
+          created:  { icon: '📄', label: 'Créée le',             dotClass: 'inv-tl-dot-created' },
+          sent:     { icon: '📤', label: 'Facture envoyée le',   dotClass: 'inv-tl-dot-sent' },
+          reminder: { icon: '🔔', label: 'Relance effectuée le', dotClass: 'inv-tl-dot-reminder' },
+          paid:     { icon: '💰', label: 'Paiement reçu le',     dotClass: 'inv-tl-dot-paid' },
+        };
+        allEvents.forEach(function(ev) {
+          const cfg = evCfg[ev.type] || { icon: '•', label: ev.type + ' le', dotClass: 'inv-tl-dot-created' };
+          const item = document.createElement('div');
+          item.className = 'inv-tl-item';
+          item.innerHTML = `<span class="inv-tl-dot ${cfg.dotClass}"></span><span style="margin-right:4px">${cfg.icon}</span><span>${cfg.label} <strong>${fmtDate(ev.at)}</strong>${ev.note ? ' — <em style="color:#6c7086">' + ev.note + '</em>' : ''}</span>`;
+          tl.appendChild(item);
+        });
+        body.appendChild(tl);
+
+        // Action buttons
+        const actions = document.createElement('div');
+        actions.className = 'inv-detail-actions';
+        const hasSent = events.some(function(e) { return e.type === 'sent'; });
+        const isPaid = inv.status === 'paid';
+
+        if (!hasSent && !isPaid) {
+          const btnSent = document.createElement('button');
+          btnSent.className = 'inv-action-btn';
+          btnSent.textContent = '📤 Facture envoyée';
+          btnSent.onclick = function() { addInvoiceEvent(inv.id, 'sent', ''); };
+          actions.appendChild(btnSent);
         }
+        if (!isPaid) {
+          const btnReminder = document.createElement('button');
+          btnReminder.className = 'inv-action-btn';
+          btnReminder.textContent = '🔔 Relance';
+          btnReminder.onclick = function() { addInvoiceEvent(inv.id, 'reminder', ''); };
+          actions.appendChild(btnReminder);
 
-        html += '</div>';
-
-        const overdueCount = unpaid.filter(i => i.status === 'overdue').length;
-        const pendingTotal = unpaid.reduce((s, i) => s + (i.amount || 0), 0);
-        const currency = unpaid[0]?.currency || 'USD';
-        if (unpaid.length > 0) {
-          html += `<div class="invoice-summary">
-            <span>${unpaid.length} en attente · ${fmt(pendingTotal, currency)}</span>
-            ${overdueCount > 0 ? `<span class="invoice-overdue-warn">⚠️ ${overdueCount} en retard</span>` : ''}
-          </div>`;
+          const btnPaid = document.createElement('button');
+          btnPaid.className = 'inv-action-btn inv-action-btn-green';
+          btnPaid.textContent = '💰 Paiement reçu';
+          btnPaid.onclick = function() { addInvoiceEvent(inv.id, 'paid', ''); };
+          actions.appendChild(btnPaid);
         }
+        if (events.length > 0) {
+          const btnUndo = document.createElement('button');
+          btnUndo.className = 'inv-action-btn inv-action-btn-subtle';
+          btnUndo.textContent = '↩️ Annuler';
+          btnUndo.onclick = function() { undoLastEvent(inv.id); };
+          actions.appendChild(btnUndo);
+        }
+        body.appendChild(actions);
+        box.appendChild(body);
+      }
 
-        body.innerHTML = html;
-      };
-
-      window.loadInvoices = async function() {
-        const body = document.getElementById('invoiceBody');
-        body.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Chargement…</div>';
+      window.showInvoiceDetail = async function(id) {
+        _currentDetailId = id;
+        let inv;
         try {
-          const res = await fetch('/api/invoices');
+          const res = await fetch('/api/invoices/' + id);
           if (!res.ok) throw new Error('HTTP ' + res.status);
-          const data = await res.json();
-          renderInvoices(data);
-        } catch (e) {
-          body.innerHTML = `<div style="color:#f38ba8;font-size:13px;">Erreur : ${e.message}</div>`;
-        }
+          inv = await res.json();
+        } catch(e) { alert('Erreur : ' + e.message); return; }
+
+        const clients = (_invoiceData && _invoiceData.clients) || [];
+        const existingDetail = document.getElementById('invoiceDetailModal');
+        if (existingDetail) existingDetail.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'news-modal-overlay open';
+        overlay.id = 'invoiceDetailModal';
+        overlay.onclick = function(e) { if (e.target === overlay) closeModal('invoiceDetailModal'); };
+
+        const box = document.createElement('div');
+        box.className = 'news-modal-box';
+        box.style.cssText = 'max-width:500px;width:95%';
+
+        const head = document.createElement('div');
+        head.className = 'news-modal-head';
+        const headInfo = document.createElement('div');
+        headInfo.className = 'news-modal-head-info';
+        const titleEl = document.createElement('div');
+        titleEl.className = 'news-modal-title';
+        titleEl.textContent = clientName(clients, inv.clientId) + ' · ' + (inv.invoiceNumber || inv.id);
+        headInfo.appendChild(titleEl);
+        head.appendChild(headInfo);
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'btn-news-modal-close';
+        closeBtn.textContent = '✕';
+        closeBtn.onclick = function() { closeModal('invoiceDetailModal'); };
+        head.appendChild(closeBtn);
+        box.appendChild(head);
+
+        renderDetailContent(box, inv, clients);
+        overlay.appendChild(box);
+        openModal(overlay);
       };
 
-      window.markInvoicePaid = async function(id) {
-        const row = document.getElementById('inv-row-' + id);
-        if (row) row.style.opacity = '0.4';
+      window.addInvoiceEvent = async function(id, type, note) {
         try {
-          const res = await fetch('/api/invoices/' + id, {
-            method: 'PATCH',
+          const res = await fetch('/api/invoices/' + id + '/event', {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'paid', paidAt: new Date().toISOString() })
+            body: JSON.stringify({ type: type, note: note || '' })
           });
           if (!res.ok) throw new Error('HTTP ' + res.status);
           await loadInvoices();
-        } catch (e) {
-          if (row) row.style.opacity = '1';
-          alert('Erreur lors de la mise à jour : ' + e.message);
-        }
+          if (_currentDetailId === id) {
+            const overlay = document.getElementById('invoiceDetailModal');
+            if (overlay) {
+              const r2 = await fetch('/api/invoices/' + id);
+              if (r2.ok) {
+                const updated = await r2.json();
+                renderDetailContent(overlay.querySelector('.news-modal-box'), updated, (_invoiceData && _invoiceData.clients) || []);
+              }
+            }
+          }
+        } catch(e) { alert('Erreur : ' + e.message); }
+      };
+
+      window.undoLastEvent = async function(id) {
+        try {
+          const res = await fetch('/api/invoices/' + id + '/event-last', { method: 'DELETE' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          await loadInvoices();
+          if (_currentDetailId === id) {
+            const overlay = document.getElementById('invoiceDetailModal');
+            if (overlay) {
+              const r2 = await fetch('/api/invoices/' + id);
+              if (r2.ok) {
+                const updated = await r2.json();
+                renderDetailContent(overlay.querySelector('.news-modal-box'), updated, (_invoiceData && _invoiceData.clients) || []);
+              }
+            }
+          }
+        } catch(e) { alert('Erreur : ' + e.message); }
       };
 
       window.showInvoiceHistoryModal = function() {
         if (!_invoiceData) return;
         const { clients, invoices } = _invoiceData;
-        const paid = invoices.filter(i => i.status === 'paid');
+        const paid = invoices.filter(function(i) { return i.status === 'paid'; });
         if (paid.length === 0) { alert('Aucune facture payée'); return; }
 
         const existing = document.getElementById('invoiceHistoryModal');
@@ -1868,7 +1969,7 @@
         const overlay = document.createElement('div');
         overlay.className = 'news-modal-overlay open';
         overlay.id = 'invoiceHistoryModal';
-        overlay.onclick = function(e) { if (e.target === overlay) closeInvoiceHistoryModal(); };
+        overlay.onclick = function(e) { if (e.target === overlay) closeModal('invoiceHistoryModal'); };
 
         const box = document.createElement('div');
         box.className = 'news-modal-box';
@@ -1885,7 +1986,7 @@
         const closeBtn = document.createElement('button');
         closeBtn.className = 'btn-news-modal-close';
         closeBtn.textContent = '✕';
-        closeBtn.onclick = closeInvoiceHistoryModal;
+        closeBtn.onclick = function() { closeModal('invoiceHistoryModal'); };
         head.appendChild(closeBtn);
         box.appendChild(head);
 
@@ -1893,31 +1994,53 @@
         body.className = 'news-modal-body';
         paid.forEach(function(inv) {
           const row = document.createElement('div');
-          row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,0.05);flex-wrap:wrap';
-          const paidDate = inv.paidAt ? new Date(inv.paidAt).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' }) : '—';
-          const nameEl = document.createElement('span');
-          nameEl.style.cssText = 'font-weight:700;flex:1;min-width:110px;font-size:13px;color:#cdd6f4';
-          nameEl.textContent = clientName(clients, inv.clientId);
-          const numEl = document.createElement('span');
-          numEl.style.cssText = 'color:var(--text-muted);font-size:11px';
-          numEl.textContent = inv.invoiceNumber || inv.id;
-          const amountEl = document.createElement('span');
-          amountEl.style.cssText = 'font-weight:700;font-size:14px;color:#cdd6f4';
-          amountEl.textContent = fmt(inv.amount, inv.currency);
-          const paidEl = document.createElement('span');
-          paidEl.style.cssText = 'color:#a6e3a1;font-size:11px;font-weight:600';
-          paidEl.textContent = 'Payé le ' + paidDate;
-          row.appendChild(nameEl);
-          row.appendChild(numEl);
-          row.appendChild(amountEl);
-          row.appendChild(paidEl);
+          row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid rgba(255,255,255,0.05);flex-wrap:wrap;cursor:pointer;border-radius:4px;transition:background 0.1s';
+          row.onmouseenter = function() { row.style.background = 'rgba(255,255,255,0.04)'; };
+          row.onmouseleave = function() { row.style.background = ''; };
+          row.innerHTML = `<span style="font-weight:700;flex:1;min-width:110px;font-size:13px;color:#cdd6f4">${clientName(clients, inv.clientId)}</span><span style="color:#6c7086;font-size:11px">${inv.invoiceNumber || inv.id}</span><span style="font-weight:700;font-size:14px;color:#cdd6f4">${fmt(inv.amount, inv.currency)}</span><span style="color:#a6e3a1;font-size:11px;font-weight:600">Payé le ${fmtDate(inv.paidAt)}</span>`;
+          row.onclick = function() { closeModal('invoiceHistoryModal'); showInvoiceDetail(inv.id); };
           body.appendChild(row);
         });
         box.appendChild(body);
         overlay.appendChild(box);
-        document.body.style.top = '-' + window.scrollY + 'px';
-        document.body.classList.add('body-modal-open');
-        document.body.appendChild(overlay);
+        openModal(overlay);
+      };
+
+      window.loadInvoices = async function() {
+        const body = document.getElementById('invoiceBody');
+        try {
+          const res = await fetch('/api/invoices');
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          _invoiceData = data;
+          const { clients, invoices } = data;
+          const unpaid = invoices.filter(function(i) { return i.status !== 'paid'; });
+
+          if (!unpaid.length) {
+            body.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:6px 0;">Aucune facture en attente 🎉</div>';
+            return;
+          }
+
+          let html = '';
+          unpaid.forEach(function(inv) {
+            const isPending = inv.status === 'pending';
+            const dotClass = isPending ? 'inv-dot-pending' : 'inv-dot-overdue';
+            const badgeClass = isPending ? 'inv-badge-pending' : 'inv-badge-overdue';
+            const d = daysDiff(inv.dueDate);
+            const badgeLabel = isPending ? 'J-' + Math.max(0, d) : 'J+' + (inv.daysOverdue || Math.max(0, -d));
+            const name = (clientName(clients, inv.clientId) || '').replace(/</g, '&lt;');
+            const num = (inv.invoiceNumber || inv.id).replace(/</g, '&lt;');
+            html += `<div class="inv-row" onclick="showInvoiceDetail('${inv.id}')"><span class="inv-dot ${dotClass}"></span><span class="inv-client">${name}</span><span class="inv-sep">·</span><span class="inv-num">${num}</span><span style="flex:1"></span><span class="inv-amount">${fmt(inv.amount, inv.currency)}</span><span class="inv-badge ${badgeClass}">${badgeLabel}</span></div>`;
+          });
+
+          const overdueCount = unpaid.filter(function(i) { return i.status === 'overdue'; }).length;
+          const pendingTotal = unpaid.reduce(function(s, i) { return s + (i.amount || 0); }, 0);
+          const currency = (unpaid[0] && unpaid[0].currency) || 'USD';
+          html += `<div class="inv-summary">${unpaid.length} en attente · ${fmt(pendingTotal, currency)}${overdueCount > 0 ? ' · <span class="inv-overdue-warn">⚠️ ' + overdueCount + ' en retard</span>' : ''}</div>`;
+          body.innerHTML = html;
+        } catch(e) {
+          body.innerHTML = `<div style="color:#f38ba8;font-size:13px;">Erreur : ${e.message}</div>`;
+        }
       };
 
       loadInvoices();
