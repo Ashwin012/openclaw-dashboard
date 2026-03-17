@@ -765,6 +765,8 @@
       font-weight: 600;
     }
     .btn-news-open:hover { opacity: 0.85; background: #bac2de; }
+    .btn-news-action.liked { background: #a6e3a1; color: #1e1e2e; border-color: #a6e3a1; }
+    .btn-news-action.disliked { background: #f38ba8; color: #1e1e2e; border-color: #f38ba8; }
     .news-action-count {
       font-size: 11px;
       color: var(--text-muted);
@@ -1684,6 +1686,8 @@
         // count hidden
         // count hidden
         document.getElementById('nfBtnOpen').href = article.url || '#';
+        document.getElementById('nfBtnLike').classList.toggle('liked', (article.likes || 0) > 0 && (article.dislikes || 0) === 0);
+        document.getElementById('nfBtnDislike').classList.toggle('disliked', (article.dislikes || 0) > 0 && (article.likes || 0) === 0);
         document.getElementById('newsFeedModal').classList.add('open'); document.body.classList.add('body-modal-open');
       };
 
@@ -1700,27 +1704,31 @@
 
       document.getElementById('nfBtnLike').addEventListener('click', async () => {
         if (!_nfCurrentId) return;
+        const likeBtn = document.getElementById('nfBtnLike');
+        const dislikeBtn = document.getElementById('nfBtnDislike');
         try {
           const resp = await fetch('/api/news/' + _nfCurrentId + '/like', { method: 'POST' });
           if (!resp.ok) return;
           const data = await resp.json();
           const article = _newsFeedArticles.find(a => a.id === _nfCurrentId);
           if (article) { article.likes = data.likes; article.dislikes = data.dislikes; }
-          // count hidden
-          // count hidden
+          likeBtn.classList.add('liked');
+          dislikeBtn.classList.remove('disliked');
         } catch {}
       });
 
       document.getElementById('nfBtnDislike').addEventListener('click', async () => {
         if (!_nfCurrentId) return;
+        const likeBtn = document.getElementById('nfBtnLike');
+        const dislikeBtn = document.getElementById('nfBtnDislike');
         try {
           const resp = await fetch('/api/news/' + _nfCurrentId + '/dislike', { method: 'POST' });
           if (!resp.ok) return;
           const data = await resp.json();
           const article = _newsFeedArticles.find(a => a.id === _nfCurrentId);
           if (article) { article.likes = data.likes; article.dislikes = data.dislikes; }
-          // count hidden
-          // count hidden
+          dislikeBtn.classList.add('disliked');
+          likeBtn.classList.remove('liked');
         } catch {}
       });
 
