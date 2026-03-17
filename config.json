@@ -7,6 +7,7 @@
       "path": "/home/openclaw/projects/afdex",
       "description": "STO Exchange Platform",
       "testUrl": "http://158.69.1.160:3084",
+      "stagingUrl": "https://sto.afdex.io",
       "githubUrl": "https://github.com/Infozen/afdex-sto"
     },
     {
@@ -15,7 +16,28 @@
       "path": "/home/openclaw/projects/champion-spirit/api",
       "description": "Fitness Management Platform",
       "testUrl": "http://158.69.1.160:8083",
+      "stagingUrl": "https://manager.staging.championspirit.com",
+      "prodUrl": "https://manager.championspirit.com",
       "githubUrl": "https://github.com/Champion-Spirit/championspirit-api"
+    },
+    {
+      "id": "trading-bot",
+      "name": "Trading Bot",
+      "path": "/home/openclaw/projects/trading-bot",
+      "description": "Futures Trading Bot - ETHUSDC Binance",
+      "testUrl": "http://158.69.1.160:8080",
+      "prodUrl": "http://45.77.131.11:8080/",
+      "githubUrl": "https://github.com/Ashwin012/trading-bot"
+    },
+    {
+      "id": "stho",
+      "name": "STHO",
+      "path": "/home/openclaw/projects/stho/api",
+      "description": "STHO Global Platform",
+      "testUrl": "http://158.69.1.160:3002",
+      "stagingUrl": "https://app.staging.thestho.com/",
+      "prodUrl": "https://thestho.com/",
+      "githubUrl": "https://github.com/STHO-Global/stho-api"
     }
   ]
 }

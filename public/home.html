@@ -475,6 +475,361 @@
       .stats-bar { grid-template-columns: 1fr 1fr; }
       .quick-links { grid-template-columns: 1fr 1fr; }
     }
+    /* EQS Listings */
+    .eqs-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius);border:1px solid transparent;margin-bottom:4px;cursor:pointer;background:var(--bg-surface);transition:border-color 0.15s}
+    .eqs-item:hover{border-color:var(--border)}
+    .eqs-item a{color:var(--text);text-decoration:none;display:flex;align-items:center;gap:10px;width:100%}
+    .eqs-score{min-width:50px;text-align:center;font-weight:700;font-size:15px;position:relative}
+    .eqs-score .stars{color:#e3b341;font-size:10px;display:block}
+    .eqs-details{flex:1;min-width:0}
+    .eqs-title{font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .eqs-meta{color:var(--text-muted);font-size:11px;display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+    .eqs-price{font-weight:700;font-size:14px;color:var(--green);min-width:75px;text-align:right;white-space:nowrap}
+    .eqs-type-badge{padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
+    .eqs-sedan{background:rgba(88,166,255,0.15);color:#58a6ff}
+    .eqs-suv{background:rgba(188,140,255,0.15);color:#bc8cff}
+    .eqs-new{background:#f85149;color:#fff;font-size:9px;padding:1px 5px;border-radius:6px}
+    .eqs-source{font-size:10px;color:var(--text-muted);background:var(--bg-surface);padding:1px 5px;border-radius:4px;border:1px solid var(--border)}
+    .score-tip{display:none;position:absolute;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:11px;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.4);left:55px;top:0;width:170px}
+    .eqs-score:hover .score-tip{display:block}
+    .sb{display:flex;align-items:center;gap:4px;margin:2px 0}
+    .sb-l{min-width:45px;color:var(--text-muted);font-size:10px}
+    .sb-t{width:50px;height:4px;border-radius:2px;background:var(--border)}
+    .sb-f{height:4px;border-radius:2px;background:#58a6ff}
+    .child-block{margin-bottom:16px}
+    .child-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+    .child-name{font-weight:700;font-size:14px}
+    .child-class{color:var(--text-muted);font-size:12px;background:var(--bg-surface);padding:2px 8px;border-radius:8px}
+    .child-tabs{display:flex;gap:6px;margin-bottom:8px}
+    .hw-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-muted,#30363d);font-size:12px}
+    .hw-item:last-child{border-bottom:none}
+    .hw-date{color:var(--text-muted);font-size:11px;min-width:65px}
+    .hw-subject{font-weight:600;min-width:75px}
+    .tt-item{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--border-muted,#30363d);font-size:12px}
+    .tt-item:last-child{border-bottom:none}
+    .tt-time{color:#58a6ff;font-weight:600;min-width:85px}
+    .tt-canceled{text-decoration:line-through;color:#f85149}
+    .abs-item{padding:5px 0;font-size:12px;border-bottom:1px solid var(--border-muted,#30363d)}
+    .abs-item:last-child{border-bottom:none}
+
+    /* ===== Veille News Section ===== */
+    .news-feed-section {
+      margin-bottom: 24px;
+      margin-top: 24px;
+    }
+    .news-feed-body {
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    /* Catppuccin Mocha scrollbars */
+    .news-feed-body::-webkit-scrollbar,
+    #eqs-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    .news-feed-body::-webkit-scrollbar-track,
+    #eqs-list::-webkit-scrollbar-track {
+      background: #1e1e2e;
+      border-radius: 3px;
+    }
+    .news-feed-body::-webkit-scrollbar-thumb,
+    #eqs-list::-webkit-scrollbar-thumb {
+      background: #45475a;
+      border-radius: 3px;
+    }
+    .news-feed-body::-webkit-scrollbar-thumb:hover,
+    #eqs-list::-webkit-scrollbar-thumb:hover {
+      background: #585b70;
+    }
+    .news-feed-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .news-feed-title {
+      font-size: 16px;
+      font-weight: 700;
+      flex: 1;
+    }
+    .news-feed-updated {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .btn-refresh-news {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-refresh-news:hover { color: var(--text); background: var(--bg-hover); }
+
+    /* Category tabs */
+    .news-cat-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .news-cat-tab {
+      padding: 5px 14px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .news-cat-tab:hover { background: var(--bg-hover); color: var(--text); }
+    .news-cat-tab.active { color: #fff; border-color: transparent; }
+    .news-cat-tab[data-cat="all"].active    { background: #585b70; }
+    .news-cat-tab[data-cat="ai"].active     { background: #89b4fa; }
+    .news-cat-tab[data-cat="crypto"].active { background: #f9e2af; color: #1e1e2e; }
+    .news-cat-tab[data-cat="realestate"].active { background: #a6e3a1; color: #1e1e2e; }
+    .news-cat-tab[data-cat="ev"].active     { background: #fab387; color: #1e1e2e; }
+    .news-cat-tab[data-cat="mauritius"].active  { background: #cba6f7; color: #1e1e2e; }
+    .news-cat-tab[data-cat="world"].active  { background: #f38ba8; color: #1e1e2e; }
+
+    /* Cards grid */
+    .news-feed-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 900px) { .news-feed-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .news-feed-grid { grid-template-columns: 1fr; } }
+
+    .news-feed-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .news-feed-card:hover { border-color: var(--accent); background: var(--bg-hover); }
+
+    .news-feed-card-top {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .news-cat-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      flex-shrink: 0;
+    }
+    .news-cat-badge.cat-ai         { background: rgba(137,180,250,0.2); color: #89b4fa; }
+    .news-cat-badge.cat-crypto     { background: rgba(249,226,175,0.2); color: #f9e2af; }
+    .news-cat-badge.cat-realestate { background: rgba(166,227,161,0.2); color: #a6e3a1; }
+    .news-cat-badge.cat-ev         { background: rgba(250,179,135,0.2); color: #fab387; }
+    .news-cat-badge.cat-mauritius  { background: rgba(203,166,247,0.2); color: #cba6f7; }
+    .news-cat-badge.cat-world      { background: rgba(243,139,168,0.2); color: #f38ba8; }
+
+    .news-feed-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      flex: 1;
+    }
+    .news-feed-card-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .news-feed-card-source { font-weight: 500; }
+    .news-feed-empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: var(--text-muted);
+      padding: 40px;
+      font-size: 14px;
+    }
+
+    /* News modal */
+    .news-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .news-modal-overlay.open { display: flex; }
+    .news-modal-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-width: 600px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .news-modal-head {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .news-modal-head-info { flex: 1; }
+    .news-modal-title {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.4;
+      margin-bottom: 6px;
+    }
+    .news-modal-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn-news-modal-close {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: var(--radius);
+      width: 28px; height: 28px;
+      cursor: pointer;
+      font-size: 16px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .btn-news-modal-close:hover { color: var(--text); background: var(--bg-hover); }
+    .news-modal-body {
+      padding: 18px 20px;
+      flex: 1;
+    }
+    .news-modal-summary {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+    }
+    .news-modal-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .btn-news-action {
+      padding: 8px 18px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.15s;
+    }
+    .btn-news-action:hover { background: var(--bg-hover); }
+    .btn-news-open {
+      margin-left: auto;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .btn-news-open:hover { opacity: 0.85; background: var(--accent); }
+    .news-action-count {
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--bg-surface);
+      border-radius: 8px;
+      padding: 1px 6px;
+    }
+
+    /* ===== Facturation Section ===== */
+    .invoice-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      flex-wrap: wrap;
+    }
+    .invoice-row:last-child { border-bottom: none; }
+    .invoice-client { font-weight: 600; min-width: 120px; flex: 1; }
+    .invoice-num { color: var(--text-muted); font-size: 12px; }
+    .invoice-amount { font-weight: 600; white-space: nowrap; }
+    .invoice-due { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-pending { color: #f9e2af; background: rgba(249,226,175,0.15); border: 1px solid rgba(249,226,175,0.3); }
+    .badge-overdue  { color: #f38ba8; background: rgba(243,139,168,0.15); border: 1px solid rgba(243,139,168,0.3); }
+    .badge-paid     { color: #a6e3a1; background: rgba(166,227,161,0.15); border: 1px solid rgba(166,227,161,0.3); }
+    .btn-mark-paid {
+      padding: 3px 10px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(166,227,161,0.4);
+      background: rgba(166,227,161,0.1);
+      color: #a6e3a1;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-mark-paid:hover { background: rgba(166,227,161,0.25); }
+    .invoice-summary {
+      padding: 10px 0 4px;
+      font-size: 13px;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .invoice-overdue-warn { color: #f38ba8; font-weight: 600; }
+    .invoice-history-toggle {
+      width: 100%;
+      background: none;
+      border: none;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 8px 0;
+      cursor: pointer;
+      text-align: left;
+    }
+    .invoice-history-toggle:hover { color: var(--text); }
   </style>
 </head>
 <body>
@@ -538,7 +893,7 @@
       </div>
 
       <!-- RIGHT: News -->
-      <div class="panel">
+      <div class="panel" style="display:none">
         <div class="panel-header">
           <span class="panel-title">📡 Veille & News</span>
           <button class="btn-sm primary" id="btnAddNews">+ Article</button>
@@ -554,6 +909,65 @@
         </div>
         <div class="panel-body" id="newsList"></div>
       </div>
+    </div>
+
+    <!-- Facturation Section -->
+    <div class="panel" id="invoicingPanel">
+      <div class="panel-header">
+        <span class="panel-title">💰 Facturation</span>
+        <button class="btn-sm" onclick="loadInvoices()">🔄</button>
+      </div>
+      <div class="panel-body" id="invoiceBody">
+        <div style="color:var(--text-muted);font-size:13px;">Chargement…</div>
+      </div>
+    </div>
+
+    <!-- Veille News Section -->
+    <div class="panel news-feed-section">
+      <div class="panel-header">
+        <span class="panel-title">📰 Veille News</span>
+        <span class="news-feed-updated" id="newsFeedUpdated" style="font-size:11px;color:var(--text-muted);margin-left:8px">–</span>
+        <button class="btn-sm" onclick="loadNewsFeed()">🔄</button>
+      </div>
+
+      <div class="news-cat-tabs" id="newsCatTabs">
+        <button class="news-cat-tab active" data-cat="all">Tous</button>
+        <button class="news-cat-tab" data-cat="ai">🤖 IA</button>
+        <button class="news-cat-tab" data-cat="crypto">💰 Crypto</button>
+        <button class="news-cat-tab" data-cat="realestate">🏗️ Immo MU</button>
+        <button class="news-cat-tab" data-cat="ev">🚗 Auto EV</button>
+        <button class="news-cat-tab" data-cat="mauritius">🇲🇺 Maurice</button>
+        <button class="news-cat-tab" data-cat="world">🌍 International</button>
+      </div>
+
+      <div class="news-feed-body">
+        <div class="news-feed-grid" id="newsFeedGrid">
+          <div class="news-feed-empty">Chargement...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EQS Listings -->
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-header">
+        <span class="panel-title">🚗 Mercedes EQS — Veille Japon</span>
+        <span id="eqs-count" style="background:var(--accent);color:#000;border-radius:20px;padding:1px 8px;font-size:12px;font-weight:600">0</span>
+        <button class="btn-nav" onclick="refreshEqs()" style="font-size:12px;padding:3px 10px">🔄</button>
+      </div>
+      <div id="eqs-updated" style="font-size:11px;color:var(--text-muted);padding:6px 12px 0"></div>
+      <div class="filter-chips" id="eqs-filters"></div>
+      <div class="panel-body" id="eqs-list" style="max-height:500px"></div>
+    </div>
+
+    <!-- Children Pronote -->
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-header">
+        <span class="panel-title">👨‍👧‍👦 Enfants — Pronote</span>
+        <span id="children-hw-count" style="background:var(--accent);color:#000;border-radius:20px;padding:1px 8px;font-size:12px;font-weight:600">0</span>
+        <button class="btn-nav" onclick="refreshChildren()" style="font-size:12px;padding:3px 10px">🔄</button>
+      </div>
+      <div id="children-updated" style="font-size:11px;color:var(--text-muted);padding:6px 12px 0"></div>
+      <div class="panel-body" id="children-section"></div>
     </div>
 
     <!-- Dev Summary -->
@@ -1037,6 +1451,419 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
+
+    // ===== EQS Listings =====
+    let eqsFilter = 'all', eqsSort = 'score';
+
+    async function loadEqs() {
+      try {
+        const data = await (await fetch('/api/eqs')).json();
+        if (!data.listings?.length) { document.getElementById('eqs-list').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">Aucune annonce — cliquez 🔄</div>'; return; }
+        document.getElementById('eqs-count').textContent = data.total;
+        if (data.updatedAt) {
+          const ago = timeAgo(data.updatedAt);
+          document.getElementById('eqs-updated').textContent = 'Mis à jour ' + ago + ' | ' + data.total + ' annonces' + (data.new_count ? ' (' + data.new_count + ' nouvelles)' : '') + ' | Budget: $' + (data.budget_usd/1000) + 'k';
+        }
+        const types = ['all','Sedan','SUV'];
+        const sorts = [{k:'score',l:'⭐ Score'},{k:'price',l:'💰 Prix ↑'},{k:'km',l:'🛣️ KM ↑'},{k:'year',l:'📅 Année ↓'}];
+        document.getElementById('eqs-filters').innerHTML =
+          types.map(t => '<span class="chip '+(eqsFilter===t?'active':'')+'" onclick="eqsFilter=\''+t+'\';loadEqs()">'+( t==='all'?'Tous':t)+'</span>').join('') +
+          '<span style="margin-left:8px"></span>' +
+          sorts.map(s => '<span class="chip '+(eqsSort===s.k?'active':'')+'" onclick="eqsSort=\''+s.k+'\';loadEqs()">'+s.l+'</span>').join('');
+        let listings = [...data.listings];
+        if (eqsFilter !== 'all') listings = listings.filter(l => l.type === eqsFilter);
+        if (eqsSort === 'price') listings.sort((a,b) => a.price_usd - b.price_usd);
+        else if (eqsSort === 'km') listings.sort((a,b) => a.km - b.km);
+        else if (eqsSort === 'year') listings.sort((a,b) => (b.year*100+b.month) - (a.year*100+a.month));
+        else listings.sort((a,b) => b.score - a.score);
+        document.getElementById('eqs-list').innerHTML = listings.map(l => {
+          const full = Math.floor(l.score), half = l.score%1>=0.3;
+          const stars = '★'.repeat(full) + (half?'½':'') + '☆'.repeat(5-full-(half?1:0));
+          const b = l.score_breakdown || {};
+          return '<div class="eqs-item"><a href="'+l.url+'" target="_blank">' +
+            '<div class="eqs-score">'+l.score+'<span class="stars">'+stars+'</span>' +
+            '<div class="score-tip"><div class="sb"><span class="sb-l">Prix</span><div class="sb-t"><div class="sb-f" style="width:'+(b.price||0)*20+'%"></div></div><span>'+(b.price||0)+'</span></div>' +
+            '<div class="sb"><span class="sb-l">KM</span><div class="sb-t"><div class="sb-f" style="width:'+(b.mileage||0)*20+'%"></div></div><span>'+(b.mileage||0)+'</span></div>' +
+            '<div class="sb"><span class="sb-l">Année</span><div class="sb-t"><div class="sb-f" style="width:'+(b.year||0)*20+'%"></div></div><span>'+(b.year||0)+'</span></div>' +
+            '<div class="sb"><span class="sb-l">Options</span><div class="sb-t"><div class="sb-f" style="width:'+(b.options||0)*20+'%"></div></div><span>'+(b.options||0)+'</span></div></div></div>' +
+            '<div class="eqs-details"><div class="eqs-title"><span class="eqs-type-badge '+(l.type==='SUV'?'eqs-suv':'eqs-sedan')+'">'+l.type+'</span> '+escHtml(l.grade)+(l.is_new?' <span class="eqs-new">NEW</span>':'')+'</div>' +
+            '<div class="eqs-meta"><span>📅 '+l.year+'/'+String(l.month).padStart(2,'0')+'</span><span>🛣️ '+l.km.toLocaleString()+' km</span><span>🎨 '+(l.color||'N/A')+'</span><span class="eqs-source">'+l.source+'</span>' +
+            (l.discount?'<span style="color:#f85149">-$'+l.discount.toLocaleString()+'</span>':'')+'</div></div>' +
+            '<div class="eqs-price">$'+l.price_usd.toLocaleString()+'<br><span style="font-size:10px;color:var(--text-muted);font-weight:400">¥'+l.price_yen.toLocaleString()+'</span></div>' +
+            '</a></div>';
+        }).join('');
+      } catch(e) { document.getElementById('eqs-list').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">Erreur chargement</div>'; }
+    }
+
+    async function refreshEqs() {
+      document.getElementById('eqs-updated').textContent = '⏳ Scraping en cours...';
+      try { await fetch('/api/eqs/refresh',{method:'POST'}); await loadEqs(); } catch(e) { document.getElementById('eqs-updated').textContent = '❌ Erreur'; }
+    }
+
+    // ===== Children (Pronote) =====
+    let childTabs = {};
+
+    async function loadChildren() {
+      try {
+        const data = await (await fetch('/api/children')).json();
+        if (!data.children?.length) { document.getElementById('children-section').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">Aucune donnée Pronote — cliquez 🔄</div>'; return; }
+        if (data.updatedAt) document.getElementById('children-updated').textContent = 'Mis à jour ' + timeAgo(data.updatedAt);
+        let totalHw = 0;
+        data.children.forEach(c => { totalHw += c.homework.filter(h => !h.done).length; });
+        document.getElementById('children-hw-count').textContent = totalHw ? totalHw + ' devoir' + (totalHw>1?'s':'') : '✅';
+        document.getElementById('children-section').innerHTML = data.children.map((child, ci) => {
+          const tab = childTabs[ci] || 'homework';
+          const firstName = child.name.split(' ').pop();
+          return '<div class="child-block"><div class="child-header"><span class="child-name">'+(ci===0?'👦':'👧')+' '+escHtml(firstName)+'</span><span class="child-class">'+escHtml(child.class)+'</span></div>' +
+            '<div class="child-tabs">' +
+            '<span class="chip '+(tab==='homework'?'active':'')+'" onclick="switchChildTab('+ci+',\'homework\')">📚 Devoirs'+(child.homework.filter(h=>!h.done).length?' ('+child.homework.filter(h=>!h.done).length+')':'')+'</span>' +
+            '<span class="chip '+(tab==='today'?'active':'')+'" onclick="switchChildTab('+ci+',\'today\')">📅 Aujourd\'hui</span>' +
+            '<span class="chip '+(tab==='tomorrow'?'active':'')+'" onclick="switchChildTab('+ci+',\'tomorrow\')">📅 Demain</span>' +
+            '<span class="chip '+(tab==='absences'?'active':'')+'" onclick="switchChildTab('+ci+',\'absences\')">🕐 Absences'+(child.absences.length?' ('+child.absences.length+')':'')+'</span>' +
+            '</div><div>'+renderChildTab(child, tab)+'</div></div>';
+        }).join('');
+      } catch(e) { document.getElementById('children-section').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">Erreur Pronote</div>'; }
+    }
+
+    function renderChildTab(child, tab) {
+      const empty = '<div style="color:var(--text-muted);text-align:center;padding:16px">';
+      if (tab === 'homework') {
+        if (!child.homework.length) return empty+'Aucun devoir 🎉</div>';
+        return child.homework.map(h => '<div class="hw-item"><span style="color:'+(h.done?'var(--green)':'#d29922')+'">'+(h.done?'✅':'⬜')+'</span><span class="hw-date">'+h.date+'</span><span class="hw-subject">'+escHtml(h.subject)+'</span><span>'+escHtml(h.description)+'</span></div>').join('');
+      }
+      if (tab === 'today' || tab === 'tomorrow') {
+        const tt = tab==='today' ? child.timetable_today : child.timetable_tomorrow;
+        if (!tt.length) return empty+'Pas de cours '+(tab==='today'?"aujourd'hui":'demain')+'</div>';
+        return tt.map(l => '<div class="tt-item"><span class="tt-time">'+l.start+' — '+l.end+'</span><span class="'+(l.canceled?'tt-canceled':'')+'">'+escHtml(l.subject)+'</span>'+(l.room?'<span style="color:var(--text-muted);font-size:11px">'+escHtml(l.room)+'</span>':'')+(l.canceled?'<span style="color:#f85149;font-size:11px">⚠️ Annulé</span>':'')+'</div>').join('');
+      }
+      if (tab === 'absences') {
+        if (!child.absences.length) return empty+'Aucune absence 🎉</div>';
+        return child.absences.slice(-10).reverse().map(a => '<div class="abs-item"><span style="color:'+(a.justified?'var(--green)':'#f85149')+'">'+(a.justified?'✅':'❌')+'</span> '+escHtml(a.from)+' → '+escHtml(a.to)+(a.reasons?.length?' <span style="color:var(--text-muted);font-size:11px">— '+escHtml(a.reasons.join(', '))+'</span>':'')+'</div>').join('');
+      }
+      return '';
+    }
+
+    function switchChildTab(ci, tab) { childTabs[ci] = tab; loadChildren(); }
+
+    async function refreshChildren() {
+      document.getElementById('children-updated').textContent = '⏳ Rafraîchissement...';
+      try { await fetch('/api/children/refresh',{method:'POST'}); await loadChildren(); } catch(e) { document.getElementById('children-updated').textContent = '❌ Erreur'; }
+    }
+
+    // Load EQS & Children
+    loadEqs(); loadChildren();
+    setInterval(loadEqs, 600000);
+    setInterval(loadChildren, 300000);
+  </script>
+
+  <!-- News article modal -->
+  <div class="news-modal-overlay" id="newsFeedModal">
+    <div class="news-modal-box">
+      <div class="news-modal-head">
+        <div class="news-modal-head-info">
+          <div class="news-modal-title" id="nfModalTitle"></div>
+          <div class="news-modal-meta">
+            <span class="news-cat-badge" id="nfModalBadge"></span>
+            <span id="nfModalSource"></span>
+            <span id="nfModalDate"></span>
+          </div>
+        </div>
+        <button class="btn-news-modal-close" id="nfModalClose">✕</button>
+      </div>
+      <div class="news-modal-body">
+        <div class="news-modal-summary" id="nfModalSummary"></div>
+        <div class="news-modal-actions">
+          <button class="btn-news-action" id="nfBtnLike">👍 J'aime <span class="news-action-count" id="nfLikeCount">0</span></button>
+          <button class="btn-news-action" id="nfBtnDislike">👎 J'aime pas <span class="news-action-count" id="nfDislikeCount">0</span></button>
+          <a class="btn-news-action btn-news-open" id="nfBtnOpen" href="#" target="_blank" rel="noopener">🔗 Ouvrir</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      let _newsFeedArticles = [];
+      let _newsFeedCat = 'all';
+      let _nfCurrentId = null;
+
+      const CAT_LABELS = {
+        ai: '🤖 IA', crypto: '💰 Crypto', realestate: '🏗️ Immo',
+        ev: '🚗 EV', mauritius: '🇲🇺 Maurice', world: '🌍 World',
+      };
+
+      function nfTimeAgo(iso) {
+        if (!iso) return '';
+        const diff = Date.now() - new Date(iso).getTime();
+        const m = Math.floor(diff / 60000);
+        if (m < 1) return 'à l\'instant';
+        if (m < 60) return m + 'min';
+        const h = Math.floor(m / 60);
+        if (h < 24) return h + 'h';
+        return Math.floor(h / 24) + 'j';
+      }
+
+      function nfFormatDate(iso) {
+        if (!iso) return '';
+        try { return new Date(iso).toLocaleDateString('fr-FR', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }); }
+        catch { return iso; }
+      }
+
+      function nfUpdatedLabel(iso) {
+        if (!iso) return 'Jamais mis à jour';
+        const diff = Date.now() - new Date(iso).getTime();
+        const m = Math.floor(diff / 60000);
+        if (m < 1) return 'Mis à jour à l\'instant';
+        if (m < 60) return 'Mis à jour il y a ' + m + ' min';
+        const h = Math.floor(m / 60);
+        if (h < 24) return 'Mis à jour il y a ' + h + 'h';
+        return 'Mis à jour il y a ' + Math.floor(h/24) + 'j';
+      }
+
+      function renderNewsFeed() {
+        const grid = document.getElementById('newsFeedGrid');
+        const filtered = _newsFeedCat === 'all'
+          ? _newsFeedArticles
+          : _newsFeedArticles.filter(a => a.category === _newsFeedCat);
+
+        if (!filtered.length) {
+          grid.innerHTML = '<div class="news-feed-empty">Aucun article dans cette catégorie.</div>';
+          return;
+        }
+
+        grid.innerHTML = filtered.map(a => {
+          const cat = a.category || '';
+          const label = CAT_LABELS[cat] || cat;
+          return `<div class="news-feed-card" onclick="openNewsFeedModal('${a.id}')">
+            <div class="news-feed-card-top">
+              <span class="news-cat-badge cat-${cat}">${label}</span>
+            </div>
+            <div class="news-feed-card-title">${escHtmlNF(a.title)}</div>
+            <div class="news-feed-card-meta">
+              <span class="news-feed-card-source">${escHtmlNF(a.source || '')}</span>
+              <span>${nfTimeAgo(a.publishedAt)}</span>
+            </div>
+          </div>`;
+        }).join('');
+      }
+
+      function escHtmlNF(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      window.loadNewsFeed = async function() {
+        document.getElementById('newsFeedUpdated').textContent = '⏳ Chargement...';
+        try {
+          const resp = await fetch('/api/news/feed');
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          const data = await resp.json();
+          _newsFeedArticles = data.articles || [];
+          document.getElementById('newsFeedUpdated').textContent = nfUpdatedLabel(data.updatedAt);
+          renderNewsFeed();
+        } catch(e) {
+          document.getElementById('newsFeedUpdated').textContent = '❌ Erreur de chargement';
+          document.getElementById('newsFeedGrid').innerHTML = '<div class="news-feed-empty">Impossible de charger les news.</div>';
+        }
+      };
+
+      window.openNewsFeedModal = function(id) {
+        const article = _newsFeedArticles.find(a => a.id === id);
+        if (!article) return;
+        _nfCurrentId = id;
+        const cat = article.category || '';
+        document.getElementById('nfModalTitle').textContent = article.title || '';
+        document.getElementById('nfModalBadge').textContent = CAT_LABELS[cat] || cat;
+        document.getElementById('nfModalBadge').className = 'news-cat-badge cat-' + cat;
+        document.getElementById('nfModalSource').textContent = article.source || '';
+        document.getElementById('nfModalDate').textContent = nfFormatDate(article.publishedAt);
+        document.getElementById('nfModalSummary').textContent = article.summary || article.title || '';
+        document.getElementById('nfLikeCount').textContent = article.likes || 0;
+        document.getElementById('nfDislikeCount').textContent = article.dislikes || 0;
+        document.getElementById('nfBtnOpen').href = article.url || '#';
+        document.getElementById('newsFeedModal').classList.add('open');
+      };
+
+      document.getElementById('nfModalClose').addEventListener('click', () => {
+        document.getElementById('newsFeedModal').classList.remove('open');
+        _nfCurrentId = null;
+      });
+      document.getElementById('newsFeedModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('newsFeedModal')) {
+          document.getElementById('newsFeedModal').classList.remove('open');
+          _nfCurrentId = null;
+        }
+      });
+
+      document.getElementById('nfBtnLike').addEventListener('click', async () => {
+        if (!_nfCurrentId) return;
+        try {
+          const resp = await fetch('/api/news/' + _nfCurrentId + '/like', { method: 'POST' });
+          if (!resp.ok) return;
+          const data = await resp.json();
+          const article = _newsFeedArticles.find(a => a.id === _nfCurrentId);
+          if (article) { article.likes = data.likes; article.dislikes = data.dislikes; }
+          document.getElementById('nfLikeCount').textContent = data.likes;
+          document.getElementById('nfDislikeCount').textContent = data.dislikes;
+        } catch {}
+      });
+
+      document.getElementById('nfBtnDislike').addEventListener('click', async () => {
+        if (!_nfCurrentId) return;
+        try {
+          const resp = await fetch('/api/news/' + _nfCurrentId + '/dislike', { method: 'POST' });
+          if (!resp.ok) return;
+          const data = await resp.json();
+          const article = _newsFeedArticles.find(a => a.id === _nfCurrentId);
+          if (article) { article.likes = data.likes; article.dislikes = data.dislikes; }
+          document.getElementById('nfLikeCount').textContent = data.likes;
+          document.getElementById('nfDislikeCount').textContent = data.dislikes;
+        } catch {}
+      });
+
+      document.getElementById('newsCatTabs').addEventListener('click', (e) => {
+        const tab = e.target.closest('.news-cat-tab');
+        if (!tab) return;
+        document.querySelectorAll('.news-cat-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        _newsFeedCat = tab.dataset.cat;
+        renderNewsFeed();
+      });
+
+      // Initial load + auto-refresh every 5 minutes
+      loadNewsFeed();
+      setInterval(loadNewsFeed, 300000);
+    })();
+  </script>
+
+  <script>
+    // ===== Facturation =====
+    (function() {
+      let _invoiceData = null;
+      let _historyOpen = false;
+
+      function fmt(amount, currency) {
+        return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currency || 'USD', maximumFractionDigits: 0 }).format(amount);
+      }
+
+      function fmtDate(iso) {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      }
+
+      function clientName(clients, id) {
+        const c = (clients || []).find(c => c.id === id);
+        return c ? c.name : id;
+      }
+
+      function renderInvoices(data) {
+        _invoiceData = data;
+        const body = document.getElementById('invoiceBody');
+        if (!data || !data.invoices) {
+          body.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Aucune donnée</div>';
+          return;
+        }
+        const { clients, invoices } = data;
+        const unpaid = invoices.filter(i => i.status !== 'paid');
+        const paid   = invoices.filter(i => i.status === 'paid');
+
+        let html = '';
+
+        // Unpaid invoices
+        if (unpaid.length === 0) {
+          html += '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">Aucune facture en attente 🎉</div>';
+        } else {
+          unpaid.forEach(inv => {
+            const isPending = inv.status === 'pending';
+            const badgeClass = isPending ? 'badge-pending' : 'badge-overdue';
+            const badgeLabel = isPending
+              ? `En attente${inv.daysUntilDue != null ? ' · J-' + inv.daysUntilDue : ''}`
+              : `En retard${inv.daysOverdue != null ? ' · J+' + inv.daysOverdue : ''}`;
+            html += `<div class="invoice-row" id="inv-row-${inv.id}">
+              <span class="invoice-client">${clientName(clients, inv.clientId)}</span>
+              <span class="invoice-num">${inv.invoiceNumber || inv.id}</span>
+              <span class="invoice-amount">${fmt(inv.amount, inv.currency)}</span>
+              <span class="invoice-due">Éch. ${fmtDate(inv.dueDate)}</span>
+              <span class="badge ${badgeClass}">${badgeLabel}</span>
+              <button class="btn-mark-paid" onclick="markInvoicePaid('${inv.id}')">✅ Payé</button>
+            </div>`;
+          });
+        }
+
+        // Summary
+        const pendingCount = unpaid.filter(i => i.status === 'pending').length;
+        const overdueCount = unpaid.filter(i => i.status === 'overdue').length;
+        const pendingTotal = unpaid.reduce((s, i) => s + (i.amount || 0), 0);
+        const currency = unpaid[0]?.currency || 'USD';
+        html += `<div class="invoice-summary">
+          <span>${unpaid.length} facture(s) en attente — Total : ${fmt(pendingTotal, currency)}</span>
+          ${overdueCount > 0 ? `<span class="invoice-overdue-warn">⚠️ ${overdueCount} facture(s) en retard !</span>` : ''}
+        </div>`;
+
+        // History toggle
+        if (paid.length > 0) {
+          html += `<button class="invoice-history-toggle" onclick="toggleInvoiceHistory()">${_historyOpen ? '▲' : '▼'} Historique (${paid.length} facture(s) payée(s))</button>`;
+          html += `<div id="invoiceHistory" style="display:${_historyOpen ? 'block' : 'none'};">`;
+          paid.forEach(inv => {
+            html += `<div class="invoice-row" style="opacity:0.7;">
+              <span class="invoice-client">${clientName(clients, inv.clientId)}</span>
+              <span class="invoice-num">${inv.invoiceNumber || inv.id}</span>
+              <span class="invoice-amount">${fmt(inv.amount, inv.currency)}</span>
+              <span class="invoice-due">Éch. ${fmtDate(inv.dueDate)}</span>
+              <span class="badge badge-paid">Payé</span>
+            </div>`;
+          });
+          html += '</div>';
+        }
+
+        body.innerHTML = html;
+      }
+
+      window.loadInvoices = async function() {
+        const body = document.getElementById('invoiceBody');
+        body.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Chargement…</div>';
+        try {
+          const res = await fetch('/api/invoices');
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          renderInvoices(data);
+        } catch (e) {
+          body.innerHTML = `<div style="color:#f38ba8;font-size:13px;">Erreur : ${e.message}</div>`;
+        }
+      };
+
+      window.markInvoicePaid = async function(id) {
+        // Optimistic UI
+        const row = document.getElementById('inv-row-' + id);
+        if (row) row.style.opacity = '0.4';
+        try {
+          const res = await fetch('/api/invoices/' + id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'paid', paidAt: new Date().toISOString() })
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          // Refresh data
+          await loadInvoices();
+        } catch (e) {
+          if (row) row.style.opacity = '1';
+          alert('Erreur lors de la mise à jour : ' + e.message);
+        }
+      };
+
+      window.toggleInvoiceHistory = function() {
+        _historyOpen = !_historyOpen;
+        const hist = document.getElementById('invoiceHistory');
+        const btn = document.querySelector('.invoice-history-toggle');
+        if (hist) hist.style.display = _historyOpen ? 'block' : 'none';
+        if (btn && _invoiceData) {
+          const paid = _invoiceData.invoices.filter(i => i.status === 'paid');
+          btn.textContent = `${_historyOpen ? '▲' : '▼'} Historique (${paid.length} facture(s) payée(s))`;
+        }
+      };
+
+      loadInvoices();
+    })();
   </script>
 </body>
 </html>

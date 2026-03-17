@@ -545,8 +545,12 @@
                   <div class="project-desc">${escapeHtml(p.description || '')}</div>
                 </div>
               </div>
-              ${p.testUrl ? `<a class="test-btn" href="${escapeHtml(p.testUrl)}" target="_blank">Test</a>` : ''}
-              ${p.githubUrl ? `<a class="test-btn" href="${escapeHtml(p.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4">GitHub</a>` : ''}
+              <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+                ${p.testUrl ? `<a class="test-btn" href="${escapeHtml(p.testUrl)}" target="_blank">Test</a>` : ''}
+                ${p.stagingUrl ? `<a class="test-btn" href="${escapeHtml(p.stagingUrl)}" target="_blank" style="background:#fab387;color:#1e1e2e">Staging</a>` : ''}
+                ${p.prodUrl ? `<a class="test-btn" href="${escapeHtml(p.prodUrl)}" target="_blank" style="background:#a6e3a1;color:#1e1e2e">Prod</a>` : ''}
+                ${p.githubUrl ? `<a class="test-btn" href="${escapeHtml(p.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4">GitHub</a>` : ''}
+              </div>
             </div>
             <div class="card-section" style="color:var(--red);font-size:12px;opacity:0.8">
               &#10005; ${escapeHtml(p.error || 'Repository inaccessible')}
@@ -696,8 +700,12 @@
                 <div class="project-desc">${escapeHtml(p.description || '')}</div>
               </div>
             </div>
-            ${p.testUrl ? `<a class="test-btn" href="${escapeHtml(p.testUrl)}" target="_blank">Test</a>` : ''}
-            ${p.githubUrl ? `<a class="test-btn" href="${escapeHtml(p.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4">GitHub</a>` : ''}
+            <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+              ${p.testUrl ? `<a class="test-btn" href="${escapeHtml(p.testUrl)}" target="_blank">Test</a>` : ''}
+              ${p.stagingUrl ? `<a class="test-btn" href="${escapeHtml(p.stagingUrl)}" target="_blank" style="background:#fab387;color:#1e1e2e">Staging</a>` : ''}
+                ${p.prodUrl ? `<a class="test-btn" href="${escapeHtml(p.prodUrl)}" target="_blank" style="background:#a6e3a1;color:#1e1e2e">Prod</a>` : ''}
+                ${p.githubUrl ? `<a class="test-btn" href="${escapeHtml(p.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4">GitHub</a>` : ''}
+            </div>
           </div>
           ${section1}
           ${section2}

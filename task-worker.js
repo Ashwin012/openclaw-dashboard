@@ -3,9 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const https = require('https');
 const { spawn } = require('child_process');
-const pty = require('node-pty');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -13,21 +11,16 @@ const CONFIG_PATH = path.join(__dirname, 'config.json');
 const POLL_INTERVAL_MS = 30_000;
 const QUALITY_GATE_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_OUTPUT_CHARS = 5_000;
-const NVM_SOURCE = 'source /home/openclaw/.nvm/nvm.sh';
 const NVM_NODE_PATH = '/home/openclaw/.nvm/versions/node/v20.20.1/bin';
+const NVM_SOURCE = 'source /home/openclaw/.nvm/nvm.sh';
 const WORKER_PORT = 8091;
 const DASHBOARD_DIR = path.join(__dirname, '.dashboard');
+const PENDING_QUESTIONS_PATH = path.join(DASHBOARD_DIR, 'pending-questions.json');
+const PENDING_ANSWERS_PATH = path.join(DASHBOARD_DIR, 'pending-answers.json');
 
-// Warning thresholds in minutes (each emitted only once per task)
 const WARNING_THRESHOLDS_MIN = [30, 60, 120];
-
-// Silence-based detection timings
-const SILENCE_CHECK_MS = 1_000;
-const QUESTION_SILENCE_MS = 3_000;     // silence before checking for question/prompt
-const COMPLETION_SILENCE_MS = 45_000;  // silence before assuming completion
-const MIN_OUTPUT_FOR_COMPLETION = 200; // chars since instruction to consider "done"
-const PTY_READY_TIMEOUT_MS = 60_000;   // max wait for initial prompt
-const QUESTION_WARN_MS = 30 * 60 * 1000; // warn after 30 min of unanswered question
+const QUESTION_POLL_MS = 2_000;
+const QUESTION_WARN_MS = 30 * 60 * 1000;
 
 // ─── Logging ──────────────────────────────────────────────────────────────────
 
@@ -39,131 +32,58 @@ function logError(msg, err) {
   console.error(`[${new Date().toISOString()}] ERROR ${msg}`, err ? (err.message || err) : '');
 }
 
-// ─── Active process tracking ──────────────────────────────────────────────────
-//
-// activeProcesses: Map<projectId, {
-//   ptyProc:        IPty,
-//   pid:            number,
-//   startTime:      Date,
-//   taskId:         string,
-//   projectId:      string,
-//   projectPath:    string,
-//   projectName:    string,
-//   taskTitle:      string,
-//   warned:         Set<number>,
-//   stoppedManually: boolean,
-//   getOutput:      () => string,
-//   getCurrentQuestion: () => object|null,
-// }>
-
-const activeProcesses = new Map();
-
 // ─── Graceful shutdown ────────────────────────────────────────────────────────
 
 let shuttingDown = false;
 
-function killAllActive(signal) {
-  log(`${signal} received — shutting down`);
+process.on('SIGTERM', () => {
+  log('SIGTERM received — shutting down');
   shuttingDown = true;
-  if (activeProcesses.size === 0) return;
-  log(`Sending kill to ${activeProcesses.size} active Claude Code PTY session(s)`);
-  for (const [projectId, proc] of activeProcesses) {
-    try { proc.ptyProc.kill(); } catch {}
-    log(`  Killed PTY for project [${projectId}]`);
+  if (currentProcess) {
+    try { currentProcess.proc.kill('SIGTERM'); } catch {}
   }
-}
+});
 
-process.on('SIGTERM', () => killAllActive('SIGTERM'));
-process.on('SIGINT', () => killAllActive('SIGINT'));
-
-// ─── ANSI / output helpers ────────────────────────────────────────────────────
-
-function stripAnsi(str) {
-  return str
-    .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '')
-    .replace(/\x1B\].*?\x07/g, '')
-    .replace(/\x1B[()][0-9A-Z]/g, '')
-    .replace(/\r/g, '');
-}
-
-function getLastMeaningfulLine(str) {
-  const lines = str.split('\n').map(l => l.trim()).filter(Boolean);
-  return lines[lines.length - 1] || '';
-}
-
-function isPromptLine(line) {
-  // Claude Code interactive prompt: ❯ or >
-  return /^❯\s*$/.test(line) || /^>\s*$/.test(line) || /^❯\s/.test(line);
-}
-
-function isQuestionLine(line) {
-  if (!line) return false;
-  if (line.endsWith('?')) return true;
-  if (/\[Y\/n\]|\[y\/N\]|\[y\/n\]/i.test(line)) return true;
-  return false;
-}
-
-function truncateOutput(buf) {
-  const stripped = stripAnsi(buf);
-  if (stripped.length > MAX_OUTPUT_CHARS) {
-    return stripped.slice(0, MAX_OUTPUT_CHARS) + `\n... [truncated, ${stripped.length} chars total]`;
+process.on('SIGINT', () => {
+  log('SIGINT received — shutting down');
+  shuttingDown = true;
+  if (currentProcess) {
+    try { currentProcess.proc.kill('SIGTERM'); } catch {}
   }
-  return stripped;
-}
+});
 
-function buildInstruction(task) {
-  const parts = [task.title.trim()];
-  if (task.description && task.description.trim()) {
-    parts.push(task.description.trim());
-  }
-  // Flatten to a single line for PTY input (avoids premature submission on \n)
-  return parts.join(' ').replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
-}
+// ─── Current process tracking ─────────────────────────────────────────────────
 
-// ─── Pending question/answer helpers (per-project files) ─────────────────────
+let currentProcess = null;
+
+// ─── Pending question/answer helpers ──────────────────────────────────────────
 
 function ensureDashboardDir() {
   if (!fs.existsSync(DASHBOARD_DIR)) fs.mkdirSync(DASHBOARD_DIR, { recursive: true });
 }
 
-function pendingQuestionPath(projectId) {
-  return path.join(DASHBOARD_DIR, `pending-question-${projectId}.json`);
-}
-
-function pendingAnswerPath(projectId) {
-  return path.join(DASHBOARD_DIR, `pending-answer-${projectId}.json`);
-}
-
-function writePendingQuestion(projectId, data) {
+function writePendingQuestion(data) {
   ensureDashboardDir();
-  const filePath = pendingQuestionPath(projectId);
-  const tmp = `${filePath}.${process.pid}.tmp`;
+  const tmp = `${PENDING_QUESTIONS_PATH}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
-  fs.renameSync(tmp, filePath);
+  fs.renameSync(tmp, PENDING_QUESTIONS_PATH);
 }
 
-function clearPendingQuestion(projectId) {
-  try {
-    const p = pendingQuestionPath(projectId);
-    if (fs.existsSync(p)) fs.unlinkSync(p);
-  } catch {}
+function clearPendingQuestion() {
+  try { if (fs.existsSync(PENDING_QUESTIONS_PATH)) fs.unlinkSync(PENDING_QUESTIONS_PATH); } catch {}
 }
 
-function readPendingAnswer(projectId, taskId) {
-  const p = pendingAnswerPath(projectId);
-  if (!fs.existsSync(p)) return null;
+function readPendingAnswer(taskId) {
+  if (!fs.existsSync(PENDING_ANSWERS_PATH)) return null;
   try {
-    const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const data = JSON.parse(fs.readFileSync(PENDING_ANSWERS_PATH, 'utf8'));
     if (data.taskId === taskId && data.answer) return data.answer;
   } catch {}
   return null;
 }
 
-function clearPendingAnswer(projectId) {
-  try {
-    const p = pendingAnswerPath(projectId);
-    if (fs.existsSync(p)) fs.unlinkSync(p);
-  } catch {}
+function clearPendingAnswer() {
+  try { if (fs.existsSync(PENDING_ANSWERS_PATH)) fs.unlinkSync(PENDING_ANSWERS_PATH); } catch {}
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -187,65 +107,6 @@ function addNotification(projectName, taskTitle, taskId, fromStatus, toStatus, m
   }
 }
 
-// ─── Push webhook notifications ───────────────────────────────────────────────
-
-function pushNotification(event, projectName, taskId, taskTitle, message) {
-  const config = loadConfig();
-  const webhookUrl = config.webhookUrl;
-  if (!webhookUrl) return;
-
-  const payload = JSON.stringify({
-    event,
-    projectName,
-    taskId,
-    taskTitle,
-    message,
-    timestamp: new Date().toISOString(),
-  });
-
-  function doPost(attempt) {
-    try {
-      const url = new URL(webhookUrl);
-      const mod = url.protocol === 'https:' ? https : http;
-      const options = {
-        hostname: url.hostname,
-        port: url.port || (url.protocol === 'https:' ? 443 : 80),
-        path: url.pathname + url.search,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload),
-        },
-      };
-      const req = mod.request(options, res => {
-        res.resume(); // drain response body
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          log(`  Webhook OK: ${event} → ${projectName} (HTTP ${res.statusCode})`);
-        } else if (attempt === 1) {
-          log(`  Webhook failed (HTTP ${res.statusCode}) for event "${event}", retrying in 5s`);
-          setTimeout(() => doPost(2), 5000);
-        } else {
-          log(`  Webhook retry failed (HTTP ${res.statusCode}) for event "${event}" — abandoning`);
-        }
-      });
-      req.on('error', err => {
-        if (attempt === 1) {
-          log(`  Webhook error (${err.message}) for event "${event}", retrying in 5s`);
-          setTimeout(() => doPost(2), 5000);
-        } else {
-          log(`  Webhook retry failed (${err.message}) for event "${event}" — abandoning`);
-        }
-      });
-      req.write(payload);
-      req.end();
-    } catch (err) {
-      logError(`pushNotification failed for event "${event}"`, err);
-    }
-  }
-
-  doPost(1);
-}
-
 // ─── tasks.json helpers ───────────────────────────────────────────────────────
 
 function getTasksPath(projectPath) {
@@ -256,26 +117,27 @@ function readTasks(projectPath) {
   const p = getTasksPath(projectPath);
   if (!fs.existsSync(p)) return { tasks: [] };
   try {
-    return JSON.parse(fs.readFileSync(p, 'utf8'));
+    const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
+    if (Array.isArray(raw)) return { tasks: raw };
+    if (raw && Array.isArray(raw.tasks)) return raw;
+    return { tasks: [] };
   } catch (err) {
     logError(`Failed to parse tasks.json at ${p}`, err);
     return { tasks: [] };
   }
 }
 
-/** Atomic write: write to a tmp file then rename into place. */
 function writeTasks(projectPath, data) {
   const p = getTasksPath(projectPath);
   const dir = path.dirname(p);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const toWrite = Array.isArray(data) ? { tasks: data } : data;
   const tmp = `${p}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
+  fs.writeFileSync(tmp, JSON.stringify(toWrite, null, 2), 'utf8');
   fs.renameSync(tmp, p);
 }
 
-function now() {
-  return new Date().toISOString();
-}
+function now() { return new Date().toISOString(); }
 
 function addNote(task, author, text) {
   if (!Array.isArray(task.notes)) task.notes = [];
@@ -285,38 +147,26 @@ function addNote(task, author, text) {
 function updateTask(projectPath, taskId, mutate) {
   const data = readTasks(projectPath);
   const task = data.tasks.find(t => t.id === taskId);
-  if (!task) {
-    logError(`Task ${taskId} not found in ${projectPath}`);
-    return;
-  }
+  if (!task) { logError(`Task ${taskId} not found in ${projectPath}`); return; }
   mutate(task);
   task.updatedAt = now();
   writeTasks(projectPath, data);
 }
 
-// ─── Quality gates (one-shot --print, 10-min timeout) ─────────────────────────
+// ─── Quality gates ────────────────────────────────────────────────────────────
 
 function spawnPromise(cmd, opts, timeoutMs) {
   return new Promise(resolve => {
     const proc = spawn(cmd, { ...opts, shell: '/bin/bash' });
-    let stdout = '';
-    let stderr = '';
-
+    let stdout = '', stderr = '';
     proc.stdout && proc.stdout.on('data', d => { stdout += d.toString(); });
     proc.stderr && proc.stderr.on('data', d => { stderr += d.toString(); });
-
     let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      proc.kill('SIGTERM');
-    }, timeoutMs);
-
+    const timer = setTimeout(() => { timedOut = true; proc.kill('SIGTERM'); }, timeoutMs);
     proc.on('close', code => {
       clearTimeout(timer);
-      const output = [stdout, stderr].filter(Boolean).join('\n').trim();
-      resolve({ code: timedOut ? -1 : code, output, timedOut });
+      resolve({ code: timedOut ? -1 : code, output: [stdout, stderr].filter(Boolean).join('\n').trim(), timedOut });
     });
-
     proc.on('error', err => {
       clearTimeout(timer);
       resolve({ code: -1, output: err.message, timedOut: false });
@@ -326,63 +176,29 @@ function spawnPromise(cmd, opts, timeoutMs) {
 
 async function runQualityGates(projectPath) {
   const results = [];
-
-  const gitCheckPath = path.join(projectPath, 'gitCheck.sh');
+  const gitCheckPath = path.join(projectPath, 'gitCheck-docker.sh');
   if (fs.existsSync(gitCheckPath)) {
-    log('  Running gitCheck.sh');
-    const r = await spawnPromise('bash gitCheck.sh', { cwd: projectPath }, QUALITY_GATE_TIMEOUT_MS);
-    const passed = r.code === 0;
-    results.push({ gate: 'gitCheck.sh', passed, output: r.output.slice(0, 2000) });
-    log(`  gitCheck.sh: ${passed ? 'PASSED' : 'FAILED'} (exit ${r.code}${r.timedOut ? ', timed out' : ''})`);
-  } else {
-    const pkgPath = path.join(projectPath, 'package.json');
-    if (fs.existsSync(pkgPath)) {
-      let pkg = {};
-      try { pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')); } catch { /* ignore */ }
-      if (pkg.scripts && pkg.scripts.test) {
-        log('  Running npm test');
-        const r = await spawnPromise(
-          `${NVM_SOURCE} && npm test`,
-          { cwd: projectPath, env: { ...process.env, CI: 'true' } },
-          QUALITY_GATE_TIMEOUT_MS,
-        );
-        const passed = r.code === 0;
-        results.push({ gate: 'npm test', passed, output: r.output.slice(0, 2000) });
-        log(`  npm test: ${passed ? 'PASSED' : 'FAILED'} (exit ${r.code}${r.timedOut ? ', timed out' : ''})`);
-      }
-    }
+    log('  Running gitCheck-docker.sh');
+    const r = await spawnPromise('bash gitCheck-docker.sh', { cwd: projectPath }, QUALITY_GATE_TIMEOUT_MS);
+    results.push({ gate: 'gitCheck-docker.sh', passed: r.code === 0, output: r.output.slice(0, 2000) });
+    log(`  gitCheck-docker.sh: ${r.code === 0 ? 'PASSED' : 'FAILED'}`);
   }
-
   return results;
 }
 
-// ─── Warning check (per-process, called every silence tick) ──────────────────
+// ─── Build instruction ────────────────────────────────────────────────────────
 
-function checkRunningWarnings(proc) {
-  if (!proc) return;
-
-  const elapsedMin = Math.floor((Date.now() - proc.startTime.getTime()) / 60_000);
-
-  for (const threshold of WARNING_THRESHOLDS_MIN) {
-    if (elapsedMin >= threshold && !proc.warned.has(threshold)) {
-      proc.warned.add(threshold);
-      const msg = `⚠️ Tâche en cours depuis ${elapsedMin} minutes`;
-      log(`  ${msg} (task [${proc.taskId}])`);
-      try {
-        updateTask(proc.projectPath, proc.taskId, t => {
-          addNote(t, 'Worker', msg);
-        });
-      } catch (err) {
-        logError('Failed to write warning note', err);
-      }
-    }
+function buildInstruction(task) {
+  const parts = [task.title.trim()];
+  if (task.description && task.description.trim()) {
+    parts.push('', task.description.trim());
   }
+  return parts.join('\n');
 }
 
-// ─── Core task processing (PTY interactive session) ───────────────────────────
+// ─── Core task processing (stream-json mode) ─────────────────────────────────
 
 async function processTask(project, task) {
-  const projectId = project.id;
   const projectPath = project.path;
 
   log(`Processing task [${task.id}] "${task.title}" in "${project.name}"`);
@@ -392,7 +208,6 @@ async function processTask(project, task) {
     addNote(t, 'Worker', 'Début du traitement');
   });
   addNotification(project.name, task.title, task.id, 'queued', 'in_progress', '🔄 Début du traitement par le worker');
-  pushNotification('task_started', project.name, task.id, task.title, '🔄 Début du traitement par le worker');
 
   const instruction = buildInstruction(task);
 
@@ -400,262 +215,293 @@ async function processTask(project, task) {
     ...process.env,
     PATH: `${NVM_NODE_PATH}:${process.env.PATH}`,
     HOME: '/home/openclaw',
-    TERM: 'xterm-256color',
   };
-  if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
-    env.CLAUDE_CODE_OAUTH_TOKEN = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-  }
 
-  log(`  Spawning Claude Code PTY for task [${task.id}]`);
+  log(`  Spawning Claude Code (stream-json) for task [${task.id}]`);
 
-  let ptyProc;
-  try {
-    ptyProc = pty.spawn('claude', ['--permission-mode', 'bypassPermissions'], {
-      name: 'xterm-256color',
-      cols: 220,
-      rows: 50,
-      cwd: projectPath,
-      env,
-    });
-  } catch (err) {
-    logError(`Failed to spawn PTY for task [${task.id}]`, err);
-    updateTask(projectPath, task.id, t => {
-      addNote(t, 'Worker', `Erreur PTY spawn: ${err.message}`);
-      t.status = 'review';
-      t.error = true;
-    });
-    activeProcesses.delete(projectId);
-    return;
-  }
+  const proc = spawn('claude', [
+    '--input-format', 'stream-json',
+    '--output-format', 'stream-json',
+    '--verbose',
+    '--permission-mode', 'bypassPermissions',
+  ], {
+    cwd: projectPath,
+    env,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
 
-  // ── Session state ──
-  let rawOutput = '';
-  let lastOutputTime = Date.now();
-  let stage = 'initializing'; // initializing | running | waiting_question | done
-  let outputLengthAtInstructionSent = 0;
+  // ── State ──
+  let resultText = '';
+  let resultJson = null;
   let currentQuestion = null;
   let questionStartTime = 0;
   let questionWarnEmitted = false;
-  let exitReason = 'unknown'; // 'complete' | 'manual' | 'error'
   let exitCode = null;
+  let stderrBuf = '';
+  let allEvents = []; // keep all events for debugging
 
   let resolveCompletion;
   const completionPromise = new Promise(res => { resolveCompletion = res; });
 
-  // Set activeProcesses entry synchronously (before first await) so poll loop sees it
-  const procInfo = {
-    ptyProc,
-    pid: ptyProc.pid,
+  currentProcess = {
+    proc,
+    pid: proc.pid,
     startTime: new Date(),
     taskId: task.id,
-    projectId,
+    projectId: project.id,
     projectPath,
     projectName: project.name,
     taskTitle: task.title,
     warned: new Set(),
     stoppedManually: false,
-    getOutput: () => rawOutput,
+    getOutput: () => resultText,
     getCurrentQuestion: () => currentQuestion,
   };
-  activeProcesses.set(projectId, procInfo);
 
-  // ── PTY data ──
-  ptyProc.onData(chunk => {
-    rawOutput += chunk;
-    lastOutputTime = Date.now();
+  // ── Send instruction as first message ──
+  const userMsg = JSON.stringify({
+    type: 'user',
+    message: { role: 'user', content: instruction },
   });
+  log(`  Sending instruction (${instruction.length} chars)`);
+  proc.stdin.write(userMsg + '\n');
 
-  // ── PTY exit ──
-  ptyProc.onExit(({ exitCode: code }) => {
-    exitCode = code;
-    log(`  PTY exited (code=${code}) for task [${task.id}]`);
-    resolveCompletion();
-  });
+  // ── Parse NDJSON from stdout ──
+  let stdoutBuf = '';
 
-  // ── Silence monitor (state machine) ──
-  const silenceInterval = setInterval(() => {
-    if (stage === 'done') { clearInterval(silenceInterval); return; }
+  proc.stdout.on('data', chunk => {
+    stdoutBuf += chunk.toString();
+    // Process complete lines
+    let newlineIdx;
+    while ((newlineIdx = stdoutBuf.indexOf('\n')) !== -1) {
+      const line = stdoutBuf.slice(0, newlineIdx).trim();
+      stdoutBuf = stdoutBuf.slice(newlineIdx + 1);
+      if (!line) continue;
 
-    const silence = Date.now() - lastOutputTime;
-    const stripped = stripAnsi(rawOutput);
-    const lastLine = getLastMeaningfulLine(stripped);
+      let event;
+      try { event = JSON.parse(line); } catch { continue; }
+      allEvents.push(event);
 
-    // Per-tick warning check
-    checkRunningWarnings(procInfo);
+      switch (event.type) {
+        case 'system':
+          log(`  [stream] system init (session=${event.session_id}, model=${event.model})`);
+          break;
 
-    switch (stage) {
+        case 'assistant': {
+          // Claude's response — extract text content
+          const msg = event.message;
+          if (msg && msg.content) {
+            for (const block of msg.content) {
+              if (block.type === 'text') {
+                resultText += (resultText ? '\n' : '') + block.text;
+              }
+              // Detect if Claude is asking a question via tool use
+              if (block.type === 'tool_use' && block.name === 'AskUserQuestion') {
+                const question = block.input?.question || block.input?.text || JSON.stringify(block.input);
+                log(`  [stream] Question detected: "${question}"`);
+                currentQuestion = {
+                  taskId: task.id,
+                  projectId: project.id,
+                  question,
+                  timestamp: new Date().toISOString(),
+                  answered: false,
+                  toolUseId: block.id,
+                };
+                questionStartTime = Date.now();
+                questionWarnEmitted = false;
+                writePendingQuestion(currentQuestion);
+                updateTask(projectPath, task.id, t => {
+                  addNote(t, 'Worker', `🤔 Claude Code pose une question: ${question}`);
+                });
+                addNotification(project.name, task.title, task.id, 'in_progress', 'in_progress', `❓ Question: ${question}`);
 
-      case 'initializing': {
-        const elapsed = Date.now() - procInfo.startTime.getTime();
-        const readyByPrompt = silence >= QUESTION_SILENCE_MS && isPromptLine(lastLine);
-        const readyByTimeout = elapsed >= PTY_READY_TIMEOUT_MS;
-
-        if (readyByPrompt || readyByTimeout) {
-          if (readyByTimeout && !readyByPrompt) {
-            log(`  PTY init timeout for task [${task.id}], sending instruction anyway`);
-          } else {
-            log(`  Claude Code ready (task [${task.id}]), sending instruction`);
+                // Start polling for answer
+                pollForAnswer(task.id, proc, currentQuestion.toolUseId);
+              }
+            }
           }
-          stage = 'running';
-          outputLengthAtInstructionSent = stripped.length;
-          lastOutputTime = Date.now();
-          try { ptyProc.write(instruction + '\r'); } catch {}
-        }
-        break;
-      }
-
-      case 'running': {
-        if (silence < QUESTION_SILENCE_MS) break;
-
-        const outputSince = stripped.length - outputLengthAtInstructionSent;
-
-        if (isQuestionLine(lastLine) && outputSince > 20) {
-          // Transition to waiting_question
-          stage = 'waiting_question';
-          questionStartTime = Date.now();
-          questionWarnEmitted = false;
-          currentQuestion = {
-            taskId: task.id,
-            projectId,
-            question: lastLine,
-            context: stripped.slice(-500),
-            timestamp: new Date().toISOString(),
-            answered: false,
-          };
-          log(`  Question detected for task [${task.id}]: "${lastLine}"`);
-          writePendingQuestion(projectId, currentQuestion);
-          updateTask(projectPath, task.id, t => {
-            addNote(t, 'Worker', `🤔 Claude Code pose une question: ${lastLine}`);
-          });
-          addNotification(project.name, task.title, task.id, 'in_progress', 'in_progress',
-            `❓ Question: ${lastLine}`);
-          pushNotification('question_detected', project.name, task.id, task.title,
-            `❓ Question: ${lastLine}`);
           break;
         }
 
-        if (silence >= COMPLETION_SILENCE_MS && isPromptLine(lastLine) && outputSince >= MIN_OUTPUT_FOR_COMPLETION) {
-          log(`  Completion detected for task [${task.id}] (${outputSince} chars of output)`);
-          stage = 'done';
-          exitReason = 'complete';
-          clearInterval(silenceInterval);
-          try { ptyProc.write('/exit\r'); } catch {}
-          // Fallback kill after 15s in case /exit doesn't close the PTY
-          setTimeout(() => {
-            log(`  Fallback kill triggered (15s after /exit) for task [${task.id}]`);
-            try { ptyProc.kill(); } catch {}
-          }, 15000);
-        }
-        break;
-      }
+        case 'result':
+          // Final result — task complete
+          resultJson = event;
+          if (event.result) {
+            resultText = event.result; // Use the clean result text
+          }
+          log(`  [stream] Result received (${event.subtype}, ${event.duration_ms}ms, $${event.total_cost_usd?.toFixed(4) || '?'}) — closing stdin`);
+          // Close stdin so Claude Code process exits cleanly
+          try { proc.stdin.end(); } catch(e) {}
+          // Safety: force kill after 5s if process hasn't exited
+          setTimeout(() => { try { proc.kill('SIGTERM'); } catch {} }, 5000);
+          break;
 
-      case 'waiting_question': {
-        // Emit 30-min warning once
-        if (!questionWarnEmitted && Date.now() - questionStartTime >= QUESTION_WARN_MS) {
-          questionWarnEmitted = true;
-          log(`  Question unanswered for 30min (task [${task.id}])`);
-          updateTask(projectPath, task.id, t => {
-            addNote(t, 'Worker', '⏰ Question sans réponse depuis 30min');
-          });
-          pushNotification('question_timeout', project.name, task.id, task.title,
-            `⏰ Question sans réponse depuis 30min: ${currentQuestion ? currentQuestion.question : ''}`);
-        }
+        case 'rate_limit_event':
+          // Ignore
+          break;
 
-        // Poll for answer file
-        const answer = readPendingAnswer(projectId, task.id);
-        if (answer) {
-          log(`  Answer received for task [${task.id}]: "${answer}"`);
-          clearPendingAnswer(projectId);
-          clearPendingQuestion(projectId);
-          currentQuestion = null;
-          stage = 'running';
-          lastOutputTime = Date.now();
-          try { ptyProc.write(answer + '\r'); } catch {}
-        }
-        break;
+        default:
+          log(`  [stream] Event: ${event.type}${event.subtype ? '/' + event.subtype : ''}`);
       }
     }
-  }, SILENCE_CHECK_MS);
+  });
 
-  // ── Await PTY exit ──
+  proc.stderr.on('data', chunk => { stderrBuf += chunk.toString(); });
+
+  proc.on('close', (code) => {
+    exitCode = code;
+    log(`  Process exited (code=${code}) for task [${task.id}]`);
+    resolveCompletion();
+  });
+
+  proc.on('error', err => {
+    logError(`Process error for task [${task.id}]`, err);
+    resolveCompletion();
+  });
+
+  // ── Wait for completion ──
   await completionPromise;
 
-  clearInterval(silenceInterval);
-  clearPendingQuestion(projectId);
-  clearPendingAnswer(projectId);
+  clearPendingQuestion();
+  clearPendingAnswer();
 
-  activeProcesses.delete(projectId);
+  const cp = currentProcess;
+  currentProcess = null;
 
-  if (shuttingDown) {
-    process.exit(0);
-    return;
-  }
+  if (shuttingDown) { process.exit(0); return; }
 
-  const truncated = truncateOutput(rawOutput);
-  log(`  PTY finished for task [${task.id}] (exitCode=${exitCode}, reason=${exitReason})`);
+  log(`  Task finished (exitCode=${exitCode})`);
 
-  if (procInfo.stoppedManually) {
+  if (cp && cp.stoppedManually) {
     updateTask(projectPath, task.id, t => {
-      addNote(t, 'Worker', `Stoppée manuellement\n${truncated}`);
+      addNote(t, 'Worker', `Stoppée manuellement`);
       t.status = 'review';
     });
-    addNotification(procInfo.projectName, procInfo.taskTitle, task.id, 'in_progress', 'review', '⏹ Tâche stoppée manuellement');
-    pushNotification('task_failed', procInfo.projectName, task.id, procInfo.taskTitle, '⏹ Tâche stoppée manuellement');
-    log(`Task [${task.id}] → review (stopped manually)`);
+    addNotification(cp.projectName, cp.taskTitle, task.id, 'in_progress', 'review', '⏹ Tâche stoppée manuellement');
     return;
   }
 
-  // exitCode === 0 or we detected completion normally
-  const failed = exitReason !== 'complete' && exitCode !== 0;
+  // Truncate result if needed
+  let output = resultText || '(No output)';
+  if (output.length > MAX_OUTPUT_CHARS) {
+    output = `[${output.length} chars total, showing last ${MAX_OUTPUT_CHARS}]\n...` + output.slice(-MAX_OUTPUT_CHARS);
+  }
 
+  const failed = exitCode !== 0 && !resultJson;
+
+  // Quality gates
   let qualityResults = [];
   if (!failed) {
-    try {
-      qualityResults = await runQualityGates(projectPath);
-    } catch (err) {
-      logError('Quality gates error', err);
-    }
+    try { qualityResults = await runQualityGates(projectPath); } catch (err) { logError('Quality gates error', err); }
+  }
+
+  // Build summary note
+  let summaryNote = '';
+  if (resultJson) {
+    const r = resultJson;
+    summaryNote += `✅ Claude Code terminé (${Math.round((r.duration_ms || 0) / 1000)}s, ${r.num_turns || 1} tour(s), $${r.total_cost_usd?.toFixed(4) || '?'})\n\n`;
+  } else if (failed) {
+    summaryNote += `❌ Claude Code échoué (exit=${exitCode})\n\n`;
+  } else {
+    summaryNote += `Claude Code terminé:\n\n`;
+  }
+  summaryNote += output;
+  if (stderrBuf.trim()) {
+    summaryNote += `\n\nStderr: ${stderrBuf.trim().slice(0, 500)}`;
   }
 
   updateTask(projectPath, task.id, t => {
-    const claudeNote = failed
-      ? `Claude Code échoué (exit=${exitCode}):\n${truncated}`
-      : `Claude Code terminé:\n${truncated}`;
-    addNote(t, 'Worker', claudeNote);
-
+    addNote(t, 'Worker', summaryNote);
     for (const qg of qualityResults) {
       addNote(t, 'Worker', `Quality gate "${qg.gate}": ${qg.passed ? 'PASSED' : 'FAILED'}\n${qg.output}`);
     }
-
     t.status = 'review';
     if (failed) t.error = true;
   });
 
-  for (const qg of qualityResults) {
-    const qgMsg = `Quality gate "${qg.gate}": ${qg.passed ? '✅ PASSED' : '❌ FAILED'}`;
-    pushNotification('quality_gate_result', procInfo.projectName, task.id, procInfo.taskTitle, qgMsg);
-  }
-
   const notifMsg = failed
     ? '❌ Erreur pendant le traitement — en review'
     : '🔍 Traitement terminé — en attente de review';
-  addNotification(procInfo.projectName, procInfo.taskTitle, task.id, 'in_progress', 'review', notifMsg);
-  pushNotification(
-    failed ? 'task_failed' : 'task_completed',
-    procInfo.projectName, task.id, procInfo.taskTitle, notifMsg,
-  );
-  log(`Task [${task.id}] "${task.title}" → review${failed ? ' (with error)' : ''}`);
+  addNotification(cp.projectName, cp.taskTitle, task.id, 'in_progress', 'review', notifMsg);
+  log(`Task [${task.id}] → review${failed ? ' (with error)' : ''}`);
+
+  if (shuttingDown) process.exit(0);
+}
+
+// ─── Poll for answer to a question ────────────────────────────────────────────
+
+function pollForAnswer(taskId, proc, toolUseId) {
+  const interval = setInterval(() => {
+    // Check if process is still running
+    if (!currentProcess || currentProcess.taskId !== taskId) {
+      clearInterval(interval);
+      return;
+    }
+
+    // 30-min warning
+    if (!currentProcess.questionWarnEmitted && Date.now() - currentProcess.questionStartTime >= QUESTION_WARN_MS) {
+      currentProcess.questionWarnEmitted = true;
+      updateTask(currentProcess.projectPath, taskId, t => {
+        addNote(t, 'Worker', '⏰ Question sans réponse depuis 30min');
+      });
+    }
+
+    // Check for answer
+    const answer = readPendingAnswer(taskId);
+    if (answer) {
+      log(`  Answer received for task [${taskId}]: "${answer}"`);
+      clearPendingAnswer();
+      clearPendingQuestion();
+
+      // Send answer back to Claude Code via stdin as a tool_result
+      const response = JSON.stringify({
+        type: 'user',
+        message: {
+          role: 'user',
+          content: [
+            {
+              type: 'tool_result',
+              tool_use_id: toolUseId,
+              content: answer,
+            },
+          ],
+        },
+      });
+      try {
+        proc.stdin.write(response + '\n');
+        log(`  Answer sent to Claude Code`);
+      } catch (err) {
+        logError('Failed to write answer to stdin', err);
+      }
+
+      currentProcess.getCurrentQuestion = () => null;
+      clearInterval(interval);
+    }
+  }, QUESTION_POLL_MS);
+}
+
+// ─── Warning check ────────────────────────────────────────────────────────────
+
+function checkRunningWarnings() {
+  if (!currentProcess) return;
+  const elapsedMin = Math.floor((Date.now() - currentProcess.startTime.getTime()) / 60_000);
+  for (const threshold of WARNING_THRESHOLDS_MIN) {
+    if (elapsedMin >= threshold && !currentProcess.warned.has(threshold)) {
+      currentProcess.warned.add(threshold);
+      const msg = `⚠️ Tâche en cours depuis ${elapsedMin} minutes`;
+      log(`  ${msg} (task [${currentProcess.taskId}])`);
+      try {
+        updateTask(currentProcess.projectPath, currentProcess.taskId, t => { addNote(t, 'Worker', msg); });
+      } catch (err) { logError('Failed to write warning note', err); }
+    }
+  }
 }
 
 // ─── Config loader ────────────────────────────────────────────────────────────
 
 function loadConfig() {
-  try {
-    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-  } catch (err) {
-    logError('Failed to read config.json', err);
-    return { projects: [] };
-  }
+  try { return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); }
+  catch (err) { logError('Failed to read config.json', err); return { projects: [] }; }
 }
 
 // ─── Poll loop ────────────────────────────────────────────────────────────────
@@ -663,21 +509,15 @@ function loadConfig() {
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
 
 async function pollOnce() {
+  if (currentProcess) { checkRunningWarnings(); return; }
+
   const config = loadConfig();
 
   for (const project of config.projects) {
     if (shuttingDown) break;
 
-    const projectId = project.id;
-
-    // If already running for this project, just check warnings and skip
-    if (activeProcesses.has(projectId)) {
-      checkRunningWarnings(activeProcesses.get(projectId));
-      continue;
-    }
-
     const data = readTasks(project.path);
-    const queued = (data.tasks || []).filter(t => t.status === 'queued');
+    const queued = data.tasks.filter(t => t.status === 'queued');
     if (queued.length === 0) continue;
 
     log(`Project "${project.name}": ${queued.length} queued task(s)`);
@@ -691,11 +531,9 @@ async function pollOnce() {
 
     const task = queued[0];
 
-    // Fire and forget — processTask manages its own lifecycle via activeProcesses
     processTask(project, task).catch(err => {
       logError(`Unexpected error in processTask [${task.id}]`, err);
-      const proc = activeProcesses.get(projectId);
-      if (proc && proc.taskId === task.id) {
+      if (currentProcess && currentProcess.taskId === task.id) {
         try {
           updateTask(project.path, task.id, t => {
             addNote(t, 'Worker', `Erreur inattendue: ${err.message || err}`);
@@ -703,52 +541,26 @@ async function pollOnce() {
             t.error = true;
           });
         } catch {}
-        activeProcesses.delete(projectId);
+        currentProcess = null;
       }
     });
+
+    return;
   }
 }
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-
-// ─── Startup recovery: reset orphaned in_progress tasks ─────────────────────
-function recoverOrphanedTasks() {
-  const config = loadConfig();
-  for (const project of config.projects) {
-    const data = readTasks(project.path);
-    let changed = false;
-    for (const task of (data.tasks || [])) {
-      if (task.status === 'in_progress') {
-        log(`Recovery: resetting orphaned task [${task.id.slice(0,8)}] in ${project.name} back to queued`);
-        task.status = 'queued';
-        addNote(task, 'Worker', '🔄 Tâche remise en queue après redémarrage du worker');
-        changed = true;
-      }
-    }
-    if (changed) {
-      writeTasks(project.path, data.tasks || []);
-    }
-  }
-}
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 async function main() {
-  log('Task worker started (PTY interactive mode, parallel per-project)');
+  log('Task worker started (stream-json mode)');
   log(`Poll interval: ${POLL_INTERVAL_MS / 1000}s | Quality gate timeout: ${QUALITY_GATE_TIMEOUT_MS / 60000}m`);
   log(`Projects: ${loadConfig().projects.map(p => p.name).join(', ')}`);
   log(`HTTP server on port ${WORKER_PORT}`);
 
-  recoverOrphanedTasks();
   startHttpServer();
 
   while (!shuttingDown) {
-    try {
-      await pollOnce();
-    } catch (err) {
-      logError('Unexpected error in poll loop', err);
-    }
+    try { await pollOnce(); } catch (err) { logError('Unexpected error in poll loop', err); }
     if (!shuttingDown) await sleep(POLL_INTERVAL_MS);
   }
 
@@ -762,9 +574,7 @@ function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try { resolve(JSON.parse(body)); } catch { resolve({}); }
-    });
+    req.on('end', () => { try { resolve(JSON.parse(body)); } catch { resolve({}); } });
     req.on('error', reject);
   });
 }
@@ -773,168 +583,81 @@ function startHttpServer() {
   const server = http.createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
 
-    const url = new URL(req.url, 'http://localhost');
-    const pathname = url.pathname;
-    const projectParam = url.searchParams.get('project'); // optional project filter
-
-    // ── GET /health ──
-    if (req.method === 'GET' && pathname === '/health') {
+    if (req.method === 'GET' && req.url === '/health') {
       res.writeHead(200);
-      res.end(JSON.stringify({ ok: true }));
-      return;
+      return res.end(JSON.stringify({ ok: true }));
     }
 
-    // ── GET /status ──
-    if (req.method === 'GET' && pathname === '/status') {
-      if (activeProcesses.size === 0) {
+    if (req.method === 'GET' && req.url === '/status') {
+      if (!currentProcess) {
         res.writeHead(200);
-        res.end(JSON.stringify({ running: false, tasks: {}, count: 0 }));
-        return;
+        return res.end(JSON.stringify({ running: false, task: null, pendingQuestion: null }));
       }
-      const tasks = {};
-      for (const [pid, proc] of activeProcesses) {
-        const durationMin = Math.floor((Date.now() - proc.startTime.getTime()) / 60_000);
-        tasks[pid] = {
-          id: proc.taskId,
-          title: proc.taskTitle,
-          project: proc.projectName,
-          projectId: proc.projectId,
-          startedAt: proc.startTime.toISOString(),
+      const durationMin = Math.floor((Date.now() - currentProcess.startTime.getTime()) / 60_000);
+      res.writeHead(200);
+      return res.end(JSON.stringify({
+        running: true,
+        task: {
+          id: currentProcess.taskId,
+          title: currentProcess.taskTitle,
+          project: currentProcess.projectName,
+          projectId: currentProcess.projectId,
+          startedAt: currentProcess.startTime.toISOString(),
           durationMin,
-          pid: proc.pid,
-          pendingQuestion: proc.getCurrentQuestion(),
-        };
+          pid: currentProcess.pid,
+        },
+        pendingQuestion: currentProcess.getCurrentQuestion(),
+      }));
+    }
+
+    if (req.method === 'POST' && req.url === '/stop') {
+      if (!currentProcess) {
+        res.writeHead(200);
+        return res.end(JSON.stringify({ ok: true, message: 'No task running' }));
       }
+      log(`Manual stop requested for task [${currentProcess.taskId}]`);
+      currentProcess.stoppedManually = true;
+      try { currentProcess.proc.kill('SIGTERM'); } catch {}
       res.writeHead(200);
-      res.end(JSON.stringify({ running: true, tasks, count: activeProcesses.size }));
-      return;
+      return res.end(JSON.stringify({ ok: true, message: 'Stop signal sent' }));
     }
 
-    // ── POST /stop ──
-    if (req.method === 'POST' && pathname === '/stop') {
-      if (activeProcesses.size === 0) {
-        res.writeHead(200);
-        res.end(JSON.stringify({ ok: true, message: 'No task running' }));
-        return;
-      }
-
-      if (projectParam) {
-        // Stop specific project
-        const proc = activeProcesses.get(projectParam);
-        if (!proc) {
-          res.writeHead(200);
-          res.end(JSON.stringify({ ok: true, message: `No task running for project "${projectParam}"` }));
-          return;
-        }
-        log(`Manual stop requested for task [${proc.taskId}] (project: ${projectParam})`);
-        proc.stoppedManually = true;
-        try { proc.ptyProc.kill(); } catch {}
-        res.writeHead(200);
-        res.end(JSON.stringify({ ok: true, message: `Stop signal sent to "${projectParam}"` }));
-      } else {
-        // Stop all
-        const stopped = [];
-        for (const [pid, proc] of activeProcesses) {
-          log(`Manual stop requested for task [${proc.taskId}] (project: ${pid})`);
-          proc.stoppedManually = true;
-          try { proc.ptyProc.kill(); } catch {}
-          stopped.push(pid);
-        }
-        res.writeHead(200);
-        res.end(JSON.stringify({ ok: true, message: `Stop signal sent to: ${stopped.join(', ')}` }));
-      }
-      return;
+    if (req.method === 'GET' && req.url === '/question') {
+      const question = currentProcess ? currentProcess.getCurrentQuestion() : null;
+      res.writeHead(200);
+      return res.end(JSON.stringify({ question }));
     }
 
-    // ── GET /question ──
-    if (req.method === 'GET' && pathname === '/question') {
-      if (projectParam) {
-        const proc = activeProcesses.get(projectParam);
-        const question = proc ? proc.getCurrentQuestion() : null;
-        res.writeHead(200);
-        res.end(JSON.stringify({ question }));
-      } else {
-        // Return first question found across all projects
-        let question = null;
-        for (const proc of activeProcesses.values()) {
-          const q = proc.getCurrentQuestion();
-          if (q) { question = q; break; }
-        }
-        res.writeHead(200);
-        res.end(JSON.stringify({ question }));
-      }
-      return;
-    }
-
-    // ── POST /answer ──
-    if (req.method === 'POST' && pathname === '/answer') {
-      let body;
-      try { body = await readBody(req); } catch {
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: 'Invalid body' }));
-        return;
-      }
-
+    if (req.method === 'POST' && req.url === '/answer') {
+      const body = await readBody(req);
       if (!body.answer || typeof body.answer !== 'string') {
         res.writeHead(400);
-        res.end(JSON.stringify({ error: 'Missing answer field' }));
-        return;
+        return res.end(JSON.stringify({ error: 'Missing answer field' }));
       }
-
-      if (!body.projectId || typeof body.projectId !== 'string') {
+      if (!currentProcess) {
         res.writeHead(400);
-        res.end(JSON.stringify({ error: 'Missing projectId field' }));
-        return;
+        return res.end(JSON.stringify({ error: 'No active task' }));
       }
-
-      const proc = activeProcesses.get(body.projectId);
-      if (!proc) {
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: `No active task for project "${body.projectId}"` }));
-        return;
-      }
-
-      const answerData = {
-        taskId: proc.taskId,
-        answer: body.answer,
-        timestamp: new Date().toISOString(),
-      };
+      const answerData = { taskId: currentProcess.taskId, answer: body.answer, timestamp: new Date().toISOString() };
       try {
         ensureDashboardDir();
-        const p = pendingAnswerPath(body.projectId);
-        const tmp = `${p}.${process.pid}.tmp`;
+        const tmp = `${PENDING_ANSWERS_PATH}.${process.pid}.tmp`;
         fs.writeFileSync(tmp, JSON.stringify(answerData, null, 2), 'utf8');
-        fs.renameSync(tmp, p);
-        log(`Answer written for task [${proc.taskId}] (project: ${body.projectId}): "${body.answer}"`);
+        fs.renameSync(tmp, PENDING_ANSWERS_PATH);
+        log(`Answer written for task [${currentProcess.taskId}]`);
         res.writeHead(200);
-        res.end(JSON.stringify({ ok: true }));
+        return res.end(JSON.stringify({ ok: true }));
       } catch (err) {
-        logError('Failed to write answer file', err);
+        logError('Failed to write answer', err);
         res.writeHead(500);
-        res.end(JSON.stringify({ error: 'Failed to write answer' }));
+        return res.end(JSON.stringify({ error: 'Failed to write answer' }));
       }
-      return;
     }
 
-    // ── GET /output ──
-    if (req.method === 'GET' && pathname === '/output') {
-      if (projectParam) {
-        const proc = activeProcesses.get(projectParam);
-        const raw = proc ? proc.getOutput() : '';
-        const stripped = stripAnsi(raw);
-        const last2000 = stripped.slice(-2000);
-        res.writeHead(200);
-        res.end(JSON.stringify({ output: last2000, totalChars: stripped.length }));
-      } else {
-        // Return output for first active process
-        const proc = activeProcesses.values().next().value;
-        const raw = proc ? proc.getOutput() : '';
-        const stripped = stripAnsi(raw);
-        const last2000 = stripped.slice(-2000);
-        res.writeHead(200);
-        res.end(JSON.stringify({ output: last2000, totalChars: stripped.length }));
-      }
-      return;
+    if (req.method === 'GET' && req.url === '/output') {
+      const output = currentProcess ? currentProcess.getOutput() : '';
+      res.writeHead(200);
+      return res.end(JSON.stringify({ output: output.slice(-2000), totalChars: output.length }));
     }
 
     res.writeHead(404);
@@ -945,9 +668,7 @@ function startHttpServer() {
     log(`Worker HTTP server listening on 127.0.0.1:${WORKER_PORT}`);
   });
 
-  server.on('error', err => {
-    logError('Worker HTTP server error', err);
-  });
+  server.on('error', err => { logError('Worker HTTP server error', err); });
 }
 
 main();

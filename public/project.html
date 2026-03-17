@@ -223,6 +223,42 @@
 
   <div class="toast" id="toast"></div>
 
+  <!-- Config Modal -->
+  <div id="configModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:2000;align-items:center;justify-content:center" onclick="if(event.target===this)closeConfigModal()">
+    <div style="background:#1e1e2e;border:1px solid #313244;border-radius:10px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.55)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #313244">
+        <h3 style="margin:0;font-size:15px;color:#cdd6f4;font-weight:600">⚙ Project Config</h3>
+        <button onclick="closeConfigModal()" style="background:none;border:none;color:#9399b2;font-size:18px;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1">✕</button>
+      </div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="display:block;font-size:12px;color:#9399b2;margin-bottom:5px">Description</label>
+          <input id="cfgDescription" type="text" style="width:100%;padding:8px 10px;background:#181825;border:1px solid #313244;border-radius:6px;color:#cdd6f4;font-size:13px;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;color:#9399b2;margin-bottom:5px">Dev URL (testUrl)</label>
+          <input id="cfgTestUrl" type="text" style="width:100%;padding:8px 10px;background:#181825;border:1px solid #313244;border-radius:6px;color:#cdd6f4;font-size:13px;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;color:#9399b2;margin-bottom:5px">Staging URL</label>
+          <input id="cfgStagingUrl" type="text" style="width:100%;padding:8px 10px;background:#181825;border:1px solid #313244;border-radius:6px;color:#cdd6f4;font-size:13px;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;color:#9399b2;margin-bottom:5px">Prod URL</label>
+          <input id="cfgProdUrl" type="text" style="width:100%;padding:8px 10px;background:#181825;border:1px solid #313244;border-radius:6px;color:#cdd6f4;font-size:13px;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;color:#9399b2;margin-bottom:5px">GitHub URL</label>
+          <input id="cfgGithubUrl" type="text" style="width:100%;padding:8px 10px;background:#181825;border:1px solid #313244;border-radius:6px;color:#cdd6f4;font-size:13px;box-sizing:border-box">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;padding:0 20px 16px">
+        <button onclick="closeConfigModal()" style="padding:7px 16px;border-radius:6px;border:1px solid #313244;background:transparent;color:#9399b2;font-size:13px;cursor:pointer">Cancel</button>
+        <button onclick="saveConfig()" style="padding:7px 16px;border-radius:6px;border:none;background:#89b4fa;color:#1e1e2e;font-size:13px;font-weight:600;cursor:pointer">Save</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Description Full-Text Modal -->
   <div id="descModal" onclick="if(event.target===this)closeDescModal()">
     <div class="desc-modal-box">
@@ -507,6 +543,7 @@
       }
     }
 
+async function gitPull() {      const btn = document.getElementById("pullBtn");      if (btn) { btn.disabled = true; btn.textContent = "Pulling..."; }      try {        const res = await fetch(`/api/projects/${projectId}/pull`, { method: "POST" });        const data = await res.json();        if (res.ok) {          showToast(`Pull OK: ${data.output || "Up to date"}`);          setTimeout(() => location.reload(), 1500);        } else {          showToast(data.error || "Pull failed", "error");          if (btn) { btn.disabled = false; btn.textContent = "Pull"; }        }      } catch (err) {        showToast(err.message, "error");        if (btn) { btn.disabled = false; btn.textContent = "Pull"; }      }    }
     async function pushCommits() {
       const btn = document.getElementById('pushBtn');
       if (btn) { btn.disabled = true; btn.textContent = 'Pushing...'; }
@@ -547,12 +584,19 @@
             <h1>${escapeHtml(data.name)}</h1>
             <div class="desc">${escapeHtml(data.description)} &mdash; <code style="font-size:12px;color:var(--text-muted)">${escapeHtml(data.branch)}</code></div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span class="badge ${hasChanges ? 'badge-pending' : 'badge-clean'}">
               ${hasChanges ? `${data.files.length} file${data.files.length !== 1 ? 's' : ''} changed` : 'Clean'}
             </span>
-            ${data.testUrl ? `<a href="${escapeHtml(data.testUrl)}" target="_blank" style="background:#89b4fa;color:#1e1e2e;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Test</a>` : ''}
+            <select id="branchSelect" onchange="onBranchChange()" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;max-width:160px">
+              <option value="${escapeHtml(data.branch)}" selected>${escapeHtml(data.branch)}</option>
+            </select>
+            ${data.testUrl ? `<a href="${escapeHtml(data.testUrl)}" target="_blank" style="background:#89b4fa;color:#1e1e2e;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Dev</a>` : ''}
+            ${data.stagingUrl ? `<a href="${escapeHtml(data.stagingUrl)}" target="_blank" style="background:#f9e2af;color:#1e1e2e;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Staging</a>` : ''}
+            ${data.prodUrl ? `<a href="${escapeHtml(data.prodUrl)}" target="_blank" style="background:#a6e3a1;color:#1e1e2e;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Prod</a>` : ''}
             ${data.githubUrl ? `<a href="${escapeHtml(data.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">GitHub</a>` : ''}
+            <button onclick="openConfigModal()" style="background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:14px;cursor:pointer;line-height:1" title="Edit project config">⚙</button>
+            <button onclick="gitPull()" style="background:#a6e3a1;color:#1e1e2e;border:none;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer" id="pullBtn">Pull</button>
           </div>
         </div>
 
@@ -1252,8 +1296,60 @@
         }
         const data = await res.json();
         renderPage(data);
+        loadBranches();
       } catch (err) {
         document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load</h3><p>${escapeHtml(err.message)}</p></div>`;
+      }
+    }
+
+    async function loadBranches() {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/branches`);
+        if (!res.ok) return;
+        const { current, branches } = await res.json();
+        const sel = document.getElementById('branchSelect');
+        if (!sel) return;
+        sel.innerHTML = branches.map(b =>
+          `<option value="${escapeHtml(b)}"${b === current ? ' selected' : ''}>${escapeHtml(b)}</option>`
+        ).join('');
+      } catch (e) { /* ignore */ }
+    }
+
+    async function onBranchChange() {
+      const sel = document.getElementById('branchSelect');
+      if (!sel) return;
+      const target = sel.value;
+      const current = sel.querySelector('option[data-current]')?.value
+        || [...sel.options].find(o => o.defaultSelected)?.value
+        || sel.dataset.current;
+
+      if (!confirm(`Switcher vers ${target} ?\nLes modifications non commitées seront stashées.`)) {
+        // revert selection
+        await loadBranches();
+        return;
+      }
+
+      sel.disabled = true;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/checkout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ branch: target }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const msg = data.stashed ? `Switché vers ${data.branch} (stash créé)` : `Switché vers ${data.branch}`;
+          showToast(msg);
+          setTimeout(() => loadProject(), 800);
+        } else {
+          showToast(data.error || 'Checkout échoué', 'error');
+          await loadBranches();
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+        await loadBranches();
+      } finally {
+        if (sel) sel.disabled = false;
       }
     }
 
@@ -1330,6 +1426,46 @@
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
+    // ===== Config Modal =====
+    function openConfigModal() {
+      const d = projectData || {};
+      document.getElementById('cfgDescription').value = d.description || '';
+      document.getElementById('cfgTestUrl').value = d.testUrl || '';
+      document.getElementById('cfgStagingUrl').value = d.stagingUrl || '';
+      document.getElementById('cfgProdUrl').value = d.prodUrl || '';
+      document.getElementById('cfgGithubUrl').value = d.githubUrl || '';
+      const modal = document.getElementById('configModal');
+      modal.style.display = 'flex';
+    }
+
+    function closeConfigModal() {
+      document.getElementById('configModal').style.display = 'none';
+    }
+
+    async function saveConfig() {
+      const body = {
+        description: document.getElementById('cfgDescription').value.trim(),
+        testUrl: document.getElementById('cfgTestUrl').value.trim(),
+        stagingUrl: document.getElementById('cfgStagingUrl').value.trim(),
+        prodUrl: document.getElementById('cfgProdUrl').value.trim(),
+        githubUrl: document.getElementById('cfgGithubUrl').value.trim(),
+      };
+      try {
+        const res = await fetch(`/api/projects/${projectId}/config`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Save failed', 'error'); return; }
+        closeConfigModal();
+        showToast('Config saved');
+        loadProject();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
     }
   </script>
 </body>

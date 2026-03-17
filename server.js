@@ -599,6 +599,62 @@ app.post('/api/projects/:id/push', requireAuth, async (req, res) => {
   }
 });
 
+app.post("/api/projects/:id/pull", requireAuth, async (req, res) => {  const project = config.projects.find(p => p.id === req.params.id);  if (!project) return res.status(404).json({ error: "Project not found" });  try {    const { stdout: branchRaw } = await execAsync("git rev-parse --abbrev-ref HEAD", { cwd: project.path });    const branch = branchRaw.trim();    const { stdout, stderr } = await execAsync(`git pull origin ${branch}`, { cwd: project.path });    res.json({ ok: true, output: (stdout + stderr).trim() });  } catch (err) {    res.status(500).json({ error: err.message });  }});
+
+app.get('/api/projects/:id/branches', requireAuth, async (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  try {
+    const { stdout: currentRaw } = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: project.path });
+    const current = currentRaw.trim();
+
+    const { stdout: branchesRaw } = await execAsync('git branch -a', { cwd: project.path });
+    const seen = new Set();
+    const branches = branchesRaw.split('\n')
+      .map(b => b.replace(/^\*?\s+/, '').replace(/^remotes\/origin\//, '').trim())
+      .filter(b => b && b !== 'HEAD' && !b.includes('->'))
+      .filter(b => { if (seen.has(b)) return false; seen.add(b); return true; });
+
+    res.json({ current, branches });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/projects/:id/checkout', requireAuth, async (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const { branch } = req.body;
+  if (!branch) return res.status(400).json({ error: 'branch is required' });
+
+  try {
+    const { stdout: statusRaw } = await execAsync('git status --porcelain', { cwd: project.path });
+    const hasChanges = statusRaw.trim().length > 0;
+    let stashPopResult = null;
+
+    if (hasChanges) {
+      await execAsync('git stash', { cwd: project.path });
+    }
+
+    await execAsync(`git checkout ${branch}`, { cwd: project.path });
+
+    if (hasChanges) {
+      try {
+        const { stdout, stderr } = await execAsync('git stash pop', { cwd: project.path });
+        stashPopResult = (stdout + stderr).trim();
+      } catch (popErr) {
+        stashPopResult = popErr.message;
+      }
+    }
+
+    res.json({ ok: true, branch, stashed: hasChanges, stashPopResult });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/projects/:id/history', requireAuth, (req, res) => {
   const project = config.projects.find(p => p.id === req.params.id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -726,6 +782,31 @@ app.post('/api/projects/:id/instruct', requireAuth, async (req, res) => {
     });
 
     res.json({ ok: true, file: filename });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===== Project Config =====
+
+app.put('/api/projects/:id/config', requireAuth, (req, res) => {
+  const project = config.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const allowed = ['testUrl', 'stagingUrl', 'prodUrl', 'githubUrl', 'description'];
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) {
+      if (req.body[key] === '') {
+        delete project[key];
+      } else {
+        project[key] = req.body[key];
+      }
+    }
+  }
+
+  try {
+    fs.writeFileSync(path.join(__dirname, 'config.json'), JSON.stringify(config, null, 2), 'utf8');
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -888,7 +969,7 @@ function spawnClaudeForMessage(session, text, ws) {
 
   const claudeProc = spawn('claude', args, {
     cwd: session.projectPath,
-    env: { ...process.env },
+    env: { ...process.env, PATH: '/home/openclaw/.nvm/versions/node/v20.20.1/bin:' + (process.env.PATH || '/usr/local/bin:/usr/bin:/bin'), CLAUDE_CODE_OAUTH_TOKEN: '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' },
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
@@ -1568,6 +1649,45 @@ app.delete('/api/news/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// ===== Aggregated News Feed (from fetch-news.py output) =====
+
+const newsFeedPath = path.join(__dirname, 'data', 'news.json');
+
+function readNewsFeed() {
+  if (!fs.existsSync(newsFeedPath)) return { updatedAt: null, articles: [] };
+  try { return JSON.parse(fs.readFileSync(newsFeedPath, 'utf8')); } catch { return { updatedAt: null, articles: [] }; }
+}
+
+function writeNewsFeed(data) {
+  fs.writeFileSync(newsFeedPath, JSON.stringify(data, null, 2), 'utf8');
+}
+
+app.get('/api/news/feed', requireAuth, (req, res) => {
+  const data = readNewsFeed();
+  let articles = data.articles || [];
+  const { category } = req.query;
+  if (category && category !== 'all') articles = articles.filter(a => a.category === category);
+  res.json({ updatedAt: data.updatedAt, articles });
+});
+
+app.post('/api/news/:id/like', requireAuth, (req, res) => {
+  const data = readNewsFeed();
+  const article = (data.articles || []).find(a => a.id === req.params.id);
+  if (!article) return res.status(404).json({ error: 'Article not found' });
+  article.likes = (article.likes || 0) + 1;
+  writeNewsFeed(data);
+  res.json({ likes: article.likes, dislikes: article.dislikes });
+});
+
+app.post('/api/news/:id/dislike', requireAuth, (req, res) => {
+  const data = readNewsFeed();
+  const article = (data.articles || []).find(a => a.id === req.params.id);
+  if (!article) return res.status(404).json({ error: 'Article not found' });
+  article.dislikes = (article.dislikes || 0) + 1;
+  writeNewsFeed(data);
+  res.json({ likes: article.likes, dislikes: article.dislikes });
+});
+
 // ===== Worker proxy endpoints =====
 
 const WORKER_URL = 'http://127.0.0.1:8091';
@@ -1667,7 +1787,228 @@ app.post('/api/profile/password', requireAuth, async (req, res) => {
   }
 });
 
+// ===== Trading Bot Proxy =====
+
+let tradingBotToken = null;
+let tradingBotTokenExpiry = 0;
+
+function parseDotEnv(content) {
+  const vars = {};
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq < 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let val = trimmed.slice(eq + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    vars[key] = val;
+  }
+  return vars;
+}
+
+async function getTradingBotToken(email, password, forceRefresh = false) {
+  if (!forceRefresh && tradingBotToken && Date.now() < tradingBotTokenExpiry) {
+    return tradingBotToken;
+  }
+  const body = new URLSearchParams({ username: email, password });
+  const res = await fetch('http://localhost:8000/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+  if (!res.ok) throw new Error(`Trading bot auth failed: ${res.status}`);
+  const data = await res.json();
+  tradingBotToken = data.access_token;
+  tradingBotTokenExpiry = Date.now() + 50 * 60 * 1000; // 50 min
+  return tradingBotToken;
+}
+
+app.get('/api/trading-status', requireAuth, async (req, res) => {
+  try {
+    const envPath = '/home/openclaw/projects/trading-bot/.env';
+    if (!fs.existsSync(envPath)) {
+      return res.status(503).json({ error: 'Trading bot .env not found' });
+    }
+    const env = parseDotEnv(fs.readFileSync(envPath, 'utf8'));
+    const email = env.ADMIN_EMAIL;
+    const password = env.ADMIN_PASSWORD;
+    if (!email || !password) {
+      return res.status(503).json({ error: 'ADMIN_EMAIL or ADMIN_PASSWORD missing from trading-bot .env' });
+    }
+
+    const fetchWithAuth = async (url, token) => {
+      const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (r.status === 401) throw Object.assign(new Error('401'), { is401: true });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    };
+
+    let token;
+    try {
+      token = await getTradingBotToken(email, password);
+    } catch (e) {
+      return res.status(503).json({ error: `Auth failed: ${e.message}` });
+    }
+
+    const runWithRetry = async (url) => {
+      try {
+        return await fetchWithAuth(url, token);
+      } catch (e) {
+        if (e.is401) {
+          token = await getTradingBotToken(email, password, true);
+          return fetchWithAuth(url, token);
+        }
+        throw e;
+      }
+    };
+
+    const base = 'http://localhost:8000';
+    const [kpis, positions, summary, status] = await Promise.allSettled([
+      runWithRetry(`${base}/api/data/kpis`),
+      runWithRetry(`${base}/api/data/positions`),
+      runWithRetry(`${base}/api/data/summary`),
+      runWithRetry(`${base}/api/bot/status`)
+    ]);
+
+    res.json({
+      kpis: kpis.status === 'fulfilled' ? kpis.value : null,
+      positions: positions.status === 'fulfilled' ? positions.value : null,
+      summary: summary.status === 'fulfilled' ? summary.value : null,
+      status: status.status === 'fulfilled' ? status.value : null,
+      errors: {
+        kpis: kpis.status === 'rejected' ? kpis.reason.message : null,
+        positions: positions.status === 'rejected' ? positions.reason.message : null,
+        summary: summary.status === 'rejected' ? summary.reason.message : null,
+        status: status.status === 'rejected' ? status.reason.message : null
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 8090;
 server.listen(PORT, () => {
   console.log(`Dev Dashboard running on http://localhost:${PORT}`);
+});
+
+
+// ===== Invoices API =====
+
+const INVOICES_PATH = path.join(__dirname, 'data', 'invoices.json');
+
+function readInvoices() {
+  if (!fs.existsSync(INVOICES_PATH)) return { clients: [], invoices: [], updatedAt: null };
+  try { return JSON.parse(fs.readFileSync(INVOICES_PATH, 'utf8')); }
+  catch { return { clients: [], invoices: [], updatedAt: null }; }
+}
+
+function writeInvoices(data) {
+  data.updatedAt = new Date().toISOString();
+  const tmp = INVOICES_PATH + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
+  fs.renameSync(tmp, INVOICES_PATH);
+}
+
+app.get('/api/invoices', requireAuth, (req, res) => {
+  const data = readInvoices();
+
+  // Compute derived status for each invoice
+  const now = new Date();
+  for (const inv of data.invoices) {
+    if (inv.status === 'paid') continue;
+    const due = new Date(inv.dueDate);
+    if (now > due) {
+      inv.status = 'overdue';
+      inv.daysOverdue = Math.floor((now - due) / (1000 * 60 * 60 * 24));
+    } else {
+      inv.status = 'pending';
+      inv.daysUntilDue = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+    }
+  }
+
+  res.json(data);
+});
+
+app.post('/api/invoices', requireAuth, (req, res) => {
+  const data = readInvoices();
+  const inv = req.body;
+  inv.id = 'inv-' + crypto.randomUUID().slice(0, 8);
+  inv.createdAt = new Date().toISOString();
+  if (!inv.status) inv.status = 'pending';
+  data.invoices.push(inv);
+  writeInvoices(data);
+  res.json({ ok: true, invoice: inv });
+});
+
+app.patch('/api/invoices/:id', requireAuth, (req, res) => {
+  const data = readInvoices();
+  const inv = data.invoices.find(i => i.id === req.params.id);
+  if (!inv) return res.status(404).json({ error: 'Invoice not found' });
+  Object.assign(inv, req.body);
+  writeInvoices(data);
+  res.json({ ok: true, invoice: inv });
+});
+
+app.delete('/api/invoices/:id', requireAuth, (req, res) => {
+  const data = readInvoices();
+  data.invoices = data.invoices.filter(i => i.id !== req.params.id);
+  writeInvoices(data);
+  res.json({ ok: true });
+});
+
+// Client CRUD
+app.post('/api/invoices/clients', requireAuth, (req, res) => {
+  const data = readInvoices();
+  const client = req.body;
+  client.id = client.id || client.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  data.clients.push(client);
+  writeInvoices(data);
+  res.json({ ok: true, client });
+});
+
+app.patch('/api/invoices/clients/:id', requireAuth, (req, res) => {
+  const data = readInvoices();
+  const client = data.clients.find(c => c.id === req.params.id);
+  if (!client) return res.status(404).json({ error: 'Client not found' });
+  Object.assign(client, req.body);
+  writeInvoices(data);
+  res.json({ ok: true, client });
+});
+
+// ===== EQS Listings =====
+const DATA_DIR_EQS = path.join(__dirname, 'data');
+
+app.get('/api/eqs', requireAuth, (req, res) => {
+  const fp = path.join(DATA_DIR_EQS, 'eqs-listings.json');
+  if (!fs.existsSync(fp)) return res.json({ listings: [], updatedAt: null });
+  try { res.json(JSON.parse(fs.readFileSync(fp))); }
+  catch (e) { res.json({ listings: [], updatedAt: null, error: e.message }); }
+});
+
+app.post('/api/eqs/refresh', requireAuth, (req, res) => {
+  const { execSync } = require('child_process');
+  try {
+    execSync('python3 ' + path.join(__dirname, 'scripts', 'fetch-eqs.py'), { timeout: 60000 });
+    res.json(JSON.parse(fs.readFileSync(path.join(DATA_DIR_EQS, 'eqs-listings.json'))));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ===== Children (Pronote) =====
+app.get('/api/children', requireAuth, (req, res) => {
+  const fp = path.join(DATA_DIR_EQS, 'children.json');
+  if (!fs.existsSync(fp)) return res.json({ children: [], updatedAt: null });
+  try { res.json(JSON.parse(fs.readFileSync(fp))); }
+  catch (e) { res.json({ children: [], updatedAt: null, error: e.message }); }
+});
+
+app.post('/api/children/refresh', requireAuth, (req, res) => {
+  const { execSync } = require('child_process');
+  try {
+    execSync('python3 ' + path.join(__dirname, 'scripts', 'fetch-pronote.py'), { timeout: 30000 });
+    res.json(JSON.parse(fs.readFileSync(path.join(DATA_DIR_EQS, 'children.json'))));
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });

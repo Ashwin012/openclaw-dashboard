@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comparatif PMS + Channel Manager</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #e6edf3; padding: 16px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .subtitle { color: #8b949e; font-size: 13px; margin-bottom: 20px; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { border-collapse: collapse; width: 100%; min-width: 900px; font-size: 13px; }
+  th { background: #161b22; color: #58a6ff; font-weight: 600; padding: 10px 8px; text-align: left; position: sticky; top: 0; border-bottom: 2px solid #30363d; white-space: nowrap; }
+  th:first-child { position: sticky; left: 0; z-index: 2; background: #161b22; min-width: 160px; }
+  td { padding: 8px; border-bottom: 1px solid #21262d; vertical-align: top; }
+  td:first-child { font-weight: 600; color: #c9d1d9; background: #0d1117; position: sticky; left: 0; min-width: 160px; white-space: nowrap; }
+  tr:hover td { background: #161b22; }
+  tr:hover td:first-child { background: #1a1f29; }
+  .yes { color: #3fb950; }
+  .no { color: #f85149; }
+  .partial { color: #d29922; }
+  .price { color: #58a6ff; font-weight: 600; }
+  .best { background: #1a2e1a !important; }
+  .section-row td { background: #161b22 !important; font-weight: 700; color: #58a6ff; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; padding: 12px 8px 6px; border-bottom: 2px solid #30363d; }
+  .note { font-size: 11px; color: #8b949e; display: block; margin-top: 2px; }
+  .tag { display: inline-block; background: #1f6feb22; color: #58a6ff; border-radius: 4px; padding: 1px 6px; font-size: 11px; margin-top: 4px; }
+  .tag.warn { background: #d2992222; color: #d29922; }
+  .tag.good { background: #3fb95022; color: #3fb950; }
+  .reco { margin-top: 20px; padding: 16px; background: #161b22; border-radius: 8px; border-left: 3px solid #58a6ff; }
+  .reco h3 { color: #58a6ff; margin-bottom: 8px; }
+  .reco p { color: #c9d1d9; font-size: 14px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<h1>📊 Comparatif PMS + Channel Manager</h1>
+<p class="subtitle">Étude pour Royal Heights — 32 appartements, île Maurice — Mars 2026</p>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+  <th>Feature</th>
+  <th>Beds24</th>
+  <th>Smoobu</th>
+  <th>Hospitable</th>
+  <th>Lodgify</th>
+  <th>Guesty</th>
+  <th>Hostaway</th>
+  <th>Avantio</th>
+</tr>
+</thead>
+<tbody>
+
+<!-- PRICING -->
+<tr class="section-row"><td colspan="8">💰 Tarification</td></tr>
+<tr>
+  <td>Prix de base</td>
+  <td class="best"><span class="price">~€15/mois</span><span class="note">PMS inclus</span></td>
+  <td><span class="price">€23/mois</span><span class="note">1 unité, annuel</span></td>
+  <td><span class="price">$29/mois</span><span class="note">2 unités incluses</span></td>
+  <td><span class="price">$32/mois</span><span class="note">1-2 unités</span></td>
+  <td><span class="price">$27/mois</span><span class="note">Lite, 1-3 unités</span></td>
+  <td><span class="price">~$40/listing</span><span class="note">Dégressif</span></td>
+  <td><span class="price">Sur devis</span></td>
+</tr>
+<tr>
+  <td>Coût 32 apparts</td>
+  <td class="best"><span class="price">~€50/mois</span></td>
+  <td><span class="price">~€320/mois</span></td>
+  <td><span class="price">~$280/mois</span></td>
+  <td><span class="price">~$400/mois</span></td>
+  <td><span class="price">~$400/mois</span></td>
+  <td><span class="price">~$800/mois</span></td>
+  <td><span class="price">~$400/mois</span></td>
+</tr>
+<tr>
+  <td>Commission réservations</td>
+  <td class="yes">✅ 0%</td>
+  <td class="yes">✅ 0%</td>
+  <td class="yes">✅ 0%</td>
+  <td><span class="partial">⚠️ 0% ou 1.9%</span><span class="note">Selon le plan</span></td>
+  <td><span class="partial">⚠️ 0% ou 1%</span><span class="note">Bundle plan</span></td>
+  <td class="yes">✅ 0%</td>
+  <td class="yes">✅ 0%</td>
+</tr>
+<tr>
+  <td>Frais de setup</td>
+  <td class="yes">✅ Aucun</td>
+  <td class="yes">✅ Aucun</td>
+  <td class="yes">✅ Aucun</td>
+  <td class="yes">✅ Aucun</td>
+  <td><span class="no">❌ Payant (Pro)</span></td>
+  <td><span class="no">❌ $100-500</span></td>
+  <td><span class="no">❌ Payant</span></td>
+</tr>
+<tr>
+  <td>Essai gratuit</td>
+  <td class="yes">✅ Oui</td>
+  <td class="yes">✅ 14 jours</td>
+  <td class="yes">✅ Oui</td>
+  <td class="yes">✅ 7 jours</td>
+  <td class="yes">✅ Oui</td>
+  <td class="no">❌ Non</td>
+  <td class="no">❌ Non</td>
+</tr>
+
+<!-- CHANNEL MANAGER -->
+<tr class="section-row"><td colspan="8">🔄 Channel Manager</td></tr>
+<tr>
+  <td>Airbnb</td>
+  <td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Booking.com</td>
+  <td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Vrbo / Expedia</td>
+  <td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Google Vacation Rentals</td>
+  <td class="yes">✅</td>
+  <td class="no">❌</td>
+  <td class="no">❌</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Nombre de canaux</td>
+  <td><span class="yes">✅ 60+</span></td>
+  <td><span class="yes">✅ 100+</span></td>
+  <td><span class="partial">⚠️ 4-5</span></td>
+  <td><span class="yes">✅ 60+</span></td>
+  <td><span class="yes">✅ 200+</span></td>
+  <td><span class="yes">✅ 200+</span></td>
+  <td><span class="yes">✅ 100+</span></td>
+</tr>
+<tr>
+  <td>Synchro temps réel</td>
+  <td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Connexion API (pas iCal)</td>
+  <td class="yes">✅</td>
+  <td><span class="partial">⚠️ Mixte</span></td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+</tr>
+
+<!-- RÉSERVATIONS DIRECTES -->
+<tr class="section-row"><td colspan="8">🌐 Réservations directes</td></tr>
+<tr>
+  <td>Site de réservation</td>
+  <td class="yes">✅ Booking engine</td>
+  <td class="yes">✅ Mini-site</td>
+  <td class="yes">✅ Pro plan</td>
+  <td class="yes">✅ Site complet<span class="tag good">Point fort</span></td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Widget réservation</td>
+  <td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Domaine personnalisé</td>
+  <td><span class="partial">⚠️ €19/mois</span></td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+</tr>
+
+<!-- GESTION OPÉRATIONNELLE -->
+<tr class="section-row"><td colspan="8">⚙️ Gestion opérationnelle</td></tr>
+<tr>
+  <td>Messagerie unifiée</td>
+  <td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅<span class="tag good">IA incluse</span></td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Messages automatisés</td>
+  <td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅<span class="tag good">IA avancée</span></td><td class="yes">✅ Pro</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Gestion des tâches / ménage</td>
+  <td class="partial">⚠️ Basique</td>
+  <td class="partial">⚠️ Basique</td>
+  <td class="yes">✅ Tasks intégré</td>
+  <td class="partial">⚠️ Basique</td>
+  <td class="yes">✅ Complet</td>
+  <td class="yes">✅ Complet</td>
+  <td class="yes">✅ Complet</td>
+</tr>
+<tr>
+  <td>Check-in en ligne</td>
+  <td class="partial">⚠️ Via intégration</td>
+  <td class="yes">✅ Chekin intégré</td>
+  <td class="yes">✅ Guest Portal</td>
+  <td class="yes">✅ Guest Registration</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Smart locks</td>
+  <td class="partial">⚠️ Via API</td>
+  <td class="partial">⚠️ Via intégration</td>
+  <td class="yes">✅ Natif<span class="note">2 devices/prop inclus</span></td>
+  <td class="yes">✅ Natif</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="partial">⚠️ Via intégration</td>
+</tr>
+
+<!-- PRICING DYNAMIQUE -->
+<tr class="section-row"><td colspan="8">📈 Pricing dynamique</td></tr>
+<tr>
+  <td>Pricing dynamique intégré</td>
+  <td class="yes">✅ Yield mgmt</td>
+  <td class="partial">⚠️ Via Smart Pricing</td>
+  <td class="yes">✅ Inclus</td>
+  <td class="yes">✅ Inclus</td>
+  <td><span class="partial">⚠️ $9/mois + 1%</span></td>
+  <td><span class="partial">⚠️ Supplément</span></td>
+  <td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Intégration PriceLabs / Wheelhouse</td>
+  <td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+</tr>
+
+<!-- PAIEMENTS -->
+<tr class="section-row"><td colspan="8">💳 Paiements</td></tr>
+<tr>
+  <td>Collecte paiements</td>
+  <td class="yes">✅</td><td class="partial">⚠️ Limité</td><td class="yes">✅ Pro</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Stripe / PayPal</td>
+  <td class="yes">✅</td><td class="partial">⚠️ PayPal</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Protection dommages</td>
+  <td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="yes">✅ Safely</td><td class="yes">✅</td><td class="yes">✅</td><td class="partial">⚠️</td>
+</tr>
+
+<!-- COMPTABILITÉ / OWNERS -->
+<tr class="section-row"><td colspan="8">📋 Gestion propriétaires & Comptabilité</td></tr>
+<tr>
+  <td>Portail propriétaires</td>
+  <td class="partial">⚠️ Basique</td>
+  <td class="no">❌</td>
+  <td class="yes">✅ Mogul plan</td>
+  <td class="partial">⚠️ Co-host</td>
+  <td class="yes">✅<span class="tag good">Complet</span></td>
+  <td class="yes">✅<span class="tag good">Complet</span></td>
+  <td class="yes">✅<span class="tag good">Complet</span></td>
+</tr>
+<tr>
+  <td>Relevés propriétaires</td>
+  <td class="partial">⚠️ Manuel</td>
+  <td class="no">❌</td>
+  <td class="yes">✅ Mogul</td>
+  <td class="no">❌</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Comptabilité / QuickBooks</td>
+  <td class="partial">⚠️ Export</td>
+  <td class="no">❌</td>
+  <td class="yes">✅ Mogul</td>
+  <td class="no">❌</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Suivi commissions</td>
+  <td class="no">❌</td>
+  <td class="no">❌</td>
+  <td class="yes">✅ Mogul</td>
+  <td class="no">❌</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+</tr>
+
+<!-- REPORTING -->
+<tr class="section-row"><td colspan="8">📊 Reporting & Analytics</td></tr>
+<tr>
+  <td>Tableau de bord analytics</td>
+  <td class="partial">⚠️ Basique</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅ Customisable</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅ Avancé</td>
+  <td class="yes">✅ Avancé</td>
+  <td class="yes">✅ Avancé</td>
+</tr>
+<tr>
+  <td>Rapports revenus</td>
+  <td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+</tr>
+
+<!-- TECHNIQUE -->
+<tr class="section-row"><td colspan="8">🔧 Technique</td></tr>
+<tr>
+  <td>App mobile</td>
+  <td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+</tr>
+<tr>
+  <td>API ouverte</td>
+  <td class="yes">✅</td>
+  <td class="partial">⚠️ Limité</td>
+  <td class="partial">⚠️ Limité</td>
+  <td class="partial">⚠️</td>
+  <td class="yes">✅ Complet</td>
+  <td class="yes">✅ Complet</td>
+  <td class="yes">✅ Complet</td>
+</tr>
+<tr>
+  <td>Multi-utilisateurs</td>
+  <td><span class="yes">✅</span><span class="note">€2/mois/user</span></td>
+  <td><span class="yes">✅</span><span class="note">€12/mois/user</span></td>
+  <td class="yes">✅ Illimité</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+  <td class="yes">✅</td>
+</tr>
+<tr>
+  <td>Support</td>
+  <td><span class="partial">⚠️ Tickets + forum</span></td>
+  <td><span class="yes">✅ Email + chat</span></td>
+  <td><span class="yes">✅ Email</span></td>
+  <td><span class="yes">✅ Email + téléphone</span></td>
+  <td><span class="yes">✅ 24/7</span></td>
+  <td><span class="yes">✅ 24/7</span></td>
+  <td><span class="yes">✅ Dédié</span></td>
+</tr>
+
+<!-- VERDICT -->
+<tr class="section-row"><td colspan="8">🎯 Verdict</td></tr>
+<tr>
+  <td>Idéal pour</td>
+  <td>Budget serré, tech-savvy</td>
+  <td>Débutants, petits portfolios</td>
+  <td>Automatisation IA, scale moyen</td>
+  <td>Réservations directes, site web</td>
+  <td>Gestionnaires pro, 20+ unités</td>
+  <td>Gros portefeuilles, 50+ unités</td>
+  <td>Enterprise, 100+ unités</td>
+</tr>
+<tr>
+  <td>Point faible</td>
+  <td><span class="tag warn">Interface complexe</span></td>
+  <td><span class="tag warn">Limité 20+ unités</span></td>
+  <td><span class="tag warn">Peu de canaux</span></td>
+  <td><span class="tag warn">Prix opaque à l'échelle</span></td>
+  <td><span class="tag warn">Prix élevé + setup</span></td>
+  <td><span class="tag warn">Le plus cher</span></td>
+  <td><span class="tag warn">Pas de prix public</span></td>
+</tr>
+
+</tbody>
+</table>
+</div>
+
+<div class="reco">
+  <h3>🎯 Recommandation pour Royal Heights (32 apparts)</h3>
+  <p>
+    <strong>Top 3 à tester :</strong><br>
+    1. <strong>Hospitable</strong> — Meilleur rapport fonctionnalités/prix. IA messaging, pricing dynamique inclus, portail propriétaires (plan Mogul). ~$280/mois pour 32 apparts.<br>
+    2. <strong>Guesty Pro</strong> — Le plus complet en gestion propriétaires/comptabilité. Idéal si les 32 apparts ont des propriétaires différents. ~$400/mois.<br>
+    3. <strong>Smoobu</strong> — Le plus simple à prendre en main. Bon pour démarrer vite. ~€320/mois. Mais limité en features avancées pour 32 unités.<br><br>
+    <strong>À éviter :</strong> Hostaway (trop cher pour 32), Avantio (trop enterprise), Beds24 (trop technique pour un non-dev).
+  </p>
+</div>
+
+<p style="margin-top: 20px; color: #8b949e; font-size: 11px;">Généré par Gollum 💍 — Mars 2026. Prix susceptibles de varier.</p>
+
+</body>
+</html>
