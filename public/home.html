@@ -875,8 +875,8 @@
     </div>
 
     <!-- Two-column grid -->
-    <div class="two-col">
-      <!-- LEFT: Personal Tasks -->
+    <div style="margin-bottom:20px">
+      <!-- Personal Tasks -->
       <div class="panel">
         <div class="panel-header">
           <span class="panel-title">📋 Tâches personnelles</span>
@@ -892,24 +892,7 @@
         <button class="btn-add-task" id="btnAddTask">+ Nouvelle tâche</button>
       </div>
 
-      <!-- RIGHT: News -->
-      <div class="panel" style="display:none">
-        <div class="panel-header">
-          <span class="panel-title">📡 Veille & News</span>
-          <button class="btn-sm primary" id="btnAddNews">+ Article</button>
-        </div>
-        <div class="filter-chips" id="newsFilters">
-          <button class="chip active" data-filter="all">Tous</button>
-          <button class="chip" data-filter="crypto">Crypto</button>
-          <button class="chip" data-filter="ai">IA</button>
-          <button class="chip" data-filter="fintech">FinTech</button>
-          <button class="chip" data-filter="realestate">Immo</button>
-          <button class="chip" data-filter="mauritius">Maurice</button>
-          <button class="chip" data-filter="auto">Auto</button>
-        </div>
-        <div class="panel-body" id="newsList"></div>
       </div>
-    </div>
 
     <!-- Facturation Section -->
     <div class="panel" id="invoicingPanel" style="flex:none">
@@ -1318,7 +1301,7 @@
 
     // ===== News =====
     function renderNews() {
-      const list = document.getElementById('newsList');
+      const list = document.getElementById('newsList'); if (!list) return;
       let filtered = newsFilter === 'all' ? news : news.filter(n => n.category === newsFilter);
       if (!filtered.length) {
         list.innerHTML = '<div class="empty-state">Aucun article</div>';
@@ -1373,7 +1356,7 @@
     }
 
     // News filters
-    document.getElementById('newsFilters').addEventListener('click', e => {
+    const _nf = document.getElementById('newsFilters'); if (_nf) _nf.addEventListener('click', e => {
       const btn = e.target.closest('.chip');
       if (!btn) return;
       newsFilter = btn.dataset.filter;
@@ -1383,7 +1366,7 @@
     });
 
     // News modal
-    document.getElementById('btnAddNews').addEventListener('click', () => {
+    const _ban = document.getElementById('btnAddNews'); if (_ban) _ban.addEventListener('click', () => {
       ['newsTitleInput','newsSummaryInput','newsUrlInput','newsSourceInput'].forEach(id => {
         document.getElementById(id).value = '';
       });
