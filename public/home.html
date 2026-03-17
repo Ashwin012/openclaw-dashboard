@@ -918,6 +918,17 @@
       </div>
     </div>
 
+    <!-- Trading Bot Status -->
+    <div class="panel" style="margin-bottom:20px">
+      <div class="panel-header" style="cursor:pointer" onclick="toggleTradingSection()">
+        <span class="panel-title">🤖 Trading Bot</span>
+        <span id="tradingToggle">▼</span>
+      </div>
+      <div id="tradingBody" class="panel-body">
+        <div style="color:var(--text-muted);font-size:13px">Chargement…</div>
+      </div>
+    </div>
+
     <!-- Veille News Section -->
     <div class="panel news-feed-section">
       <div class="panel-header">
@@ -1151,20 +1162,20 @@
     }
 
     async function loadTasks() {
-      const res = await fetch('/api/personal/tasks');
+      const res = await fetch('/api/personal/tasks', { credentials: 'include' });
       tasks = res.ok ? await res.json() : [];
       renderTasks();
     }
 
     async function loadNews() {
-      const res = await fetch('/api/news');
+      const res = await fetch('/api/news', { credentials: 'include' });
       news = res.ok ? await res.json() : [];
       renderNews();
     }
 
     async function loadProjects() {
       try {
-        const res = await fetch('/api/projects', { credentials: 'same-origin' });
+        const res = await fetch('/api/projects', { credentials: 'include' });
         if (!res.ok) {
           console.error('loadProjects: HTTP', res.status, res.statusText);
           document.getElementById('devGrid').innerHTML = `<div style="color:var(--red);font-size:13px">Erreur API: ${res.status} ${res.statusText}</div>`;
@@ -1248,6 +1259,7 @@
       await fetch(`/api/personal/tasks/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ status })
       });
       await loadTasks();
@@ -1256,7 +1268,7 @@
 
     async function deleteTask(id) {
       if (!confirm('Supprimer cette tâche ?')) return;
-      await fetch(`/api/personal/tasks/${id}`, { method: 'DELETE' });
+      await fetch(`/api/personal/tasks/${id}`, { method: 'DELETE', credentials: 'include' });
       await loadTasks();
       updateStats();
     }
@@ -1268,6 +1280,7 @@
       await fetch(`/api/personal/tasks/${id}/notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ author: 'Ashwin', text })
       });
       await loadTasks();
@@ -1301,6 +1314,7 @@
       await fetch('/api/personal/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           title,
           description: document.getElementById('taskDescInput').value.trim(),
@@ -1351,6 +1365,7 @@
               await fetch(`/api/news/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ read: true })
               });
               article.read = true;
@@ -1364,7 +1379,7 @@
 
     async function deleteNews(id) {
       if (!confirm('Supprimer cet article ?')) return;
-      await fetch(`/api/news/${id}`, { method: 'DELETE' });
+      await fetch(`/api/news/${id}`, { method: 'DELETE', credentials: 'include' });
       await loadNews();
       updateStats();
     }
@@ -1398,6 +1413,7 @@
       await fetch('/api/news', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           title,
           summary: document.getElementById('newsSummaryInput').value.trim(),
@@ -1454,7 +1470,7 @@
 
     async function loadEqs() {
       try {
-        const data = await (await fetch('/api/eqs')).json();
+        const data = await (await fetch('/api/eqs', { credentials: 'include' })).json();
         if (!data.listings?.length) { document.getElementById('eqs-list').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">Aucune annonce — cliquez 🔄</div>'; return; }
         document.getElementById('eqs-count').textContent = data.total;
         if (data.updatedAt) {
@@ -1494,7 +1510,7 @@
 
     async function refreshEqs() {
       document.getElementById('eqs-updated').textContent = '⏳ Scraping en cours...';
-      try { await fetch('/api/eqs/refresh',{method:'POST'}); await loadEqs(); } catch(e) { document.getElementById('eqs-updated').textContent = '❌ Erreur'; }
+      try { await fetch('/api/eqs/refresh',{method:'POST',credentials:'include'}); await loadEqs(); } catch(e) { document.getElementById('eqs-updated').textContent = '❌ Erreur'; }
     }
 
     // ===== Children (Pronote) =====
@@ -1502,7 +1518,7 @@
 
     async function loadChildren() {
       try {
-        const data = await (await fetch('/api/children')).json();
+        const data = await (await fetch('/api/children', { credentials: 'include' })).json();
         if (!data.children?.length) { document.getElementById('children-section').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">Aucune donnée Pronote — cliquez 🔄</div>'; return; }
         if (data.updatedAt) document.getElementById('children-updated').textContent = 'Mis à jour ' + timeAgo(data.updatedAt);
         let totalHw = 0;
@@ -1544,12 +1560,12 @@
 
     async function refreshChildren() {
       document.getElementById('children-updated').textContent = '⏳ Rafraîchissement...';
-      try { await fetch('/api/children/refresh',{method:'POST'}); await loadChildren(); } catch(e) { document.getElementById('children-updated').textContent = '❌ Erreur'; }
+      try { await fetch('/api/children/refresh',{method:'POST',credentials:'include'}); await loadChildren(); } catch(e) { document.getElementById('children-updated').textContent = '❌ Erreur'; }
     }
 
     // Load EQS & Children
     loadEqs(); loadChildren();
-    setInterval(loadEqs, 600000);
+    setInterval(loadEqs, 1800000);
     setInterval(loadChildren, 300000);
   </script>
 
@@ -1652,7 +1668,7 @@
       window.loadNewsFeed = async function() {
         document.getElementById('newsFeedUpdated').textContent = '⏳ Chargement...';
         try {
-          const resp = await fetch('/api/news/feed');
+          const resp = await fetch('/api/news/feed', { credentials: 'include' });
           if (!resp.ok) throw new Error('HTTP ' + resp.status);
           const data = await resp.json();
           _newsFeedArticles = data.articles || [];
@@ -1702,7 +1718,7 @@
         const likeBtn = document.getElementById('nfBtnLike');
         const dislikeBtn = document.getElementById('nfBtnDislike');
         try {
-          const resp = await fetch('/api/news/' + _nfCurrentId + '/like', { method: 'POST' });
+          const resp = await fetch('/api/news/' + _nfCurrentId + '/like', { method: 'POST', credentials: 'include' });
           if (!resp.ok) return;
           const data = await resp.json();
           const article = _newsFeedArticles.find(a => a.id === _nfCurrentId);
@@ -1718,7 +1734,7 @@
         const likeBtn = document.getElementById('nfBtnLike');
         const dislikeBtn = document.getElementById('nfBtnDislike');
         try {
-          const resp = await fetch('/api/news/' + _nfCurrentId + '/dislike', { method: 'POST' });
+          const resp = await fetch('/api/news/' + _nfCurrentId + '/dislike', { method: 'POST', credentials: 'include' });
           if (!resp.ok) return;
           const data = await resp.json();
           const article = _newsFeedArticles.find(a => a.id === _nfCurrentId);
@@ -1754,7 +1770,7 @@
         btn.textContent = '⏳ Lancé...';
         btn.disabled = true;
         try {
-          const res = await fetch('/api/news/summarize', { method: 'POST' });
+          const res = await fetch('/api/news/summarize', { method: 'POST', credentials: 'include' });
           const data = await res.json();
           alert(`${data.count} article${data.count !== 1 ? 's' : ''} à résumer — résumé lancé !`);
         } catch (e) {
@@ -1897,7 +1913,7 @@
         _currentDetailId = id;
         let inv;
         try {
-          const res = await fetch('/api/invoices/' + id);
+          const res = await fetch('/api/invoices/' + id, { credentials: 'include' });
           if (!res.ok) throw new Error('HTTP ' + res.status);
           inv = await res.json();
         } catch(e) { alert('Erreur : ' + e.message); return; }
@@ -1941,6 +1957,7 @@
           const res = await fetch('/api/invoices/' + id + '/event', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ type: type, note: note || '' })
           });
           if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -1948,7 +1965,7 @@
           if (_currentDetailId === id) {
             const overlay = document.getElementById('invoiceDetailModal');
             if (overlay) {
-              const r2 = await fetch('/api/invoices/' + id);
+              const r2 = await fetch('/api/invoices/' + id, { credentials: 'include' });
               if (r2.ok) {
                 const updated = await r2.json();
                 renderDetailContent(overlay.querySelector('.news-modal-box'), updated, (_invoiceData && _invoiceData.clients) || []);
@@ -1960,13 +1977,13 @@
 
       window.undoLastEvent = async function(id) {
         try {
-          const res = await fetch('/api/invoices/' + id + '/event-last', { method: 'DELETE' });
+          const res = await fetch('/api/invoices/' + id + '/event-last', { method: 'DELETE', credentials: 'include' });
           if (!res.ok) throw new Error('HTTP ' + res.status);
           await loadInvoices();
           if (_currentDetailId === id) {
             const overlay = document.getElementById('invoiceDetailModal');
             if (overlay) {
-              const r2 = await fetch('/api/invoices/' + id);
+              const r2 = await fetch('/api/invoices/' + id, { credentials: 'include' });
               if (r2.ok) {
                 const updated = await r2.json();
                 renderDetailContent(overlay.querySelector('.news-modal-box'), updated, (_invoiceData && _invoiceData.clients) || []);
@@ -2028,7 +2045,7 @@
       window.loadInvoices = async function() {
         const body = document.getElementById('invoiceBody');
         try {
-          const res = await fetch('/api/invoices');
+          const res = await fetch('/api/invoices', { credentials: 'include' });
           if (!res.ok) throw new Error('HTTP ' + res.status);
           const data = await res.json();
           _invoiceData = data;
@@ -2063,6 +2080,99 @@
       };
 
       loadInvoices();
+      setInterval(loadInvoices, 600000);
+    })();
+  </script>
+
+  <script>
+    (function() {
+      let _tradingOpen = true;
+      window.toggleTradingSection = function() {
+        _tradingOpen = !_tradingOpen;
+        document.getElementById('tradingBody').style.display = _tradingOpen ? 'block' : 'none';
+        document.getElementById('tradingToggle').textContent = _tradingOpen ? '▼' : '▶';
+      };
+
+      window.loadTradingStatus = async function() {
+        const body = document.getElementById('tradingBody');
+        if (!body) return;
+        try {
+          const res = await fetch('/api/trading-status', { credentials: 'include' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          renderTrading(data);
+        } catch (e) {
+          body.innerHTML = '<div style="color:#f38ba8;font-size:13px">Erreur: ' + e.message + '</div>';
+        }
+      };
+
+      function renderTrading(data) {
+        const body = document.getElementById('tradingBody');
+        const status = data.status;
+        const kpis = data.kpis;
+        const positions = data.positions;
+
+        let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;padding:12px">';
+
+        // Bot status
+        const isRunning = status && status.is_running;
+        html += `<div style="text-align:center;padding:8px;background:var(--bg);border-radius:8px">
+          <div style="font-size:11px;color:var(--text-muted)">Statut</div>
+          <div style="font-size:14px;font-weight:700;color:${isRunning ? '#a6e3a1' : '#f38ba8'}">${isRunning ? '🟢 Running' : '🔴 Stopped'}</div>
+        </div>`;
+
+        // PnL
+        if (kpis) {
+          const pnl = kpis.daily_pnl || kpis.dailyPnl || 0;
+          const pnlColor = pnl >= 0 ? '#a6e3a1' : '#f38ba8';
+          html += `<div style="text-align:center;padding:8px;background:var(--bg);border-radius:8px">
+            <div style="font-size:11px;color:var(--text-muted)">PnL Jour</div>
+            <div style="font-size:14px;font-weight:700;color:${pnlColor}">${pnl >= 0 ? '+' : ''}${Number(pnl).toFixed(2)} $</div>
+          </div>`;
+
+          const trades = kpis.total_trades || kpis.totalTrades || 0;
+          html += `<div style="text-align:center;padding:8px;background:var(--bg);border-radius:8px">
+            <div style="font-size:11px;color:var(--text-muted)">Trades</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text)">${trades}</div>
+          </div>`;
+
+          const winRate = kpis.win_rate || kpis.winRate || 0;
+          html += `<div style="text-align:center;padding:8px;background:var(--bg);border-radius:8px">
+            <div style="font-size:11px;color:var(--text-muted)">Win Rate</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text)">${Number(winRate).toFixed(1)}%</div>
+          </div>`;
+
+          const balance = kpis.balance || 0;
+          html += `<div style="text-align:center;padding:8px;background:var(--bg);border-radius:8px">
+            <div style="font-size:11px;color:var(--text-muted)">Balance</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text)">${Number(balance).toFixed(2)} $</div>
+          </div>`;
+        }
+
+        html += '</div>';
+
+        // Open positions
+        if (positions && Array.isArray(positions) && positions.length > 0) {
+          html += '<div style="padding:0 12px 12px"><div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;font-weight:600">Positions ouvertes</div>';
+          positions.forEach(p => {
+            const pnlP = p.unrealized_pnl || p.unrealizedPnl || 0;
+            const col = pnlP >= 0 ? '#a6e3a1' : '#f38ba8';
+            html += `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.05)">
+              <span style="color:var(--text)">${p.symbol || 'ETHUSDC'} ${p.side || ''}</span>
+              <span style="color:${col};font-weight:600">${Number(pnlP).toFixed(2)} $</span>
+            </div>`;
+          });
+          html += '</div>';
+        }
+
+        // Last updated
+        html += `<div style="padding:4px 12px;font-size:10px;color:var(--text-muted);text-align:right">Mis à jour: ${new Date().toLocaleTimeString('fr-FR')}</div>`;
+
+        body.innerHTML = html;
+      }
+
+      loadTradingStatus();
+      setInterval(loadTradingStatus, 30000);
     })();
   </script>
 </body>
