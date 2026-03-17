@@ -225,36 +225,36 @@
 
   <!-- Config Modal -->
   <div id="configModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:2000;align-items:center;justify-content:center" onclick="if(event.target===this)closeConfigModal()">
-    <div style="background:#1e1e2e;border:1px solid #313244;border-radius:10px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.55)">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #313244">
-        <h3 style="margin:0;font-size:15px;color:#cdd6f4;font-weight:600">⚙ Project Config</h3>
-        <button onclick="closeConfigModal()" style="background:none;border:none;color:#9399b2;font-size:18px;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1">✕</button>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.55)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border)">
+        <h3 style="margin:0;font-size:15px;color:var(--text);font-weight:600">⚙ Project Config</h3>
+        <button onclick="closeConfigModal()" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1">✕</button>
       </div>
       <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
         <div>
-          <label style="display:block;font-size:12px;color:#9399b2;margin-bottom:5px">Description</label>
-          <input id="cfgDescription" type="text" style="width:100%;padding:8px 10px;background:#181825;border:1px solid #313244;border-radius:6px;color:#cdd6f4;font-size:13px;box-sizing:border-box">
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px">Description</label>
+          <input id="cfgDescription" type="text" style="width:100%;padding:8px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box">
         </div>
         <div>
-          <label style="display:block;font-size:12px;color:#9399b2;margin-bottom:5px">Dev URL (testUrl)</label>
-          <input id="cfgTestUrl" type="text" style="width:100%;padding:8px 10px;background:#181825;border:1px solid #313244;border-radius:6px;color:#cdd6f4;font-size:13px;box-sizing:border-box">
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px">Dev URL (testUrl)</label>
+          <input id="cfgTestUrl" type="text" style="width:100%;padding:8px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box">
         </div>
         <div>
-          <label style="display:block;font-size:12px;color:#9399b2;margin-bottom:5px">Staging URL</label>
-          <input id="cfgStagingUrl" type="text" style="width:100%;padding:8px 10px;background:#181825;border:1px solid #313244;border-radius:6px;color:#cdd6f4;font-size:13px;box-sizing:border-box">
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px">Staging URL</label>
+          <input id="cfgStagingUrl" type="text" style="width:100%;padding:8px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box">
         </div>
         <div>
-          <label style="display:block;font-size:12px;color:#9399b2;margin-bottom:5px">Prod URL</label>
-          <input id="cfgProdUrl" type="text" style="width:100%;padding:8px 10px;background:#181825;border:1px solid #313244;border-radius:6px;color:#cdd6f4;font-size:13px;box-sizing:border-box">
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px">Prod URL</label>
+          <input id="cfgProdUrl" type="text" style="width:100%;padding:8px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box">
         </div>
         <div>
-          <label style="display:block;font-size:12px;color:#9399b2;margin-bottom:5px">GitHub URL</label>
-          <input id="cfgGithubUrl" type="text" style="width:100%;padding:8px 10px;background:#181825;border:1px solid #313244;border-radius:6px;color:#cdd6f4;font-size:13px;box-sizing:border-box">
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px">GitHub URL</label>
+          <input id="cfgGithubUrl" type="text" style="width:100%;padding:8px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box">
         </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;padding:0 20px 16px">
-        <button onclick="closeConfigModal()" style="padding:7px 16px;border-radius:6px;border:1px solid #313244;background:transparent;color:#9399b2;font-size:13px;cursor:pointer">Cancel</button>
-        <button onclick="saveConfig()" style="padding:7px 16px;border-radius:6px;border:none;background:#89b4fa;color:#1e1e2e;font-size:13px;font-weight:600;cursor:pointer">Save</button>
+        <button onclick="closeConfigModal()" style="padding:7px 16px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:13px;cursor:pointer">Cancel</button>
+        <button onclick="saveConfig()" style="padding:7px 16px;border-radius:6px;border:none;background:var(--accent);color:var(--bg);font-size:13px;font-weight:600;cursor:pointer">Save</button>
       </div>
     </div>
   </div>
@@ -343,6 +343,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html.min.js"></script>
+  <script src="/js/common.js"></script>
   <script>
     const params = new URLSearchParams(window.location.search);
     const projectId = params.get('id');
@@ -360,18 +361,6 @@
     let draggedTaskId = null;
     let editingTaskId = null;
     let expandedTaskId = null;
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    function showToast(msg, type = 'success') {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.className = `toast toast-${type} show`;
-      setTimeout(() => { t.className = 'toast'; }, 3500);
-    }
 
     function getStatusClass(status) {
       if (status === 'M' || status === 'MM') return 'status-M';
@@ -592,12 +581,12 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
             <select id="branchSelect" onchange="onBranchChange()" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;max-width:160px">
               <option value="${escapeHtml(data.branch)}" selected>${escapeHtml(data.branch)}</option>
             </select>
-            ${data.testUrl ? `<a href="${escapeHtml(data.testUrl)}" target="_blank" style="background:#89b4fa;color:#1e1e2e;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Dev</a>` : ''}
-            ${data.stagingUrl ? `<a href="${escapeHtml(data.stagingUrl)}" target="_blank" style="background:#f9e2af;color:#1e1e2e;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Staging</a>` : ''}
-            ${data.prodUrl ? `<a href="${escapeHtml(data.prodUrl)}" target="_blank" style="background:#a6e3a1;color:#1e1e2e;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Prod</a>` : ''}
+            ${data.testUrl ? `<a href="${escapeHtml(data.testUrl)}" target="_blank" style="background:var(--accent);color:var(--bg);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Dev</a>` : ''}
+            ${data.stagingUrl ? `<a href="${escapeHtml(data.stagingUrl)}" target="_blank" style="background:var(--yellow);color:var(--bg);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Staging</a>` : ''}
+            ${data.prodUrl ? `<a href="${escapeHtml(data.prodUrl)}" target="_blank" style="background:var(--green);color:var(--bg);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Prod</a>` : ''}
             ${data.githubUrl ? `<a href="${escapeHtml(data.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">GitHub</a>` : ''}
             <button onclick="openConfigModal()" style="background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:14px;cursor:pointer;line-height:1" title="Edit project config">⚙</button>
-            <button onclick="gitPull()" style="background:#a6e3a1;color:#1e1e2e;border:none;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer" id="pullBtn">Pull</button>
+            <button onclick="gitPull()" style="background:var(--green);color:var(--bg);border:none;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer" id="pullBtn">Pull</button>
           </div>
         </div>
 
@@ -945,7 +934,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       let durationHtml = '';
       if (isInProgress && workerStatus && workerStatus.running && workerStatus.task && workerStatus.task.id === task.id) {
         const dur = workerStatus.task.durationMin;
-        durationHtml = `<span style="font-size:11px;color:#89dceb;margin-left:4px">En cours depuis ${dur} min</span>`;
+        durationHtml = `<span style="font-size:11px;color:var(--accent);margin-left:4px">En cours depuis ${dur} min</span>`;
       }
 
       return `
@@ -957,9 +946,9 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
           onclick="toggleTaskExpand('${task.id}', event)">
           <div class="task-card-top">
             <span class="priority-badge prio-${task.priority}">${task.priority}</span>
-            ${isQueued ? '<span style="font-size:11px;color:#cba6f7;margin-left:4px">En attente</span>' : ''}
+            ${isQueued ? '<span style="font-size:11px;color:var(--purple);margin-left:4px">En attente</span>' : ''}
             ${isReview ? '<span style="font-size:11px;color:#fab387;margin-left:4px">🔍 En review</span>' : ''}
-            ${isInProgress ? '<span style="font-size:11px;color:#89dceb;margin-left:4px">⚙️ En cours</span>' : ''}
+            ${isInProgress ? '<span style="font-size:11px;color:var(--accent);margin-left:4px">⚙️ En cours</span>' : ''}
             ${durationHtml}
             ${tagsHtml}
           </div>
@@ -1016,16 +1005,16 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
              </div>`
           : task.status === 'queued'
           ? `<div class="task-detail-actions">
-               <span style="font-size:12px;color:#cba6f7">⏳ En file d'attente — sera traitée au prochain cycle agent</span>
+               <span style="font-size:12px;color:var(--purple)">⏳ En file d'attente — sera traitée au prochain cycle agent</span>
              </div>`
           : task.status === 'in_progress'
           ? `<div class="task-detail-actions">
-               <button class="btn-edit-task" onclick="event.stopPropagation(); stopWorker()" style="background:#3b0808;border-color:#f38ba8;color:#f38ba8">&#9209; Stopper</button>
+               <button class="btn-edit-task" onclick="event.stopPropagation(); stopWorker()" style="background:#3b0808;border-color:var(--red);color:var(--red)">&#9209; Stopper</button>
              </div>`
           : task.status === 'review'
           ? `<div class="task-detail-actions">
-               <button class="btn-dispatch-task" onclick="event.stopPropagation(); updateTaskStatus('${taskId}', 'done')" style="background:#0d4429;border-color:#3fb950;color:#3fb950">&#9989; Valider</button>
-               <button class="btn-edit-task" onclick="event.stopPropagation(); updateTaskStatus('${taskId}', 'queued')" style="border-color:#cba6f7;color:#cba6f7">&#128260; Renvoyer</button>
+               <button class="btn-dispatch-task" onclick="event.stopPropagation(); updateTaskStatus('${taskId}', 'done')" style="background:#0d4429;border-color:var(--green);color:var(--green)">&#9989; Valider</button>
+               <button class="btn-edit-task" onclick="event.stopPropagation(); updateTaskStatus('${taskId}', 'queued')" style="border-color:var(--purple);color:var(--purple)">&#128260; Renvoyer</button>
              </div>`
           : '';
 
@@ -1381,35 +1370,6 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       }
     }
 
-    function doLogout() {
-      fetch('/api/logout', {method:'POST'}).then(() => window.location.href = '/login.html');
-    }
-    document.getElementById('logoutBtn').addEventListener('click', doLogout);
-    document.getElementById('logoutBtnMobile').addEventListener('click', doLogout);
-
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
-    const mobileMenu = document.getElementById('mobileMenu');
-    hamburgerBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      mobileMenu.classList.toggle('open');
-    });
-    document.addEventListener('click', e => {
-      if (!mobileMenu.contains(e.target) && e.target !== hamburgerBtn) {
-        mobileMenu.classList.remove('open');
-      }
-    });
-
-    function updateClock() {
-      const now = new Date();
-      const mu = new Date(now.toLocaleString('en-US', { timeZone: 'Indian/Mauritius' }));
-      const hh = String(mu.getHours()).padStart(2, '0');
-      const mm = String(mu.getMinutes()).padStart(2, '0');
-      const ss = String(mu.getSeconds()).padStart(2, '0');
-      document.getElementById('clock').textContent = `🇲🇺 ${hh}:${mm}:${ss}`;
-    }
-    updateClock();
-    setInterval(updateClock, 1000);
-
     async function dispatchTask(taskId) {
       const btn = document.getElementById(`dispatch-${taskId}`);
       if (!btn) return;
@@ -1438,18 +1398,13 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
     }
 
     // Auth check + load
-    fetch('/api/session').then(r => r.json()).then(d => {
-      if (!d.authenticated) window.location.href = '/login.html';
-      else {
-        loadProject();
-        // Poll worker status every 15s to update in_progress card durations
-        pollWorkerStatus();
-        setInterval(async () => {
-          await pollWorkerStatus();
-          // Re-render kanban if tasks tab is active so duration updates
-          if (tasksCache && document.getElementById('kanbanBoard')) renderKanban();
-        }, 15_000);
-      }
+    initCommon(() => {
+      loadProject();
+      pollWorkerStatus();
+      setInterval(async () => {
+        await pollWorkerStatus();
+        if (tasksCache && document.getElementById('kanbanBoard')) renderKanban();
+      }, 15_000);
     });
 
     if ('serviceWorker' in navigator) {

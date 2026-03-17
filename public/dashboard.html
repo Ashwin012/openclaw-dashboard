@@ -479,20 +479,8 @@
 
   <div class="toast" id="toast"></div>
 
+  <script src="/js/common.js"></script>
   <script>
-    function requireAuth() {
-      fetch('/api/session').then(r => r.json()).then(d => {
-        if (!d.authenticated) window.location.href = '/login.html';
-      });
-    }
-
-    function showToast(msg, type = 'success') {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.className = `toast toast-${type} show`;
-      setTimeout(() => { t.className = 'toast'; }, 3000);
-    }
-
     function timeAgo(dateStr) {
       if (!dateStr) return 'unknown';
       const d = new Date(dateStr);
@@ -504,11 +492,6 @@
       if (hrs < 24) return `${hrs}h ago`;
       const days = Math.floor(hrs / 24);
       return `${days}d ago`;
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
     const PROJECT_COLORS = ['#388bfd', '#56d364', '#bc8cff', '#d29922', '#e06c75', '#4ec9b0', '#ce9178'];
@@ -547,9 +530,9 @@
               </div>
               <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
                 ${p.testUrl ? `<a class="test-btn" href="${escapeHtml(p.testUrl)}" target="_blank">Test</a>` : ''}
-                ${p.stagingUrl ? `<a class="test-btn" href="${escapeHtml(p.stagingUrl)}" target="_blank" style="background:#fab387;color:#1e1e2e">Staging</a>` : ''}
-                ${p.prodUrl ? `<a class="test-btn" href="${escapeHtml(p.prodUrl)}" target="_blank" style="background:#a6e3a1;color:#1e1e2e">Prod</a>` : ''}
-                ${p.githubUrl ? `<a class="test-btn" href="${escapeHtml(p.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4">GitHub</a>` : ''}
+                ${p.stagingUrl ? `<a class="test-btn" href="${escapeHtml(p.stagingUrl)}" target="_blank" style="background:#fab387;color:var(--bg)">Staging</a>` : ''}
+                ${p.prodUrl ? `<a class="test-btn" href="${escapeHtml(p.prodUrl)}" target="_blank" style="background:var(--green);color:var(--bg)">Prod</a>` : ''}
+                ${p.githubUrl ? `<a class="test-btn" href="${escapeHtml(p.githubUrl)}" target="_blank" style="background:#6e6a86;color:var(--text)">GitHub</a>` : ''}
               </div>
             </div>
             <div class="card-section" style="color:var(--red);font-size:12px;opacity:0.8">
@@ -702,9 +685,9 @@
             </div>
             <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
               ${p.testUrl ? `<a class="test-btn" href="${escapeHtml(p.testUrl)}" target="_blank">Test</a>` : ''}
-              ${p.stagingUrl ? `<a class="test-btn" href="${escapeHtml(p.stagingUrl)}" target="_blank" style="background:#fab387;color:#1e1e2e">Staging</a>` : ''}
-                ${p.prodUrl ? `<a class="test-btn" href="${escapeHtml(p.prodUrl)}" target="_blank" style="background:#a6e3a1;color:#1e1e2e">Prod</a>` : ''}
-                ${p.githubUrl ? `<a class="test-btn" href="${escapeHtml(p.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4">GitHub</a>` : ''}
+              ${p.stagingUrl ? `<a class="test-btn" href="${escapeHtml(p.stagingUrl)}" target="_blank" style="background:#fab387;color:var(--bg)">Staging</a>` : ''}
+                ${p.prodUrl ? `<a class="test-btn" href="${escapeHtml(p.prodUrl)}" target="_blank" style="background:var(--green);color:var(--bg)">Prod</a>` : ''}
+                ${p.githubUrl ? `<a class="test-btn" href="${escapeHtml(p.githubUrl)}" target="_blank" style="background:#6e6a86;color:var(--text)">GitHub</a>` : ''}
             </div>
           </div>
           ${section1}
@@ -748,37 +731,7 @@
       }
     }
 
-    function doLogout() {
-      fetch('/api/logout', {method:'POST'}).then(() => window.location.href = '/login.html');
-    }
-    document.getElementById('logoutBtn').addEventListener('click', doLogout);
-    document.getElementById('logoutBtnMobile').addEventListener('click', doLogout);
-
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
-    const mobileMenu = document.getElementById('mobileMenu');
-    hamburgerBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      mobileMenu.classList.toggle('open');
-    });
-    document.addEventListener('click', e => {
-      if (!mobileMenu.contains(e.target) && e.target !== hamburgerBtn) {
-        mobileMenu.classList.remove('open');
-      }
-    });
-
-    function updateClock() {
-      const now = new Date();
-      const mu = new Date(now.toLocaleString('en-US', { timeZone: 'Indian/Mauritius' }));
-      const hh = String(mu.getHours()).padStart(2, '0');
-      const mm = String(mu.getMinutes()).padStart(2, '0');
-      const ss = String(mu.getSeconds()).padStart(2, '0');
-      document.getElementById('clock').textContent = `🇲🇺 ${hh}:${mm}:${ss}`;
-    }
-    updateClock();
-    setInterval(updateClock, 1000);
-
-    requireAuth();
-    loadProjects();
+    initCommon(() => { loadProjects(); });
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});

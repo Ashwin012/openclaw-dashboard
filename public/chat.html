@@ -941,8 +941,10 @@
     </div><!-- end chat-body -->
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="/js/common.js"></script>
   <script>
     // ---- Setup ----
     const params = new URLSearchParams(window.location.search);
@@ -974,11 +976,6 @@
       breaks: true,
       gfm: true
     });
-
-    function escapeHtml(s) {
-      if (!s) return '';
-      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
 
     // ---- Model selector ----
     function onModelChange() {
@@ -1157,7 +1154,7 @@
           const el = createAssistantBubble();
           const contentEl = el.querySelector('.msg-content');
           const textDiv = document.createElement('div');
-          textDiv.innerHTML = marked.parse(msg.content);
+          textDiv.innerHTML = DOMPurify.sanitize(marked.parse(msg.content));
           contentEl.appendChild(textDiv);
           document.getElementById('chatMessages').appendChild(el);
         }
@@ -1487,7 +1484,7 @@
       for (const block of msg.content) {
         if (block.type === 'text' && block.text) {
           const textEl = document.createElement('div');
-          textEl.innerHTML = marked.parse(block.text);
+          textEl.innerHTML = DOMPurify.sanitize(marked.parse(block.text));
           contentEl.appendChild(textEl);
           hasContent = true;
         } else if (block.type === 'tool_use') {
@@ -1579,7 +1576,7 @@
         textDiv.className = 'streaming-text';
         contentEl.appendChild(textDiv);
       }
-      textDiv.innerHTML = marked.parse(currentTextParts.join('')) + '<span class="streaming-cursor"></span>';
+      textDiv.innerHTML = DOMPurify.sanitize(marked.parse(currentTextParts.join('')) + '<span class="streaming-cursor"></span>');
       scrollToBottom();
     }
 
@@ -1849,34 +1846,6 @@
     }
 
     // ---- Init ----
-    function doLogout() {
-      fetch('/api/logout', {method:'POST'}).then(() => window.location.href = '/login.html');
-    }
-    document.getElementById('logoutBtn').addEventListener('click', doLogout);
-    document.getElementById('logoutBtnMobile').addEventListener('click', doLogout);
-
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
-    const mobileMenu = document.getElementById('mobileMenu');
-    hamburgerBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      mobileMenu.classList.toggle('open');
-    });
-    document.addEventListener('click', e => {
-      if (!mobileMenu.contains(e.target) && e.target !== hamburgerBtn) {
-        mobileMenu.classList.remove('open');
-      }
-    });
-
-    function updateClock() {
-      const now = new Date();
-      const mu = new Date(now.toLocaleString('en-US', { timeZone: 'Indian/Mauritius' }));
-      const hh = String(mu.getHours()).padStart(2, '0');
-      const mm = String(mu.getMinutes()).padStart(2, '0');
-      const ss = String(mu.getSeconds()).padStart(2, '0');
-      document.getElementById('clock').textContent = `🇲🇺 ${hh}:${mm}:${ss}`;
-    }
-    updateClock();
-    setInterval(updateClock, 1000);
 
     // Close sidebar on mobile when clicking outside
     document.getElementById('chatMessages').addEventListener('click', () => {
@@ -1931,10 +1900,7 @@
       // No sessions at all — sidebar stays open so user can see it's empty
     }
 
-    fetch('/api/session').then(r => r.json()).then(d => {
-      if (!d.authenticated) { window.location.href = '/login.html'; return; }
-      init();
-    });
+    initCommon(init);
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});

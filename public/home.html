@@ -1223,42 +1223,9 @@
     </div>
   </div>
 
+  <script src="/js/common.js"></script>
   <script>
-    // ===== Auth guard =====
-    fetch('/api/session').then(r => r.json()).then(d => {
-      if (!d.authenticated) window.location.href = '/login.html';
-    });
-
-    function doLogout() {
-      fetch('/api/logout', { method: 'POST' }).then(() => window.location.href = '/login.html');
-    }
-    document.getElementById('logoutBtn').addEventListener('click', doLogout);
-    document.getElementById('logoutBtnMobile').addEventListener('click', doLogout);
-
-    // ===== Hamburger menu =====
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
-    const mobileMenu = document.getElementById('mobileMenu');
-    hamburgerBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      mobileMenu.classList.toggle('open');
-    });
-    document.addEventListener('click', e => {
-      if (!mobileMenu.contains(e.target) && e.target !== hamburgerBtn) {
-        mobileMenu.classList.remove('open');
-      }
-    });
-
-    // ===== Clock (UTC+4 Mauritius) =====
-    function updateClock() {
-      const now = new Date();
-      const mu = new Date(now.toLocaleString('en-US', { timeZone: 'Indian/Mauritius' }));
-      const hh = String(mu.getHours()).padStart(2, '0');
-      const mm = String(mu.getMinutes()).padStart(2, '0');
-      const ss = String(mu.getSeconds()).padStart(2, '0');
-      document.getElementById('clock').textContent = `🇲🇺 ${hh}:${mm}:${ss}`;
-    }
-    updateClock();
-    setInterval(updateClock, 1000);
+    initCommon();
 
     // ===== State =====
     let tasks = [];
@@ -1381,10 +1348,6 @@
           el.classList.toggle('expanded');
         });
       });
-    }
-
-    function escHtml(s) {
-      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
     async function changeStatus(id, status) {
@@ -1633,7 +1596,7 @@
             '<div class="sb"><span class="sb-l">Options</span><div class="sb-t"><div class="sb-f" style="width:'+(b.options||0)*20+'%"></div></div><span>'+(b.options||0)+'</span></div></div></div>' +
             '<div class="eqs-details"><div class="eqs-title"><span class="eqs-type-badge '+(l.type==='SUV'?'eqs-suv':'eqs-sedan')+'">'+l.type+'</span> '+escHtml(l.grade)+(l.is_new?' <span class="eqs-new">NEW</span>':'')+'</div>' +
             '<div class="eqs-meta"><span>📅 '+l.year+'/'+String(l.month).padStart(2,'0')+'</span><span>🛣️ '+l.km.toLocaleString()+' km</span><span>🎨 '+(l.color||'N/A')+'</span><span class="eqs-source">'+l.source+'</span>' +
-            (l.discount?'<span style="color:#f85149">-$'+l.discount.toLocaleString()+'</span>':'')+'</div></div>' +
+            (l.discount?'<span style="color:var(--red)">-$'+l.discount.toLocaleString()+'</span>':'')+'</div></div>' +
             '<div class="eqs-price">$'+l.price_usd.toLocaleString()+'<br><span style="font-size:10px;color:var(--text-muted);font-weight:400">¥'+l.price_yen.toLocaleString()+'</span></div>' +
             '</a></div>';
         }).join('');
@@ -1674,16 +1637,16 @@
       const empty = '<div style="color:var(--text-muted);text-align:center;padding:16px">';
       if (tab === 'homework') {
         if (!child.homework.length) return empty+'Aucun devoir 🎉</div>';
-        return child.homework.map(h => '<div class="hw-item"><span style="color:'+(h.done?'var(--green)':'#d29922')+'">'+(h.done?'✅':'⬜')+'</span><span class="hw-date">'+h.date+'</span><span class="hw-subject">'+escHtml(h.subject)+'</span><span>'+escHtml(h.description)+'</span></div>').join('');
+        return child.homework.map(h => '<div class="hw-item"><span style="color:'+(h.done?'var(--green)':'var(--yellow)')+'">'+(h.done?'✅':'⬜')+'</span><span class="hw-date">'+h.date+'</span><span class="hw-subject">'+escHtml(h.subject)+'</span><span>'+escHtml(h.description)+'</span></div>').join('');
       }
       if (tab === 'today' || tab === 'tomorrow') {
         const tt = tab==='today' ? child.timetable_today : child.timetable_tomorrow;
         if (!tt.length) return empty+'Pas de cours '+(tab==='today'?"aujourd'hui":'demain')+'</div>';
-        return tt.map(l => '<div class="tt-item"><span class="tt-time">'+l.start+' — '+l.end+'</span><span class="'+(l.canceled?'tt-canceled':'')+'">'+escHtml(l.subject)+'</span>'+(l.room?'<span style="color:var(--text-muted);font-size:11px">'+escHtml(l.room)+'</span>':'')+(l.canceled?'<span style="color:#f85149;font-size:11px">⚠️ Annulé</span>':'')+'</div>').join('');
+        return tt.map(l => '<div class="tt-item"><span class="tt-time">'+l.start+' — '+l.end+'</span><span class="'+(l.canceled?'tt-canceled':'')+'">'+escHtml(l.subject)+'</span>'+(l.room?'<span style="color:var(--text-muted);font-size:11px">'+escHtml(l.room)+'</span>':'')+(l.canceled?'<span style="color:var(--red);font-size:11px">⚠️ Annulé</span>':'')+'</div>').join('');
       }
       if (tab === 'absences') {
         if (!child.absences.length) return empty+'Aucune absence 🎉</div>';
-        return child.absences.slice(-10).reverse().map(a => '<div class="abs-item"><span style="color:'+(a.justified?'var(--green)':'#f85149')+'">'+(a.justified?'✅':'❌')+'</span> '+escHtml(a.from)+' → '+escHtml(a.to)+(a.reasons?.length?' <span style="color:var(--text-muted);font-size:11px">— '+escHtml(a.reasons.join(', '))+'</span>':'')+'</div>').join('');
+        return child.absences.slice(-10).reverse().map(a => '<div class="abs-item"><span style="color:'+(a.justified?'var(--green)':'var(--red)')+'">'+(a.justified?'✅':'❌')+'</span> '+escHtml(a.from)+' → '+escHtml(a.to)+(a.reasons?.length?' <span style="color:var(--text-muted);font-size:11px">— '+escHtml(a.reasons.join(', '))+'</span>':'')+'</div>').join('');
       }
       return '';
     }
@@ -1697,8 +1660,8 @@
 
     // Load EQS & Children
     loadEqs(); loadChildren();
-    setInterval(loadEqs, 1800000);
-    setInterval(loadChildren, 300000);
+    createSmartInterval(loadEqs, 1800000);
+    createSmartInterval(loadChildren, 300000);
   </script>
 
   <!-- News article modal -->
@@ -1784,17 +1747,13 @@
             <div class="news-feed-card-top">
               <span class="news-cat-badge cat-${cat}">${label}</span>
             </div>
-            <div class="news-feed-card-title">${escHtmlNF(a.title)}</div>
+            <div class="news-feed-card-title">${escapeHtml(a.title)}</div>
             <div class="news-feed-card-meta">
-              <span class="news-feed-card-source">${escHtmlNF(a.source || '')}</span>
+              <span class="news-feed-card-source">${escapeHtml(a.source || '')}</span>
               <span>${nfTimeAgo(a.publishedAt)}</span>
             </div>
           </div>`;
         }).join('');
-      }
-
-      function escHtmlNF(s) {
-        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
       }
 
       window.loadNewsFeed = async function() {
@@ -1894,7 +1853,7 @@
 
       // Initial load + auto-refresh every 5 minutes
       loadNewsFeed();
-      setInterval(loadNewsFeed, 300000);
+      createSmartInterval(loadNewsFeed, 300000);
 
       window.triggerNewsSummary = async function() {
         const btn = document.getElementById('summarizeBtn');
@@ -1969,7 +1928,7 @@
         info.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:16px;font-size:13px;';
         function infoItem(label, value) {
           const el = document.createElement('div');
-          el.innerHTML = `<div style="font-size:10px;color:#6c7086;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">${label}</div><div style="color:#cdd6f4;font-weight:600">${value}</div>`;
+          el.innerHTML = `<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">${label}</div><div style="color:var(--text);font-weight:600">${value}</div>`;
           return el;
         }
         info.appendChild(infoItem('Montant', fmt(inv.amount, inv.currency)));
@@ -1981,7 +1940,7 @@
 
         // Timeline header
         const tlTitle = document.createElement('div');
-        tlTitle.style.cssText = 'font-size:11px;color:#6c7086;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;';
+        tlTitle.style.cssText = 'font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;';
         tlTitle.textContent = 'Historique';
         body.appendChild(tlTitle);
 
@@ -1999,7 +1958,7 @@
           const cfg = evCfg[ev.type] || { icon: '•', label: ev.type + ' le', dotClass: 'inv-tl-dot-created' };
           const item = document.createElement('div');
           item.className = 'inv-tl-item';
-          item.innerHTML = `<span class="inv-tl-dot ${cfg.dotClass}"></span><span style="margin-right:4px">${cfg.icon}</span><span>${cfg.label} <strong>${fmtDate(ev.at)}</strong>${ev.note ? ' — <em style="color:#6c7086">' + ev.note + '</em>' : ''}</span>`;
+          item.innerHTML = `<span class="inv-tl-dot ${cfg.dotClass}"></span><span style="margin-right:4px">${cfg.icon}</span><span>${cfg.label} <strong>${fmtDate(ev.at)}</strong>${ev.note ? ' — <em style="color:var(--text-muted)">' + ev.note + '</em>' : ''}</span>`;
           tl.appendChild(item);
         });
         body.appendChild(tl);
@@ -2165,7 +2124,7 @@
           row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid rgba(255,255,255,0.05);flex-wrap:wrap;cursor:pointer;border-radius:4px;transition:background 0.1s';
           row.onmouseenter = function() { row.style.background = 'rgba(255,255,255,0.04)'; };
           row.onmouseleave = function() { row.style.background = ''; };
-          row.innerHTML = `<span style="font-weight:700;flex:1;min-width:110px;font-size:13px;color:#cdd6f4">${clientName(clients, inv.clientId)}</span><span style="color:#6c7086;font-size:11px">${inv.invoiceNumber || inv.id}</span><span style="font-weight:700;font-size:14px;color:#cdd6f4">${fmt(inv.amount, inv.currency)}</span><span style="color:#a6e3a1;font-size:11px;font-weight:600">Payé le ${fmtDate(inv.paidAt)}</span>`;
+          row.innerHTML = `<span style="font-weight:700;flex:1;min-width:110px;font-size:13px;color:var(--text)">${clientName(clients, inv.clientId)}</span><span style="color:var(--text-muted);font-size:11px">${inv.invoiceNumber || inv.id}</span><span style="font-weight:700;font-size:14px;color:var(--text)">${fmt(inv.amount, inv.currency)}</span><span style="color:var(--green);font-size:11px;font-weight:600">Payé le ${fmtDate(inv.paidAt)}</span>`;
           row.onclick = function() { closeModal('invoiceHistoryModal'); showInvoiceDetail(inv.id); };
           body.appendChild(row);
         });
@@ -2207,12 +2166,12 @@
           html += `<div class="inv-summary">${unpaid.length} en attente · ${fmt(pendingTotal, currency)}${overdueCount > 0 ? ' · <span class="inv-overdue-warn">⚠️ ' + overdueCount + ' en retard</span>' : ''}</div>`;
           body.innerHTML = html;
         } catch(e) {
-          body.innerHTML = `<div style="color:#f38ba8;font-size:13px;">Erreur : ${e.message}</div>`;
+          body.innerHTML = `<div style="color:var(--red);font-size:13px;">Erreur : ${e.message}</div>`;
         }
       };
 
       loadInvoices();
-      setInterval(loadInvoices, 600000);
+      createSmartInterval(loadInvoices, 600000);
     })();
   </script>
 
@@ -2237,7 +2196,7 @@
           _tradingData = data;
           renderTrading(data);
         } catch (e) {
-          body.innerHTML = '<div style="color:#f38ba8;font-size:13px">Erreur: ' + e.message + '</div>';
+          body.innerHTML = '<div style="color:var(--red);font-size:13px">Erreur: ' + e.message + '</div>';
         }
       };
 
@@ -2381,7 +2340,7 @@
       }
 
       loadTradingStatus();
-      setInterval(loadTradingStatus, 30000);
+      createSmartInterval(loadTradingStatus, 30000);
     })();
   </script>
 </body>
