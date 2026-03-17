@@ -675,6 +675,7 @@
       padding: 20px;
     }
     .news-modal-overlay.open { display: flex; }
+    .news-modal-overlay { overscroll-behavior: contain; }
     .body-modal-open { overflow: hidden !important; }
     .news-modal-box {
       background: var(--bg-surface);
@@ -684,6 +685,7 @@
       width: 100%;
       max-height: 90vh;
       overflow-y: auto;
+      overscroll-behavior: contain;
       display: flex;
       flex-direction: column;
     }
@@ -757,11 +759,12 @@
     .btn-news-action:hover { background: var(--bg-hover); }
     .btn-news-open {
       margin-left: auto;
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
+      background: #cdd6f4;
+      border-color: #cdd6f4;
+      color: #1e1e2e;
+      font-weight: 600;
     }
-    .btn-news-open:hover { opacity: 0.85; background: var(--accent); }
+    .btn-news-open:hover { opacity: 0.85; background: #bac2de; }
     .news-action-count {
       font-size: 11px;
       color: var(--text-muted);
@@ -1574,9 +1577,9 @@
       <div class="news-modal-body">
         <div class="news-modal-summary" id="nfModalSummary"></div>
         <div class="news-modal-actions">
-          <button class="btn-news-action" id="nfBtnLike">👍 J'aime</button>
-          <button class="btn-news-action" id="nfBtnDislike">👎 J'aime pas</button>
-          <a class="btn-news-action btn-news-open" id="nfBtnOpen" href="#" target="_blank" rel="noopener">🔗 Ouvrir</a>
+          <button class="btn-news-action" id="nfBtnLike">👍</button>
+          <button class="btn-news-action" id="nfBtnDislike">👎</button>
+          <a class="btn-news-action btn-news-open" id="nfBtnOpen" href="#" target="_blank" rel="noopener">Ouvrir</a>
         </div>
       </div>
     </div>
