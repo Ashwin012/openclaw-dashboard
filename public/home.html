@@ -675,6 +675,7 @@
       padding: 20px;
     }
     .news-modal-overlay.open { display: flex; }
+    .body-modal-open { overflow: hidden !important; }
     .news-modal-box {
       background: var(--bg-surface);
       border: 1px solid var(--border);
@@ -1573,8 +1574,8 @@
       <div class="news-modal-body">
         <div class="news-modal-summary" id="nfModalSummary"></div>
         <div class="news-modal-actions">
-          <button class="btn-news-action" id="nfBtnLike">👍 J'aime <span class="news-action-count" id="nfLikeCount">0</span></button>
-          <button class="btn-news-action" id="nfBtnDislike">👎 J'aime pas <span class="news-action-count" id="nfDislikeCount">0</span></button>
+          <button class="btn-news-action" id="nfBtnLike">👍 J'aime</button>
+          <button class="btn-news-action" id="nfBtnDislike">👎 J'aime pas</button>
           <a class="btn-news-action btn-news-open" id="nfBtnOpen" href="#" target="_blank" rel="noopener">🔗 Ouvrir</a>
         </div>
       </div>
@@ -1680,16 +1681,16 @@
         document.getElementById('nfLikeCount').textContent = article.likes || 0;
         document.getElementById('nfDislikeCount').textContent = article.dislikes || 0;
         document.getElementById('nfBtnOpen').href = article.url || '#';
-        document.getElementById('newsFeedModal').classList.add('open');
+        document.getElementById('newsFeedModal').classList.add('open'); document.body.classList.add('body-modal-open');
       };
 
       document.getElementById('nfModalClose').addEventListener('click', () => {
-        document.getElementById('newsFeedModal').classList.remove('open');
+        document.getElementById('newsFeedModal').classList.remove('open'); document.body.classList.remove('body-modal-open');
         _nfCurrentId = null;
       });
       document.getElementById('newsFeedModal').addEventListener('click', (e) => {
         if (e.target === document.getElementById('newsFeedModal')) {
-          document.getElementById('newsFeedModal').classList.remove('open');
+          document.getElementById('newsFeedModal').classList.remove('open'); document.body.classList.remove('body-modal-open');
           _nfCurrentId = null;
         }
       });
