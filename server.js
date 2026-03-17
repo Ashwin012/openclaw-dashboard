@@ -1931,18 +1931,33 @@ app.get('/api/trading-status', requireAuth, async (req, res) => {
     };
 
     const base = 'http://45.77.131.11:8000';
-    const [kpis, positions, summary, status] = await Promise.allSettled([
-      runWithRetry(`${base}/api/data/kpis`),
-      runWithRetry(`${base}/api/data/positions`),
-      runWithRetry(`${base}/api/data/summary`),
-      runWithRetry(`${base}/api/bot/status`)
+    const [kpis, positions, summary, status, balance] = await Promise.allSettled([
+      runWithRetry(`${base}/api/kpis`),
+      runWithRetry(`${base}/api/positions`),
+      runWithRetry(`${base}/api/summary`),
+      runWithRetry(`${base}/api/bot/status`),
+      runWithRetry(`${base}/api/balance`)
     ]);
+
+    // bot/status returns an array of log lines, check if bot is running
+    const statusData = status.status === 'fulfilled' ? status.value : null;
+    const isRunning = Array.isArray(statusData) ? statusData.some(l => typeof l === 'string' && (l.includes('Bot running') || l.includes('started') || l.includes('RUNNING'))) : (statusData && statusData.is_running);
+
+    // Filter active positions (non-zero positionAmt)
+    const posData = positions.status === 'fulfilled' ? positions.value : null;
+    const activePositions = Array.isArray(posData) ? posData.filter(p => parseFloat(p.positionAmt || 0) !== 0) : [];
+
+    // Balance
+    const balData = balance.status === 'fulfilled' ? balance.value : null;
+    const walletBalance = balData ? parseFloat(balData.totalWalletBalance || 0) : 0;
+    const unrealizedPnl = balData ? parseFloat(balData.totalUnrealizedProfit || 0) : 0;
 
     res.json({
       kpis: kpis.status === 'fulfilled' ? kpis.value : null,
-      positions: positions.status === 'fulfilled' ? positions.value : null,
+      positions: activePositions,
       summary: summary.status === 'fulfilled' ? summary.value : null,
-      status: status.status === 'fulfilled' ? status.value : null,
+      status: { is_running: isRunning },
+      balance: { wallet: walletBalance, unrealizedPnl },
       errors: {
         kpis: kpis.status === 'rejected' ? kpis.reason.message : null,
         positions: positions.status === 'rejected' ? positions.reason.message : null,

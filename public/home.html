@@ -2123,26 +2123,26 @@
 
         // PnL
         if (kpis) {
-          const pnl = kpis.daily_pnl || kpis.dailyPnl || 0;
+          const pnl = kpis.realized_pnl || kpis.daily_pnl || kpis.dailyPnl || 0;
           const pnlColor = pnl >= 0 ? '#a6e3a1' : '#f38ba8';
           html += `<div style="text-align:center;padding:8px;background:var(--bg);border-radius:8px">
-            <div style="font-size:11px;color:var(--text-muted)">PnL Jour</div>
+            <div style="font-size:11px;color:var(--text-muted)">PnL Réalisé</div>
             <div style="font-size:14px;font-weight:700;color:${pnlColor}">${pnl >= 0 ? '+' : ''}${Number(pnl).toFixed(2)} $</div>
           </div>`;
 
-          const trades = kpis.total_trades || kpis.totalTrades || 0;
+          const trades = kpis.trades_count || kpis.total_trades || kpis.totalTrades || 0;
           html += `<div style="text-align:center;padding:8px;background:var(--bg);border-radius:8px">
             <div style="font-size:11px;color:var(--text-muted)">Trades</div>
             <div style="font-size:14px;font-weight:700;color:var(--text)">${trades}</div>
           </div>`;
 
-          const winRate = kpis.win_rate || kpis.winRate || 0;
+          const winRate = kpis.winrate || kpis.win_rate || kpis.winRate || 0;
           html += `<div style="text-align:center;padding:8px;background:var(--bg);border-radius:8px">
             <div style="font-size:11px;color:var(--text-muted)">Win Rate</div>
             <div style="font-size:14px;font-weight:700;color:var(--text)">${Number(winRate).toFixed(1)}%</div>
           </div>`;
 
-          const balance = kpis.balance || 0;
+          const balance = (data.balance && data.balance.wallet) || kpis.balance || 0;
           html += `<div style="text-align:center;padding:8px;background:var(--bg);border-radius:8px">
             <div style="font-size:11px;color:var(--text-muted)">Balance</div>
             <div style="font-size:14px;font-weight:700;color:var(--text)">${Number(balance).toFixed(2)} $</div>
