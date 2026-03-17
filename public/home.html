@@ -1678,8 +1678,8 @@
         document.getElementById('nfModalSource').textContent = article.source || '';
         document.getElementById('nfModalDate').textContent = nfFormatDate(article.publishedAt);
         document.getElementById('nfModalSummary').textContent = article.summary || article.title || '';
-        document.getElementById('nfLikeCount').textContent = article.likes || 0;
-        document.getElementById('nfDislikeCount').textContent = article.dislikes || 0;
+        // count hidden
+        // count hidden
         document.getElementById('nfBtnOpen').href = article.url || '#';
         document.getElementById('newsFeedModal').classList.add('open'); document.body.classList.add('body-modal-open');
       };
@@ -1703,8 +1703,8 @@
           const data = await resp.json();
           const article = _newsFeedArticles.find(a => a.id === _nfCurrentId);
           if (article) { article.likes = data.likes; article.dislikes = data.dislikes; }
-          document.getElementById('nfLikeCount').textContent = data.likes;
-          document.getElementById('nfDislikeCount').textContent = data.dislikes;
+          // count hidden
+          // count hidden
         } catch {}
       });
 
@@ -1716,8 +1716,8 @@
           const data = await resp.json();
           const article = _newsFeedArticles.find(a => a.id === _nfCurrentId);
           if (article) { article.likes = data.likes; article.dislikes = data.dislikes; }
-          document.getElementById('nfLikeCount').textContent = data.likes;
-          document.getElementById('nfDislikeCount').textContent = data.dislikes;
+          // count hidden
+          // count hidden
         } catch {}
       });
 
@@ -1843,13 +1843,70 @@
         const { clients, invoices } = _invoiceData;
         const paid = invoices.filter(i => i.status === 'paid');
         if (paid.length === 0) { alert('Aucune facture payée'); return; }
-        // Remove existing modal if any
         const existing = document.getElementById('invoiceHistoryModal');
         if (existing) existing.remove();
+
         const overlay = document.createElement('div');
         overlay.className = 'news-modal-overlay open';
         overlay.id = 'invoiceHistoryModal';
-        overlay.onclick = function(e) { if (e.target === overlay) { overlay.remove(); document.body.classList.remove('body-modal-open'); } };
+        overlay.onclick = function(e) {
+          if (e.target === overlay) { overlay.remove(); document.body.classList.remove('body-modal-open'); }
+        };
+
+        const box = document.createElement('div');
+        box.className = 'news-modal-box';
+
+        // Header
+        const head = document.createElement('div');
+        head.className = 'news-modal-head';
+        const headInfo = document.createElement('div');
+        headInfo.className = 'news-modal-head-info';
+        const titleEl = document.createElement('div');
+        titleEl.className = 'news-modal-title';
+        titleEl.textContent = '\ud83d\udccb Historique des factures';
+        headInfo.appendChild(titleEl);
+        head.appendChild(headInfo);
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'btn-news-modal-close';
+        closeBtn.innerHTML = '\u2715';
+        closeBtn.onclick = function() { overlay.remove(); document.body.classList.remove('body-modal-open'); };
+        head.appendChild(closeBtn);
+        box.appendChild(head);
+
+        // Body
+        const body = document.createElement('div');
+        body.className = 'news-modal-body';
+        paid.forEach(function(inv) {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border-muted);flex-wrap:wrap';
+          const paidDate = inv.paidAt ? new Date(inv.paidAt).toLocaleDateString('fr-FR') : '\u2014';
+          const name = document.createElement('span');
+          name.style.cssText = 'font-weight:600;flex:1;min-width:120px';
+          name.textContent = clientName(clients, inv.clientId);
+          const num = document.createElement('span');
+          num.style.cssText = 'color:var(--text-muted);font-size:12px';
+          num.textContent = inv.invoiceNumber || inv.id;
+          const amount = document.createElement('span');
+          amount.style.cssText = 'font-weight:600;font-size:14px';
+          amount.textContent = fmt(inv.amount, inv.currency);
+          const badge = document.createElement('span');
+          badge.className = 'badge badge-paid';
+          badge.textContent = 'Pay\u00e9';
+          const date = document.createElement('span');
+          date.style.cssText = 'color:var(--text-muted);font-size:11px';
+          date.textContent = 'le ' + paidDate;
+          row.appendChild(name);
+          row.appendChild(num);
+          row.appendChild(amount);
+          row.appendChild(badge);
+          row.appendChild(date);
+          body.appendChild(row);
+        });
+        box.appendChild(body);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+        document.body.classList.add('body-modal-open');
+      };
         const card = document.createElement('div');
         card.className = 'news-modal-card';
         card.style.cssText = 'max-width:600px;max-height:80vh;overflow-y:auto';
