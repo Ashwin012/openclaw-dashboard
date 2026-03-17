@@ -1879,7 +1879,7 @@ async function getTradingBotToken(email, password, forceRefresh = false) {
     return tradingBotToken;
   }
   const body = new URLSearchParams({ username: email, password });
-  const res = await fetch('http://localhost:8000/api/auth/login', {
+  const res = await fetch('http://45.77.131.11:8000/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString()
