@@ -92,14 +92,13 @@ module.exports = function createIntegrationRoutes({ requireAuth }) {
         runWithRetry(`${base}/api/summary`),
         runWithRetry(`${base}/api/bot/status`),
         runWithRetry(`${base}/api/balance`),
-        runWithRetry(`${base}/api/user_trades`)
+        runWithRetry(`${base}/api/user_trades?symbol=ETHUSDC`)
       ]);
 
       // bot/status returns nested dict: { default: { bot_name: { strategy: { status: "running" } } } }
       const statusData = status.status === 'fulfilled' ? status.value : null;
       let isRunning = false;
       if (statusData && typeof statusData === 'object' && !Array.isArray(statusData)) {
-        // Walk nested structure to find any status === "running"
         const walk = (obj) => {
           if (!obj || typeof obj !== 'object') return;
           if (obj.status === 'running') { isRunning = true; return; }
@@ -112,18 +111,22 @@ module.exports = function createIntegrationRoutes({ requireAuth }) {
       const posData = positions.status === 'fulfilled' ? positions.value : null;
       const activePositions = Array.isArray(posData) ? posData.filter(p => parseFloat(p.positionAmt || 0) !== 0) : [];
 
-      // Balance
+      // Use summary for accurate wallet/pnl data, fall back to raw balance
+      const sumData = summary.status === 'fulfilled' ? summary.value : null;
       const balData = balance.status === 'fulfilled' ? balance.value : null;
-      const walletBalance = balData ? parseFloat(balData.totalWalletBalance || 0) : 0;
+      const walletBalance = sumData ? parseFloat(sumData.wallet_usdc || 0) : (balData ? parseFloat(balData.totalWalletBalance || 0) : 0);
       const unrealizedPnl = balData ? parseFloat(balData.totalUnrealizedProfit || 0) : 0;
+      const feesUsdc = sumData ? parseFloat(sumData.fees_usdc || 0) : null;
+      const netPnl = sumData ? parseFloat(sumData.net_pnl || 0) : null;
+      const markPrice = sumData ? parseFloat(sumData.mark_price || 0) : null;
 
       res.json({
         kpis: kpis.status === 'fulfilled' ? kpis.value : null,
         positions: activePositions,
-        summary: summary.status === 'fulfilled' ? summary.value : null,
+        summary: sumData,
         status: { is_running: isRunning },
-        balance: { wallet: walletBalance, unrealizedPnl },
-        trades: trades.status === 'fulfilled' ? (Array.isArray(trades.value) ? trades.value.slice(-50) : []) : [],
+        balance: { wallet: walletBalance, unrealizedPnl, fees: feesUsdc, net_pnl: netPnl, mark_price: markPrice },
+        trades: trades.status === 'fulfilled' ? (Array.isArray(trades.value) ? trades.value.slice().reverse() : []) : [],
         errors: {
           kpis: kpis.status === 'rejected' ? kpis.reason.message : null,
           positions: positions.status === 'rejected' ? positions.reason.message : null,

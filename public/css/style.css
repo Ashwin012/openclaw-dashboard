@@ -79,6 +79,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   max-width: 1200px;
   margin: 0 auto;
   padding: 24px;
+  overflow: hidden;
 }
 
 /* ===== Login Page ===== */
@@ -328,6 +329,8 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* Actions bar */
@@ -536,6 +539,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .d2h-file-wrapper { border-color: var(--border) !important; margin-bottom: 8px; max-width: 100%; }
 .d2h-file-stats { display: none; }
 .d2h-diff-table { table-layout: auto; }
+.d2h-wrapper { max-width: 100%; overflow: hidden; }
 .d2h-wrapper pre, .d2h-wrapper code { overflow-x: auto; max-width: 100%; }
 
 /* Loading */

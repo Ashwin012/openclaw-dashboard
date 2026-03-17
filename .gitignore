@@ -1,4 +1,5 @@
 node_modules/
+.claude/
 .env
 dashboard.log
 __pycache__/

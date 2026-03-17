@@ -2205,17 +2205,23 @@
         const status = data.status;
         const kpis = data.kpis;
         const positions = data.positions;
+        const bal = data.balance || {};
         const isRunning = status && status.is_running;
 
-        const pnl = kpis ? (kpis.realized_pnl || kpis.daily_pnl || kpis.dailyPnl || 0) : 0;
-        const pnlColor = pnl >= 0 ? '#a6e3a1' : '#f38ba8';
-        const trades = kpis ? (kpis.trades_count || kpis.total_trades || kpis.totalTrades || 0) : 0;
-        const winRate = kpis ? (kpis.winrate || kpis.win_rate || kpis.winRate || 0) : 0;
-        const balance = (data.balance && data.balance.wallet != null) ? data.balance.wallet : (kpis ? (kpis.balance || 0) : 0);
+        const realizedPnl = kpis ? (kpis.realized_pnl || 0) : 0;
+        const netPnl = bal.net_pnl != null ? bal.net_pnl : null;
+        const fees = bal.fees != null ? bal.fees : null;
+        const trades = kpis ? (kpis.trades_count || 0) : 0;
+        const winRate = kpis ? (kpis.winrate || 0) : 0;
+        const wallet = bal.wallet || 0;
+        const markPrice = bal.mark_price || null;
+        const drawdown = kpis ? (kpis.drawdown || 0) : 0;
+        const makerRatio = kpis ? (kpis.maker_ratio || 0) : 0;
 
         const statusClass = isRunning ? 'running' : 'stopped';
         const statusLabel = isRunning ? '🟢 Running' : '🔴 Stopped';
-        const statusColor = isRunning ? '#a6e3a1' : '#f38ba8';
+        const statusColor = isRunning ? 'var(--green)' : 'var(--red)';
+        const pnlColor = (v) => v >= 0 ? 'var(--green)' : 'var(--red)';
 
         let html = `<div class="trading-kpi-grid">
           <div class="trading-kpi-tile kpi-status ${statusClass}">
@@ -2223,8 +2229,20 @@
             <div class="trading-kpi-value" style="color:${statusColor}">${statusLabel}</div>
           </div>
           <div class="trading-kpi-tile">
+            <div class="trading-kpi-label">Wallet</div>
+            <div class="trading-kpi-value">${Number(wallet).toFixed(2)} $</div>
+          </div>
+          <div class="trading-kpi-tile">
+            <div class="trading-kpi-label">Net PnL</div>
+            <div class="trading-kpi-value" style="color:${pnlColor(netPnl || 0)}">${netPnl != null ? ((netPnl >= 0 ? '+' : '') + Number(netPnl).toFixed(2) + ' $') : '–'}</div>
+          </div>
+          <div class="trading-kpi-tile">
             <div class="trading-kpi-label">PnL Réalisé</div>
-            <div class="trading-kpi-value" style="color:${pnlColor}">${pnl >= 0 ? '+' : ''}${Number(pnl).toFixed(2)} $</div>
+            <div class="trading-kpi-value" style="color:${pnlColor(realizedPnl)}">${realizedPnl >= 0 ? '+' : ''}${Number(realizedPnl).toFixed(2)} $</div>
+          </div>
+          <div class="trading-kpi-tile">
+            <div class="trading-kpi-label">Fees</div>
+            <div class="trading-kpi-value" style="color:var(--red)">${fees != null ? Number(fees).toFixed(2) + ' $' : '–'}</div>
           </div>
           <div class="trading-kpi-tile">
             <div class="trading-kpi-label">Trades</div>
@@ -2235,9 +2253,17 @@
             <div class="trading-kpi-value">${Number(winRate).toFixed(1)}%</div>
           </div>
           <div class="trading-kpi-tile">
-            <div class="trading-kpi-label">Balance</div>
-            <div class="trading-kpi-value">${Number(balance).toFixed(2)} $</div>
+            <div class="trading-kpi-label">Drawdown</div>
+            <div class="trading-kpi-value" style="color:var(--yellow)">${Number(drawdown).toFixed(2)} $</div>
           </div>
+          <div class="trading-kpi-tile">
+            <div class="trading-kpi-label">Maker %</div>
+            <div class="trading-kpi-value">${Number(makerRatio).toFixed(1)}%</div>
+          </div>
+          ${markPrice ? `<div class="trading-kpi-tile">
+            <div class="trading-kpi-label">ETH Price</div>
+            <div class="trading-kpi-value">${Number(markPrice).toFixed(2)} $</div>
+          </div>` : ''}
         </div>`;
 
         // Open positions
@@ -2264,9 +2290,21 @@
         body.onclick = openTradesModal;
       }
 
+      let _tradesPage = 0;
+      const _tradesPerPage = 50;
+
       function openTradesModal() {
         if (!_tradingData) return;
-        const trades = (_tradingData.trades || []).slice(0, 50);
+        _tradesPage = 0;
+        renderTradesModal();
+      }
+
+      function renderTradesModal() {
+        const allTrades = _tradingData.trades || [];
+        const start = _tradesPage * _tradesPerPage;
+        const trades = allTrades.slice(start, start + _tradesPerPage);
+        const hasNext = start + _tradesPerPage < allTrades.length;
+        const hasPrev = _tradesPage > 0;
 
         const existing = document.getElementById('tradingTradesModal');
         if (existing) existing.remove();
@@ -2289,7 +2327,7 @@
             const side = t.side || '–';
             const sideClass = side === 'SELL' ? 'sell' : 'buy';
             const rpnl = Number(t.realizedPnl || 0);
-            const pnlColor = rpnl >= 0 ? '#a6e3a1' : '#f38ba8';
+            const pnlColor = rpnl >= 0 ? 'var(--green)' : 'var(--red)';
             rows += `<div class="trades-modal-row">
               <span style="color:var(--text-muted)">${time}</span>
               <span style="color:var(--text);font-weight:600">${t.symbol || '–'}</span>
@@ -2301,17 +2339,28 @@
           });
         }
 
-        const tradeCount = trades.length;
-        const totalPnl = trades.reduce((s, t) => s + Number(t.realizedPnl || 0), 0);
-        const totalPnlColor = totalPnl >= 0 ? '#a6e3a1' : '#f38ba8';
+        const totalPnl = allTrades.reduce((s, t) => s + Number(t.realizedPnl || 0), 0);
+        const totalFees = allTrades.reduce((s, t) => s + Number(t.commission || 0), 0);
+        const totalPnlColor = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+        const pageLabel = `${start + 1}–${start + trades.length} / ${allTrades.length}`;
+
+        let paginationHtml = '';
+        if (hasPrev || hasNext) {
+          paginationHtml = `<div style="display:flex;justify-content:center;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--border)">
+            ${hasPrev ? '<button id="tradesPrev" style="background:var(--bg-surface);color:var(--accent);border:1px solid var(--border);padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px">← Page précédente</button>' : ''}
+            <span style="color:var(--text-muted);font-size:12px">${pageLabel}</span>
+            ${hasNext ? '<button id="tradesNext" style="background:var(--bg-surface);color:var(--accent);border:1px solid var(--border);padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px">Page suivante →</button>' : ''}
+          </div>`;
+        }
 
         box.innerHTML = `
           <div class="news-modal-head">
             <div class="news-modal-head-info">
               <div class="news-modal-title">📊 Derniers trades</div>
               <div class="news-modal-meta">
-                <span>${tradeCount} trade${tradeCount > 1 ? 's' : ''}</span>
-                <span style="color:${totalPnlColor};font-weight:600">PnL total: ${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(4)} $</span>
+                <span>${allTrades.length} trade${allTrades.length > 1 ? 's' : ''}</span>
+                <span style="color:${totalPnlColor};font-weight:600">PnL: ${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(4)} $</span>
+                <span style="color:var(--text-muted)">Fees: ${totalFees.toFixed(4)} $</span>
               </div>
             </div>
             <button class="btn-news-modal-close" id="tradingTradesClose">✕</button>
@@ -2320,14 +2369,21 @@
             <span>Heure</span><span>Symbole</span><span>Sens</span><span>Prix</span><span>Qté</span><span style="text-align:right">PnL</span>
           </div>
           <div style="overflow-y:auto;max-height:60vh">${rows}</div>
+          ${paginationHtml}
         `;
 
         overlay.appendChild(box);
-        document.body.style.top = '-' + window.scrollY + 'px';
-        document.body.classList.add('body-modal-open');
+        if (!document.body.classList.contains('body-modal-open')) {
+          document.body.style.top = '-' + window.scrollY + 'px';
+          document.body.classList.add('body-modal-open');
+        }
         document.body.appendChild(overlay);
 
         box.querySelector('#tradingTradesClose').addEventListener('click', closeTradesModal);
+        const prevBtn = box.querySelector('#tradesPrev');
+        const nextBtn = box.querySelector('#tradesNext');
+        if (prevBtn) prevBtn.addEventListener('click', () => { _tradesPage--; renderTradesModal(); });
+        if (nextBtn) nextBtn.addEventListener('click', () => { _tradesPage++; renderTradesModal(); });
       }
 
       function closeTradesModal() {
