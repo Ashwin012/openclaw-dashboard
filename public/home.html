@@ -676,7 +676,7 @@
     }
     .news-modal-overlay.open { display: flex; }
     .news-modal-overlay { overscroll-behavior: contain; }
-    .body-modal-open { overflow: hidden !important; }
+    .body-modal-open { overflow: hidden !important; position: fixed !important; width: 100% !important; }
     .news-modal-box {
       background: var(--bg-surface);
       border: 1px solid var(--border);
@@ -766,6 +766,7 @@
     }
     .btn-news-open:hover { opacity: 0.85; background: #bac2de; }
     .btn-news-action.liked { background: #a6e3a1; color: #1e1e2e; border-color: #a6e3a1; }
+    .btn-news-action.neutral-active { background: #585b70; color: #cdd6f4; border-color: #585b70; }
     .btn-news-action.disliked { background: #f38ba8; color: #1e1e2e; border-color: #f38ba8; }
     .news-action-count {
       font-size: 11px;
@@ -1580,6 +1581,7 @@
         <div class="news-modal-summary" id="nfModalSummary"></div>
         <div class="news-modal-actions">
           <button class="btn-news-action" id="nfBtnLike">👍</button>
+          <button class="btn-news-action neutral-active" id="nfBtnNeutral">😐</button>
           <button class="btn-news-action" id="nfBtnDislike">👎</button>
           <a class="btn-news-action btn-news-open" id="nfBtnOpen" href="#" target="_blank" rel="noopener">Ouvrir</a>
         </div>
@@ -1686,18 +1688,21 @@
         // count hidden
         // count hidden
         document.getElementById('nfBtnOpen').href = article.url || '#';
-        document.getElementById('nfBtnLike').classList.toggle('liked', (article.likes || 0) > 0 && (article.dislikes || 0) === 0);
-        document.getElementById('nfBtnDislike').classList.toggle('disliked', (article.dislikes || 0) > 0 && (article.likes || 0) === 0);
-        document.getElementById('newsFeedModal').classList.add('open'); document.body.classList.add('body-modal-open');
+        const hasLiked = (article.likes || 0) > 0 && (article.dislikes || 0) === 0;
+        const hasDisliked = (article.dislikes || 0) > 0 && (article.likes || 0) === 0;
+        document.getElementById('nfBtnLike').classList.toggle('liked', hasLiked);
+        document.getElementById('nfBtnDislike').classList.toggle('disliked', hasDisliked);
+        document.getElementById('nfBtnNeutral').classList.toggle('neutral-active', !hasLiked && !hasDisliked);
+        document.getElementById('newsFeedModal').classList.add('open'); document.body.style.top = '-' + window.scrollY + 'px'; document.body.classList.add('body-modal-open');
       };
 
       document.getElementById('nfModalClose').addEventListener('click', () => {
-        document.getElementById('newsFeedModal').classList.remove('open'); document.body.classList.remove('body-modal-open');
+        document.getElementById('newsFeedModal').classList.remove('open'); document.body.classList.remove('body-modal-open'); const _sy = parseInt(document.body.style.top || '0') * -1; document.body.style.top = ''; window.scrollTo(0, _sy);
         _nfCurrentId = null;
       });
       document.getElementById('newsFeedModal').addEventListener('click', (e) => {
         if (e.target === document.getElementById('newsFeedModal')) {
-          document.getElementById('newsFeedModal').classList.remove('open'); document.body.classList.remove('body-modal-open');
+          document.getElementById('newsFeedModal').classList.remove('open'); document.body.classList.remove('body-modal-open'); const _sy = parseInt(document.body.style.top || '0') * -1; document.body.style.top = ''; window.scrollTo(0, _sy);
           _nfCurrentId = null;
         }
       });
@@ -1714,6 +1719,7 @@
           if (article) { article.likes = data.likes; article.dislikes = data.dislikes; }
           likeBtn.classList.add('liked');
           dislikeBtn.classList.remove('disliked');
+          document.getElementById('nfBtnNeutral').classList.remove('neutral-active');
         } catch {}
       });
 
@@ -1729,7 +1735,14 @@
           if (article) { article.likes = data.likes; article.dislikes = data.dislikes; }
           dislikeBtn.classList.add('disliked');
           likeBtn.classList.remove('liked');
+          document.getElementById('nfBtnNeutral').classList.remove('neutral-active');
         } catch {}
+      });
+
+      document.getElementById('nfBtnNeutral').addEventListener('click', () => {
+        document.getElementById('nfBtnLike').classList.remove('liked');
+        document.getElementById('nfBtnDislike').classList.remove('disliked');
+        document.getElementById('nfBtnNeutral').classList.add('neutral-active');
       });
 
       document.getElementById('newsCatTabs').addEventListener('click', (e) => {
