@@ -916,7 +916,7 @@
     <div class="panel" id="invoicingPanel" style="flex:none">
       <div class="panel-header">
         <span class="panel-title">💰 Facturation</span>
-        <button class="btn-sm" onclick="loadInvoices()">🔄</button>
+        <button class="btn-sm" onclick="showInvoiceHistoryModal()" title="Historique">📋</button>
       </div>
       <div class="panel-body" id="invoiceBody">
         <div style="color:var(--text-muted);font-size:13px;">Chargement…</div>
@@ -1801,21 +1801,7 @@
           ${overdueCount > 0 ? `<span class="invoice-overdue-warn">⚠️ ${overdueCount} facture(s) en retard !</span>` : ''}
         </div>`;
 
-        // History toggle
-        if (paid.length > 0) {
-          html += `<button class="invoice-history-toggle" onclick="toggleInvoiceHistory()">${_historyOpen ? '▲' : '▼'} Historique (${paid.length} facture(s) payée(s))</button>`;
-          html += `<div id="invoiceHistory" style="display:${_historyOpen ? 'block' : 'none'};">`;
-          paid.forEach(inv => {
-            html += `<div class="invoice-row" style="opacity:0.7;">
-              <span class="invoice-client">${clientName(clients, inv.clientId)}</span>
-              <span class="invoice-num">${inv.invoiceNumber || inv.id}</span>
-              <span class="invoice-amount">${fmt(inv.amount, inv.currency)}</span>
-              <span class="invoice-due">Éch. ${fmtDate(inv.dueDate)}</span>
-              <span class="badge badge-paid">Payé</span>
-            </div>`;
-          });
-          html += '</div>';
-        }
+        // History is now in a modal (see showInvoiceHistoryModal)
 
         body.innerHTML = html;
       }
@@ -1852,15 +1838,28 @@
         }
       };
 
-      window.toggleInvoiceHistory = function() {
-        _historyOpen = !_historyOpen;
-        const hist = document.getElementById('invoiceHistory');
-        const btn = document.querySelector('.invoice-history-toggle');
-        if (hist) hist.style.display = _historyOpen ? 'block' : 'none';
-        if (btn && _invoiceData) {
-          const paid = _invoiceData.invoices.filter(i => i.status === 'paid');
-          btn.textContent = `${_historyOpen ? '▲' : '▼'} Historique (${paid.length} facture(s) payée(s))`;
-        }
+      window.showInvoiceHistoryModal = function() {
+        if (!_invoiceData) return;
+        const { clients, invoices } = _invoiceData;
+        const paid = invoices.filter(i => i.status === 'paid');
+        if (paid.length === 0) { alert('Aucune facture payée'); return; }
+        let html = '<div class="news-modal-overlay open" id="invoiceHistoryModal" onclick="if(event.target===this){this.remove();document.body.classList.remove('body-modal-open')}">';
+        html += '<div class="news-modal-card" style="max-width:600px;max-height:80vh;overflow-y:auto">';
+        html += '<button class="news-modal-close" onclick="document.getElementById('invoiceHistoryModal').remove();document.body.classList.remove('body-modal-open')">&times;</button>';
+        html += '<h3 style="margin:0 0 16px;font-size:16px">📋 Historique des factures</h3>';
+        paid.forEach(inv => {
+          const paidDate = inv.paidAt ? new Date(inv.paidAt).toLocaleDateString('fr-FR') : '—';
+          html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-muted);flex-wrap:wrap">
+            <span style="font-weight:600;flex:1;min-width:100px">${clientName(clients, inv.clientId)}</span>
+            <span style="color:var(--text-muted);font-size:12px">${inv.invoiceNumber || inv.id}</span>
+            <span style="font-weight:600">${fmt(inv.amount, inv.currency)}</span>
+            <span class="badge badge-paid">Payé</span>
+            <span style="color:var(--text-muted);font-size:11px">le ${paidDate}</span>
+          </div>`;
+        });
+        html += '</div></div>';
+        document.body.insertAdjacentHTML('beforeend', html);
+        document.body.classList.add('body-modal-open');
       };
 
       loadInvoices();
