@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Royal Heights — Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* ===== Royal Heights Page ===== */
+    .home-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .home-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
+    .home-header .clock { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .header-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .btn-nav {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .btn-nav:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
+    .btn-logout-home {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-logout-home:hover { color: var(--red); border-color: var(--red); }
+
+    .hamburger-btn {
+      display: none;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 18px;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .hamburger-btn:hover { background: var(--bg-hover); }
+
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 56px; left: 0; right: 0;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 99;
+      flex-direction: column;
+      padding: 8px 16px 12px;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu .btn-nav { padding: 10px 14px; font-size: 14px; width: 100%; justify-content: flex-start; }
+    .mobile-menu .btn-logout-home { padding: 10px 14px; font-size: 14px; width: 100%; text-align: left; }
+
+    /* ===== Page Layout ===== */
+    .rh-main { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+
+    /* ===== Project Header ===== */
+    .rh-hero {
+      background: linear-gradient(135deg, #1c2128 0%, #161b22 50%, #1a1f27 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 28px 24px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .rh-hero::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #58a6ff, #bc8cff, #3fb950);
+    }
+    .rh-hero-title { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+    .rh-hero-sub { font-size: 15px; color: var(--text-muted); margin-bottom: 16px; }
+    .rh-hero-contact {
+      display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;
+    }
+    .rh-contact-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--text-muted);
+    }
+    .rh-contact-item a { color: var(--accent); text-decoration: none; }
+    .rh-contact-item a:hover { text-decoration: underline; }
+    .rh-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+    .rh-badge {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid;
+    }
+    .rh-badge-blue { background: rgba(88,166,255,0.1); color: #58a6ff; border-color: rgba(88,166,255,0.3); }
+    .rh-badge-green { background: rgba(63,185,80,0.1); color: #3fb950; border-color: rgba(63,185,80,0.3); }
+    .rh-badge-purple { background: rgba(188,140,255,0.1); color: #bc8cff; border-color: rgba(188,140,255,0.3); }
+    .rh-badge-gold { background: rgba(210,153,34,0.1); color: #d29922; border-color: rgba(210,153,34,0.3); }
+
+    /* ===== Stats Overview ===== */
+    .rh-stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .rh-stat {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .rh-stat-value { font-size: 26px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+    .rh-stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* ===== Unit Table Section ===== */
+    .rh-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .rh-section-header {
+      padding: 14px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .rh-section-title { font-weight: 600; font-size: 15px; flex: 1; }
+
+    /* Filter chips */
+    .rh-filters { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+    .rh-filter-group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .rh-filter-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
+    .rh-chip {
+      padding: 4px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .rh-chip:hover { background: var(--bg-hover); color: var(--text); }
+    .rh-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .rh-chip.active-b { background: #bc8cff; border-color: #bc8cff; color: #fff; }
+    .rh-chip.active-c { background: #3fb950; border-color: #3fb950; color: #fff; }
+
+    /* Table */
+    .rh-table-wrap { overflow-x: auto; }
+    table.rh-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .rh-table th {
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      background: var(--bg-surface);
+    }
+    .rh-table th:hover { color: var(--text); }
+    .rh-table th.sorted-asc::after { content: ' ▲'; color: var(--accent); }
+    .rh-table th.sorted-desc::after { content: ' ▼'; color: var(--accent); }
+    .rh-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); white-space: nowrap; }
+    .rh-table tr:last-child td { border-bottom: none; }
+    .rh-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .rh-block-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      font-weight: 700; font-size: 12px;
+    }
+    .rh-block-a { background: rgba(88,166,255,0.15); color: #58a6ff; }
+    .rh-block-b { background: rgba(188,140,255,0.15); color: #bc8cff; }
+    .rh-block-c { background: rgba(63,185,80,0.15); color: #3fb950; }
+
+    .rh-status-dispo {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      background: rgba(63,185,80,0.12); color: #3fb950;
+      font-size: 11px; font-weight: 600;
+    }
+    .rh-status-indispo {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      background: rgba(248,81,73,0.12); color: #f85149;
+      font-size: 11px; font-weight: 600;
+    }
+    .rh-price-usd { font-weight: 600; color: var(--text); }
+    .rh-price-alt { font-size: 11px; color: var(--text-muted); }
+
+    /* ===== Payment Schedule ===== */
+    .rh-payment-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+      padding: 20px;
+    }
+    .rh-payment-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+    }
+    .rh-payment-step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 20px;
+      right: -4px;
+      width: 8px; height: 2px;
+      background: var(--border);
+    }
+    .rh-payment-circle {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+      color: var(--accent);
+      background: rgba(88,166,255,0.1);
+      flex-shrink: 0;
+    }
+    .rh-payment-pct { font-size: 16px; font-weight: 700; color: var(--accent); }
+    .rh-payment-label { font-size: 10px; color: var(--text-muted); text-align: center; line-height: 1.3; text-transform: uppercase; letter-spacing: 0.3px; }
+    .rh-payment-cumul { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+
+    .rh-timeline-bar {
+      padding: 0 20px 20px;
+      display: flex;
+      gap: 0;
+      height: 10px;
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 0 20px 20px;
+    }
+    .rh-tl-seg {
+      height: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px;
+    }
+
+    /* ===== Amenities ===== */
+    .rh-amenities-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding: 20px;
+    }
+    .rh-amenity {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px;
+      background: var(--bg-surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+    .rh-amenity-icon { font-size: 24px; flex-shrink: 0; }
+    .rh-amenity-name { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+    .rh-amenity-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+
+    /* ===== Team ===== */
+    .rh-team-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      padding: 20px;
+    }
+    .rh-team-card {
+      padding: 14px;
+      background: var(--bg-surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    .rh-team-role { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .rh-team-name { font-size: 13px; font-weight: 600; }
+    .rh-team-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+    /* ===== Section label ===== */
+    .rh-label {
+      font-size: 13px; font-weight: 600;
+      color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 0.5px; margin-bottom: 14px;
+      padding: 0 20px; padding-top: 20px;
+      display: block;
+    }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 1100px) {
+      .rh-stats { grid-template-columns: repeat(3, 1fr); }
+      .rh-payment-grid { grid-template-columns: repeat(4, 1fr); }
+      .rh-team-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 900px) {
+      .rh-stats { grid-template-columns: repeat(2, 1fr); }
+      .rh-amenities-grid { grid-template-columns: repeat(2, 1fr); }
+      .rh-team-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .home-header { height: auto; padding: 10px 16px; flex-wrap: wrap; row-gap: 4px; }
+      .home-header .logo { font-size: 1.1rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .home-header .clock { font-size: 12px; width: 100%; order: 2; padding-bottom: 2px; }
+      .header-nav { display: none; }
+      .hamburger-btn { display: inline-flex; }
+      .mobile-menu { top: 72px; }
+      .rh-hero { padding: 20px 16px; }
+      .rh-hero-title { font-size: 22px; }
+      .rh-payment-grid { grid-template-columns: repeat(3, 1fr); }
+      .rh-amenities-grid { grid-template-columns: 1fr; }
+      .rh-team-grid { grid-template-columns: repeat(2, 1fr); }
+      .rh-main { padding: 16px; }
+    }
+    @media (max-width: 500px) {
+      .rh-stats { grid-template-columns: 1fr 1fr; }
+      .rh-payment-grid { grid-template-columns: repeat(2, 1fr); }
+      .rh-team-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="home-header">
+    <div class="logo">◆ Dev Dashboard</div>
+    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
+    <nav class="header-nav">
+      <a href="/home.html" class="btn-nav">🏠 Accueil</a>
+      <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
+      <a href="/royal-heights.html" class="btn-nav" style="background:rgba(88,166,255,0.1);border-color:var(--accent);color:var(--accent)">🏛️ Royal Heights</a>
+      <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
+      <button class="btn-logout-home" id="logoutBtn">🚪 Déconnexion</button>
+    </nav>
+    <div class="clock" id="clock">--:--:--</div>
+  </header>
+
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="/home.html" class="btn-nav">🏠 Accueil</a>
+    <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
+    <a href="/royal-heights.html" class="btn-nav">🏛️ Royal Heights</a>
+    <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
+    <button class="btn-logout-home" id="logoutBtnMobile">🚪 Déconnexion</button>
+  </div>
+
+  <main class="rh-main">
+
+    <!-- Hero / Project Info -->
+    <div class="rh-hero">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="rh-hero-title">🏛️ Royal Heights</div>
+          <div class="rh-hero-sub">📍 Balaclava, Île Maurice &nbsp;·&nbsp; Promoteur: Landlux Property Management Ltd</div>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);text-align:right;line-height:1.8">
+          Schéma G+2 · 3 Blocs · Livraison 2026
+        </div>
+      </div>
+      <div class="rh-hero-contact">
+        <div class="rh-contact-item">📞 <a href="tel:+23055094883">+230 5509 4883</a></div>
+        <div class="rh-contact-item">✉️ <a href="mailto:contact@royal-heights.mu">contact@royal-heights.mu</a></div>
+        <div class="rh-contact-item">🌐 <a href="https://royal-heights.mu" target="_blank">royal-heights.mu</a></div>
+      </div>
+      <div class="rh-badges">
+        <span class="rh-badge rh-badge-blue">Royal Park 100ha</span>
+        <span class="rh-badge rh-badge-green">Jardin 6 200m²</span>
+        <span class="rh-badge rh-badge-gold">Schéma G+2</span>
+        <span class="rh-badge rh-badge-purple">Plage privée</span>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="rh-stats">
+      <div class="rh-stat">
+        <div class="rh-stat-value" style="color:var(--accent)">32</div>
+        <div class="rh-stat-label">Unités totales</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" style="color:var(--green)">31</div>
+        <div class="rh-stat-label">Disponibles</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" style="color:var(--red)">1</div>
+        <div class="rh-stat-label">Indisponibles</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" style="color:var(--yellow);font-size:18px">$608K–$3.15M</div>
+        <div class="rh-stat-label">Fourchette de prix USD</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" style="color:var(--purple);font-size:20px">201–907 m²</div>
+        <div class="rh-stat-label">Surface utile</div>
+      </div>
+    </div>
+
+    <!-- Prospection link -->
+    <div style="margin-bottom:20px">
+      <a href="/royal-heights-prospection.html" style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:var(--radius);background:rgba(88,166,255,0.08);border:1px solid rgba(88,166,255,0.25);color:var(--accent);font-size:14px;font-weight:600;text-decoration:none;">
+        📊 Suivi Prospection →
+      </a>
+    </div>
+
+    <!-- Unit Table -->
+    <div class="rh-section">
+      <div class="rh-section-header">
+        <span class="rh-section-title">🏠 Tableau des unités</span>
+        <span id="rhUnitCount" style="background:var(--accent);color:#000;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:600">32</span>
+      </div>
+      <div class="rh-filters">
+        <div class="rh-filter-group">
+          <span class="rh-filter-label">Bloc</span>
+          <button class="rh-chip active" data-filter-block="all">Tous</button>
+          <button class="rh-chip" data-filter-block="A">A</button>
+          <button class="rh-chip" data-filter-block="B">B</button>
+          <button class="rh-chip" data-filter-block="C">C</button>
+        </div>
+        <div style="width:1px;background:var(--border);margin:0 4px"></div>
+        <div class="rh-filter-group">
+          <span class="rh-filter-label">Chambres</span>
+          <button class="rh-chip active" data-filter-ch="all">Tous</button>
+          <button class="rh-chip" data-filter-ch="3">3 ch</button>
+          <button class="rh-chip" data-filter-ch="4">4 ch</button>
+          <button class="rh-chip" data-filter-ch="6">6 ch</button>
+          <button class="rh-chip" data-filter-ch="9">9 ch</button>
+        </div>
+        <div style="width:1px;background:var(--border);margin:0 4px"></div>
+        <div class="rh-filter-group">
+          <span class="rh-filter-label">Statut</span>
+          <button class="rh-chip active" data-filter-status="all">Tous</button>
+          <button class="rh-chip" data-filter-status="Disponible">Disponible</button>
+          <button class="rh-chip" data-filter-status="Indisponible">Indisponible</button>
+        </div>
+      </div>
+      <div class="rh-table-wrap">
+        <table class="rh-table" id="rhTable">
+          <thead>
+            <tr>
+              <th data-col="block">Bloc</th>
+              <th data-col="id">Unité</th>
+              <th data-col="lot">Lot</th>
+              <th data-col="ch">Ch.</th>
+              <th data-col="surf">Int. m²</th>
+              <th data-col="terr">Terr. m²</th>
+              <th data-col="jard">Jard. m²</th>
+              <th data-col="utile">Utile m²</th>
+              <th data-col="usd">Prix USD</th>
+              <th data-col="eur">Prix EUR</th>
+              <th data-col="mur">Prix MUR</th>
+              <th data-col="status">Statut</th>
+            </tr>
+          </thead>
+          <tbody id="rhTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Payment Schedule -->
+    <div class="rh-section">
+      <div class="rh-section-header">
+        <span class="rh-section-title">💳 Échéancier de paiement</span>
+      </div>
+      <div class="rh-payment-grid">
+        <div class="rh-payment-step">
+          <div class="rh-payment-circle">5%</div>
+          <div class="rh-payment-pct">5%</div>
+          <div class="rh-payment-label">Réservation</div>
+          <div class="rh-payment-cumul">Cumul: 5%</div>
+        </div>
+        <div class="rh-payment-step">
+          <div class="rh-payment-circle">25%</div>
+          <div class="rh-payment-pct">25%</div>
+          <div class="rh-payment-label">Contrat de vente</div>
+          <div class="rh-payment-cumul">Cumul: 30%</div>
+        </div>
+        <div class="rh-payment-step">
+          <div class="rh-payment-circle">25%</div>
+          <div class="rh-payment-pct">25%</div>
+          <div class="rh-payment-label">Fondations</div>
+          <div class="rh-payment-cumul">Cumul: 55%</div>
+        </div>
+        <div class="rh-payment-step">
+          <div class="rh-payment-circle">25%</div>
+          <div class="rh-payment-pct">25%</div>
+          <div class="rh-payment-label">Structure</div>
+          <div class="rh-payment-cumul">Cumul: 80%</div>
+        </div>
+        <div class="rh-payment-step">
+          <div class="rh-payment-circle">10%</div>
+          <div class="rh-payment-pct">10%</div>
+          <div class="rh-payment-label">Extérieur</div>
+          <div class="rh-payment-cumul">Cumul: 90%</div>
+        </div>
+        <div class="rh-payment-step">
+          <div class="rh-payment-circle">5%</div>
+          <div class="rh-payment-pct">5%</div>
+          <div class="rh-payment-label">Intérieur</div>
+          <div class="rh-payment-cumul">Cumul: 95%</div>
+        </div>
+        <div class="rh-payment-step">
+          <div class="rh-payment-circle" style="border-color:#3fb950;color:#3fb950;background:rgba(63,185,80,0.1)">5%</div>
+          <div class="rh-payment-pct" style="color:#3fb950">5%</div>
+          <div class="rh-payment-label">Livraison finale</div>
+          <div class="rh-payment-cumul" style="color:#3fb950">Cumul: 100%</div>
+        </div>
+      </div>
+      <!-- Visual progress bar -->
+      <div style="margin:0 20px 20px;border-radius:6px;overflow:hidden;height:10px;display:flex">
+        <div style="width:5%;background:#58a6ff" title="Réservation 5%"></div>
+        <div style="width:25%;background:#bc8cff" title="Contrat 25%"></div>
+        <div style="width:25%;background:#d29922" title="Fondations 25%"></div>
+        <div style="width:25%;background:#f85149" title="Structure 25%"></div>
+        <div style="width:10%;background:#e06c75" title="Extérieur 10%"></div>
+        <div style="width:5%;background:#98c379" title="Intérieur 5%"></div>
+        <div style="width:5%;background:#3fb950" title="Final 5%"></div>
+      </div>
+    </div>
+
+    <!-- Amenities -->
+    <div class="rh-section">
+      <div class="rh-section-header">
+        <span class="rh-section-title">✨ Équipements & prestations</span>
+      </div>
+      <div class="rh-amenities-grid">
+        <div class="rh-amenity">
+          <div class="rh-amenity-icon">🏋️</div>
+          <div>
+            <div class="rh-amenity-name">Clubhouse premium</div>
+            <div class="rh-amenity-desc">Salle de sport, salle de cinéma, espace social et piscine à débordement</div>
+          </div>
+        </div>
+        <div class="rh-amenity">
+          <div class="rh-amenity-icon">🌿</div>
+          <div>
+            <div class="rh-amenity-name">Jardins tropicaux 6 200m²</div>
+            <div class="rh-amenity-desc">Espaces verts paysagés, allées arborées et zones de détente</div>
+          </div>
+        </div>
+        <div class="rh-amenity">
+          <div class="rh-amenity-icon">🏖️</div>
+          <div>
+            <div class="rh-amenity-name">Plage club privée</div>
+            <div class="rh-amenity-desc">Accès exclusif à la plage privée du Royal Park</div>
+          </div>
+        </div>
+        <div class="rh-amenity">
+          <div class="rh-amenity-icon">🧖</div>
+          <div>
+            <div class="rh-amenity-name">Sauna & massage pods</div>
+            <div class="rh-amenity-desc">Cabines de massage privatisables et espace sauna bien-être</div>
+          </div>
+        </div>
+        <div class="rh-amenity">
+          <div class="rh-amenity-icon">📱</div>
+          <div>
+            <div class="rh-amenity-name">Application mobile</div>
+            <div class="rh-amenity-desc">Gestion de la résidence, demandes de services et notifications</div>
+          </div>
+        </div>
+        <div class="rh-amenity">
+          <div class="rh-amenity-icon">🌳</div>
+          <div>
+            <div class="rh-amenity-name">Royal Park 100ha</div>
+            <div class="rh-amenity-desc">Intégré dans le parc Royal Park de 100 hectares à Balaclava</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Professional Team -->
+    <div class="rh-section">
+      <div class="rh-section-header">
+        <span class="rh-section-title">👥 Équipe professionnelle</span>
+      </div>
+      <div class="rh-team-grid">
+        <div class="rh-team-card">
+          <div class="rh-team-role">Promoteur</div>
+          <div class="rh-team-name">Landlux Property Management Ltd</div>
+        </div>
+        <div class="rh-team-card">
+          <div class="rh-team-role">Architecte</div>
+          <div class="rh-team-name">Agence PA/R</div>
+        </div>
+        <div class="rh-team-card">
+          <div class="rh-team-role">Design Intérieur</div>
+          <div class="rh-team-name">AD Nova Ltd</div>
+        </div>
+        <div class="rh-team-card">
+          <div class="rh-team-role">Paysagiste</div>
+          <div class="rh-team-name">Greentech</div>
+        </div>
+        <div class="rh-team-card">
+          <div class="rh-team-role">Ingénieur</div>
+          <div class="rh-team-name">Idea Consultant Ltd</div>
+        </div>
+        <div class="rh-team-card">
+          <div class="rh-team-role">Notaire</div>
+          <div class="rh-team-name">Me Amritraj Dassyne — Étude Dassyne</div>
+          <div class="rh-team-sub">PCL Building, 43 Sir William Newton St, Port Louis</div>
+        </div>
+        <div class="rh-team-card">
+          <div class="rh-team-role">Constructeur</div>
+          <div class="rh-team-name">Transinvest (à confirmer)</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script>
+    // ===== Data =====
+    const UNITS = [
+      // Block A
+      { block:'A', id:'A-1',  lot:'Lot 1',  ch:3, surf:156, terr:49,  jard:98,  utile:205, usd:703500,   status:'Disponible' },
+      { block:'A', id:'A-2',  lot:'Lot 2',  ch:4, surf:179, terr:70,  jard:65,  utile:249, usd:787500,   status:'Disponible' },
+      { block:'A', id:'A-3',  lot:'Lot 3',  ch:3, surf:156, terr:49,  jard:98,  utile:205, usd:703500,   status:'Disponible' },
+      { block:'A', id:'A-4',  lot:'Lot 4',  ch:3, surf:156, terr:45,  jard:0,   utile:201, usd:608580,   status:'Disponible' },
+      { block:'A', id:'A-5',  lot:'Lot 5',  ch:4, surf:179, terr:70,  jard:0,   utile:249, usd:735000,   status:'Disponible' },
+      { block:'A', id:'A-6',  lot:'Lot 6',  ch:3, surf:156, terr:45,  jard:0,   utile:201, usd:608580,   status:'Disponible' },
+      { block:'A', id:'A-7',  lot:'Lot 7',  ch:3, surf:156, terr:45,  jard:0,   utile:201, usd:608580,   status:'Disponible' },
+      { block:'A', id:'A-8',  lot:'Lot 8',  ch:4, surf:179, terr:70,  jard:0,   utile:249, usd:735000,   status:'Disponible' },
+      { block:'A', id:'A-9',  lot:'Lot 9',  ch:3, surf:156, terr:45,  jard:0,   utile:201, usd:608580,   status:'Disponible' },
+      { block:'A', id:'A-10', lot:'Lot 10', ch:6, surf:255, terr:231, jard:0,   utile:486, usd:1575000,  status:'Disponible' },
+      { block:'A', id:'A-11', lot:'Lot 11', ch:3, surf:202, terr:219, jard:0,   utile:421, usd:1286250,  status:'Disponible' },
+      // Block B
+      { block:'B', id:'B-1',  lot:'Lot 12', ch:3, surf:156, terr:49,  jard:98,  utile:205, usd:724500,   status:'Disponible' },
+      { block:'B', id:'B-2',  lot:'Lot 13', ch:4, surf:179, terr:70,  jard:65,  utile:249, usd:850500,   status:'Disponible' },
+      { block:'B', id:'B-3',  lot:'Lot 14', ch:3, surf:156, terr:49,  jard:98,  utile:205, usd:724500,   status:'Disponible' },
+      { block:'B', id:'B-4',  lot:'Lot 15', ch:3, surf:156, terr:45,  jard:0,   utile:201, usd:661500,   status:'Disponible' },
+      { block:'B', id:'B-5',  lot:'Lot 16', ch:4, surf:179, terr:70,  jard:0,   utile:249, usd:808500,   status:'Disponible' },
+      { block:'B', id:'B-6',  lot:'Lot 17', ch:3, surf:156, terr:45,  jard:0,   utile:201, usd:661500,   status:'Disponible' },
+      { block:'B', id:'B-7',  lot:'Lot 18', ch:3, surf:156, terr:45,  jard:0,   utile:201, usd:661500,   status:'Disponible' },
+      { block:'B', id:'B-8',  lot:'Lot 19', ch:4, surf:179, terr:70,  jard:0,   utile:249, usd:808500,   status:'Disponible' },
+      { block:'B', id:'B-9',  lot:'Lot 20', ch:3, surf:156, terr:45,  jard:0,   utile:201, usd:661500,   status:'Disponible' },
+      { block:'B', id:'B-10', lot:'Lot 21', ch:6, surf:255, terr:231, jard:0,   utile:486, usd:1575000,  status:'Disponible' },
+      { block:'B', id:'B-11', lot:'Lot 22', ch:3, surf:202, terr:219, jard:0,   utile:421, usd:1338750,  status:'Disponible' },
+      // Block C
+      { block:'C', id:'C-1',  lot:'Lot 23', ch:3, surf:156, terr:49,  jard:98,  utile:205, usd:735000,   status:'Disponible' },
+      { block:'C', id:'C-2',  lot:'Lot 24', ch:4, surf:179, terr:70,  jard:65,  utile:249, usd:850500,   status:'Disponible' },
+      { block:'C', id:'C-3',  lot:'Lot 25', ch:3, surf:156, terr:49,  jard:98,  utile:205, usd:735000,   status:'Disponible' },
+      { block:'C', id:'C-4',  lot:'Lot 26', ch:3, surf:156, terr:45,  jard:0,   utile:201, usd:672000,   status:'Disponible' },
+      { block:'C', id:'C-5',  lot:'Lot 27', ch:4, surf:179, terr:70,  jard:0,   utile:249, usd:808500,   status:'Disponible' },
+      { block:'C', id:'C-6',  lot:'Lot 28', ch:3, surf:156, terr:45,  jard:0,   utile:201, usd:672000,   status:'Disponible' },
+      { block:'C', id:'C-7',  lot:'Lot 29', ch:3, surf:156, terr:45,  jard:0,   utile:201, usd:672000,   status:'Disponible' },
+      { block:'C', id:'C-8',  lot:'Lot 30', ch:4, surf:179, terr:70,  jard:0,   utile:249, usd:808500,   status:'Disponible' },
+      { block:'C', id:'C-9',  lot:'Lot 31', ch:3, surf:156, terr:45,  jard:0,   utile:201, usd:672000,   status:'Disponible' },
+      { block:'C', id:'C-10', lot:'Lot 32', ch:9, surf:457, terr:450, jard:0,   utile:907, usd:3150000,  status:'Indisponible' },
+    ];
+
+    const EUR_RATE = 0.88;
+    const MUR_RATE = 45.67;
+
+    function fmtNum(n) {
+      return n.toLocaleString('fr-FR');
+    }
+    function fmtUSD(n) {
+      return '$' + n.toLocaleString('en-US');
+    }
+    function fmtEUR(n) {
+      return '€' + Math.round(n * EUR_RATE).toLocaleString('en-US');
+    }
+    function fmtMUR(n) {
+      return 'Rs ' + Math.round(n * MUR_RATE).toLocaleString('en-US');
+    }
+
+    // ===== Filter & Sort State =====
+    let filterBlock = 'all';
+    let filterCh = 'all';
+    let filterStatus = 'all';
+    let sortCol = 'block';
+    let sortDir = 1; // 1=asc, -1=desc
+
+    function getFiltered() {
+      return UNITS.filter(u => {
+        if (filterBlock !== 'all' && u.block !== filterBlock) return false;
+        if (filterCh !== 'all' && u.ch !== parseInt(filterCh)) return false;
+        if (filterStatus !== 'all' && u.status !== filterStatus) return false;
+        return true;
+      }).sort((a, b) => {
+        let va = a[sortCol], vb = b[sortCol];
+        if (typeof va === 'string') va = va.toLowerCase(), vb = vb.toLowerCase();
+        return va < vb ? -sortDir : va > vb ? sortDir : 0;
+      });
+    }
+
+    function renderTable() {
+      const units = getFiltered();
+      const tbody = document.getElementById('rhTableBody');
+      document.getElementById('rhUnitCount').textContent = units.length;
+
+      tbody.innerHTML = units.map(u => {
+        const blockClass = 'rh-block-' + u.block.toLowerCase();
+        const statusEl = u.status === 'Disponible'
+          ? `<span class="rh-status-dispo">Disponible</span>`
+          : `<span class="rh-status-indispo">Indisponible</span>`;
+        return `<tr>
+          <td><span class="rh-block-badge ${blockClass}">${escapeHtml(u.block)}</span></td>
+          <td style="font-weight:600">${escapeHtml(u.id)}</td>
+          <td style="color:var(--text-muted)">${escapeHtml(u.lot)}</td>
+          <td>${u.ch} ch</td>
+          <td>${u.surf}</td>
+          <td>${u.terr || '–'}</td>
+          <td>${u.jard || '–'}</td>
+          <td style="font-weight:600">${u.utile}</td>
+          <td class="rh-price-usd">${fmtUSD(u.usd)}</td>
+          <td class="rh-price-alt">${fmtEUR(u.usd)}</td>
+          <td class="rh-price-alt">${fmtMUR(u.usd)}</td>
+          <td>${statusEl}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ===== Filter click handlers =====
+    document.querySelectorAll('[data-filter-block]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-filter-block]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filterBlock = btn.dataset.filterBlock;
+        renderTable();
+      });
+    });
+
+    document.querySelectorAll('[data-filter-ch]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-filter-ch]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filterCh = btn.dataset.filterCh;
+        renderTable();
+      });
+    });
+
+    document.querySelectorAll('[data-filter-status]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-filter-status]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filterStatus = btn.dataset.filterStatus;
+        renderTable();
+      });
+    });
+
+    // ===== Sort click handlers =====
+    const colMap = {
+      block:'block', id:'id', lot:'lot', ch:'ch', surf:'surf',
+      terr:'terr', jard:'jard', utile:'utile', usd:'usd',
+      eur:'usd', mur:'usd', status:'status'
+    };
+    document.querySelectorAll('.rh-table th[data-col]').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = colMap[th.dataset.col];
+        if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = 1; }
+        document.querySelectorAll('.rh-table th').forEach(h => h.classList.remove('sorted-asc','sorted-desc'));
+        th.classList.add(sortDir === 1 ? 'sorted-asc' : 'sorted-desc');
+        renderTable();
+      });
+    });
+
+    initCommon(() => {
+      renderTable();
+    });
+  </script>
+</body>
+</html>

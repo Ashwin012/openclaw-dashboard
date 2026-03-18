@@ -78,6 +78,9 @@ app.use(integrationRouter);
 const invoiceRouter = require('./routes/invoices')({ requireAuth });
 app.use(invoiceRouter);
 
+const royalHeightsRouter = require('./routes/royal-heights')({ requireAuth });
+app.use(royalHeightsRouter);
+
 const uploadRouter = require('./routes/uploads')({ config, requireAuth });
 app.use(uploadRouter);
 

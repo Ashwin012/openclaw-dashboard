@@ -437,6 +437,15 @@
 
     .empty-state { text-align: center; padding: 32px 16px; color: var(--text-subtle); font-size: 13px; }
 
+    /* Royal Heights summary card responsive */
+    .rh-summary-card { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 16px; align-items: center; }
+    @media (max-width: 900px) {
+      .rh-summary-card { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 500px) {
+      .rh-summary-card { grid-template-columns: 1fr; }
+    }
+
     /* Responsive */
     @media (max-width: 900px) {
       .two-col { grid-template-columns: 1fr; }
@@ -978,6 +987,7 @@
     <nav class="header-nav">
       <a href="/home.html" class="btn-nav">🏠 Accueil</a>
       <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
+      <a href="/royal-heights.html" class="btn-nav">🏛️ Royal Heights</a>
       <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
       <button class="btn-logout-home" id="logoutBtn">🚪 Déconnexion</button>
     </nav>
@@ -988,6 +998,7 @@
   <div class="mobile-menu" id="mobileMenu">
     <a href="/home.html" class="btn-nav">🏠 Accueil</a>
     <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
+    <a href="/royal-heights.html" class="btn-nav">🏛️ Royal Heights</a>
     <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
     <button class="btn-logout-home" id="logoutBtnMobile">🚪 Déconnexion</button>
   </div>
@@ -1108,6 +1119,32 @@
       </div>
       <div id="children-updated" style="font-size:11px;color:var(--text-muted);padding:6px 12px 0"></div>
       <div class="panel-body" id="children-section"></div>
+    </div>
+
+    <!-- Royal Heights Summary -->
+    <div class="section-title">
+      Royal Heights — Immobilier
+      <a href="/royal-heights.html">Voir tout →</a>
+    </div>
+    <div class="rh-summary-card" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:24px">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Unités</div>
+        <div style="font-size:22px;font-weight:700;color:var(--green)">31 <span style="font-size:13px;font-weight:400;color:var(--text-muted)">/ 32 disponibles</span></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">1 indisponible · Blocs A, B, C</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Prix</div>
+        <div style="font-size:17px;font-weight:700;color:var(--accent)">$608K – $3.15M</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Surface 201 – 907 m²</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Localisation</div>
+        <div style="font-size:15px;font-weight:600">Balaclava, Île Maurice</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Landlux Property · Royal Park 100ha</div>
+      </div>
+      <div>
+        <a href="/royal-heights.html" class="btn-nav" style="padding:9px 18px;font-size:13px;background:var(--accent);border-color:var(--accent);color:#fff">Voir →</a>
+      </div>
     </div>
 
     <!-- Dev Summary -->
