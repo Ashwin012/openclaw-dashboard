@@ -16,7 +16,12 @@ def fetch_url(url):
         return r.read().decode('utf-8', errors='replace')
 
 def score_listing(year, km, price_usd, grade):
-    """Score 0-5 stars based on year, mileage, price, options."""
+    """Score 0-5 stars based on year, mileage, price, options.
+    
+    SPECIAL HANDLING FOR AMG/53 MODELS:
+    - EQS53 or models with AMG do NOT get penalized for high prices
+    - They get a higher options score
+    """
     yr = int(year) if year else 2022
     if yr >= 2025: y_score = 5.0
     elif yr >= 2024: y_score = 4.5
@@ -32,19 +37,36 @@ def score_listing(year, km, price_usd, grade):
     elif km <= 35000: m_score = 2.0
     else: m_score = 1.0
 
-    if price_usd <= 33000: p_score = 5.0
-    elif price_usd <= 36000: p_score = 4.5
-    elif price_usd <= 40000: p_score = 4.0
-    elif price_usd <= 45000: p_score = 3.5
-    elif price_usd <= 50000: p_score = 3.0
-    elif price_usd <= 55000: p_score = 2.5
-    elif price_usd <= 60000: p_score = 2.0
-    else: p_score = 1.0
-
+    # Check if this is an AMG or EQS53 model
     g = (grade or '').upper()
+    is_amg_model = 'AMG' in g or '53' in g
+    
+    # Price scoring - AMG/53 models don't get penalized for high prices
+    if is_amg_model:
+        # For AMG/53, use a more generous scale that doesn't penalize higher prices
+        if price_usd <= 33000: p_score = 5.0
+        elif price_usd <= 40000: p_score = 4.5
+        elif price_usd <= 50000: p_score = 4.0
+        elif price_usd <= 60000: p_score = 3.8
+        elif price_usd <= 70000: p_score = 3.5
+        elif price_usd <= 80000: p_score = 3.2
+        else: p_score = 3.0  # No longer penalized to 1.0, stays at 3.0
+    else:
+        # Standard EQS models - budget conscious
+        if price_usd <= 33000: p_score = 5.0
+        elif price_usd <= 36000: p_score = 4.5
+        elif price_usd <= 40000: p_score = 4.0
+        elif price_usd <= 45000: p_score = 3.5
+        elif price_usd <= 50000: p_score = 3.0
+        elif price_usd <= 55000: p_score = 2.5
+        elif price_usd <= 60000: p_score = 2.0
+        else: p_score = 1.0
+
+    # Options scoring - AMG/53 models get higher scores
     if 'EDITION 1' in g: o_score = 5.0
     elif '580' in g: o_score = 4.5
-    elif 'AMG' in g: o_score = 4.0
+    elif '53' in g: o_score = 4.8  # EQS53 AMG is top tier
+    elif 'AMG' in g: o_score = 4.5  # AMG models get high score
     else: o_score = 3.0
 
     total = p_score * 0.35 + m_score * 0.25 + y_score * 0.25 + o_score * 0.15
@@ -253,7 +275,11 @@ def main():
         print(f"  ❌ Error: {e}")
 
     # Sort: within budget first (by score desc), then over budget (by price asc)
-    all_listings.sort(key=lambda x: (0 if x['price_usd'] <= BUDGET_USD else 1, -x['score'] if x['price_usd'] <= BUDGET_USD else x['price_usd']))
+    # BUT: AMG/53 models are never considered "over budget" for sorting purposes
+    all_listings.sort(key=lambda x: (
+        0 if x['price_usd'] <= BUDGET_USD or '53' in x.get('grade', '').upper() or 'AMG' in x.get('grade', '').upper() else 1,
+        -x['score'] if x['price_usd'] <= BUDGET_USD or '53' in x.get('grade', '').upper() or 'AMG' in x.get('grade', '').upper() else x['price_usd']
+    ))
 
     # Load previous for diff
     prev_ids = set()
