@@ -17,45 +17,6 @@ const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), '
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ===== Public Sales Routes (Read-Only) — BEFORE session middleware =====
-// These routes use basic auth only and must NOT set any session cookies.
-
-const salesAuth = basicAuth({
-  users: { 'sales': 'RoyalHeights2026*' },
-  challenge: true,
-  realm: 'Royal Heights Prospection'
-});
-
-const DATA_DIR_RH = path.join(__dirname, 'data', 'royal-heights');
-const PROSPECTS_PATH_RH = path.join(DATA_DIR_RH, 'prospects.json');
-const TASKS_PATH_RH = path.join(DATA_DIR_RH, 'prospection-tasks.json');
-
-app.get('/sales/royal-heights', salesAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'royal-heights-sales-view.html'));
-});
-
-app.get('/sales/api/royal-heights/prospects', salesAuth, (req, res) => {
-  res.json(readJSON(PROSPECTS_PATH_RH, []));
-});
-
-app.get('/sales/api/royal-heights/tasks', salesAuth, (req, res) => {
-  res.json(readJSON(TASKS_PATH_RH, []));
-});
-
-app.get('/sales/api/royal-heights/stats', salesAuth, (req, res) => {
-  const prospects = readJSON(PROSPECTS_PATH_RH, []);
-  const total = prospects.length;
-  const byStatus = {};
-  prospects.forEach(p => { byStatus[p.status] = (byStatus[p.status] || 0) + 1; });
-  const signed = byStatus['signed'] || 0;
-  const conversionRate = total > 0 ? Math.round((signed / total) * 100) : 0;
-  const bySource = {};
-  prospects.forEach(p => { bySource[p.source] = (bySource[p.source] || 0) + 1; });
-  res.json({ total, byStatus, bySource, conversionRate });
-});
-
-// ===== Public static assets (no auth needed) =====
-
 // Cache-busting headers for login and service worker
 app.get('/login.html', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -66,19 +27,7 @@ app.get('/sw.js', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'sw.js'));
 });
 
-// Only serve truly public assets without auth: css, js, icons, manifest, index.html
-app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
-app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
-app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'public', 'manifest.json')));
-app.get('/index.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-// Icons
-app.use('/icon-192.png', express.static(path.join(__dirname, 'public', 'icon-192.png')));
-app.use('/icon-192.svg', express.static(path.join(__dirname, 'public', 'icon-192.svg')));
-app.use('/icon-512.png', express.static(path.join(__dirname, 'public', 'icon-512.png')));
-app.use('/icon-512.svg', express.static(path.join(__dirname, 'public', 'icon-512.svg')));
-
-// ===== Session middleware =====
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'fallback-secret',
@@ -107,23 +56,6 @@ async function requireAuthOrBearer(req, res, next) {
   res.status(401).json({ error: 'Unauthorized' });
 }
 
-// ===== Protected HTML pages — require session auth =====
-
-const protectedPages = [
-  'dashboard.html', 'home.html', 'chat.html', 'profile.html',
-  'project.html', 'royal-heights.html', 'royal-heights-prospection.html',
-  'pms-compare.html'
-];
-
-protectedPages.forEach(page => {
-  app.get('/' + page, (req, res) => {
-    if (!req.session || !req.session.authenticated) {
-      return res.redirect('/login.html');
-    }
-    res.sendFile(path.join(__dirname, 'public', page));
-  });
-});
-
 // ===== Mount Routes =====
 
 const authRouter = require('./routes/auth')({ requireAuth });
@@ -147,6 +79,41 @@ app.use(integrationRouter);
 
 const invoiceRouter = require('./routes/invoices')({ requireAuth });
 app.use(invoiceRouter);
+
+// ===== Public Sales Routes (Read-Only) =====
+ // const salesAuth = basicAuth({
+  users: { 'sales': 'RoyalHeights2026*' },
+  challenge: true,
+  realm: 'Royal Heights Prospection'
+});
+
+const DATA_DIR_RH = path.join(__dirname, 'data', 'royal-heights');
+const PROSPECTS_PATH_RH = path.join(DATA_DIR_RH, 'prospects.json');
+const TASKS_PATH_RH = path.join(DATA_DIR_RH, 'prospection-tasks.json');
+
+// app.get('/sales/royal-heights', salesAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'royal-heights-sales-view.html'));
+});
+
+// app.get('/sales/api/royal-heights/prospects', salesAuth, (req, res) => {
+  res.json(readJSON(PROSPECTS_PATH_RH, []));
+});
+
+// app.get('/sales/api/royal-heights/tasks', salesAuth, (req, res) => {
+  res.json(readJSON(TASKS_PATH_RH, []));
+});
+
+// app.get('/sales/api/royal-heights/stats', salesAuth, (req, res) => {
+  const prospects = readJSON(PROSPECTS_PATH_RH, []);
+  const total = prospects.length;
+  const byStatus = {};
+  prospects.forEach(p => { byStatus[p.status] = (byStatus[p.status] || 0) + 1; });
+  const signed = byStatus['signed'] || 0;
+  const conversionRate = total > 0 ? Math.round((signed / total) * 100) : 0;
+  const bySource = {};
+  prospects.forEach(p => { bySource[p.source] = (bySource[p.source] || 0) + 1; });
+  res.json({ total, byStatus, bySource, conversionRate });
+});
 
 const royalHeightsRouter = require('./routes/royal-heights')({ requireAuth });
 app.use(royalHeightsRouter);

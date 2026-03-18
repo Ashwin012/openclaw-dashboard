@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Royal Heights — Vue Commerciale</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* ===== Header (identical to royal-heights.html) ===== */
+    .home-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .home-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
+    .home-header .clock { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .header-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .btn-nav {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .btn-nav:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
+    .btn-logout-home {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-logout-home:hover { color: var(--red); border-color: var(--red); }
+    .hamburger-btn {
+      display: none;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 18px;
+      width: 36px; height: 36px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .hamburger-btn:hover { background: var(--bg-hover); }
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 56px; left: 0; right: 0;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 99;
+      flex-direction: column;
+      padding: 8px 16px 12px;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu .btn-nav { padding: 10px 14px; font-size: 14px; width: 100%; justify-content: flex-start; }
+    .mobile-menu .btn-logout-home { padding: 10px 14px; font-size: 14px; width: 100%; text-align: left; }
+
+    /* ===== Page Layout ===== */
+    .rh-main { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+
+    /* ===== Hero ===== */
+    .rh-hero {
+      background: linear-gradient(135deg, #1c2128 0%, #161b22 50%, #1a1f27 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .rh-hero::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #58a6ff, #bc8cff, #3fb950);
+    }
+    .rh-hero-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .rh-hero-title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+    .rh-hero-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+    .hero-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+    /* ===== Stats Grid ===== */
+    .rh-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .rh-stat {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+    .rh-stat-value { font-size: 26px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+    .rh-stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* ===== Source / Country pills row ===== */
+    .source-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .source-pill {
+      padding: 3px 10px; border-radius: 12px;
+      font-size: 11px; font-weight: 600;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    /* ===== Tabs ===== */
+    .view-tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+    .view-tab {
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .view-tab:hover { background: var(--bg-hover); color: var(--text); }
+    .view-tab.active { background: rgba(88,166,255,0.1); border-color: var(--accent); color: var(--accent); }
+
+    /* ===== Pipeline Kanban ===== */
+    .pipeline-container {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+      min-height: 200px;
+    }
+    .pipeline-column {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      min-height: 200px;
+    }
+    .pipeline-col-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .pipeline-col-count {
+      background: rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 1px 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .pipeline-col-body {
+      padding: 8px;
+      flex: 1;
+      overflow-y: auto;
+      max-height: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .pipeline-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .pipeline-card:hover { border-color: var(--accent); }
+    .pipeline-card-name { font-weight: 600; margin-bottom: 3px; }
+    .pipeline-card-info { color: var(--text-muted); font-size: 11px; }
+    .pipeline-empty { color: var(--text-muted); font-size: 11px; text-align: center; padding: 20px 4px; }
+
+    /* ===== Section card ===== */
+    .rh-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .rh-section-header {
+      padding: 14px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .rh-section-title { font-weight: 600; font-size: 15px; flex: 1; }
+
+    /* ===== Stats breakdown grid ===== */
+    .stats-breakdown {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+    .stats-breakdown-col {
+      padding: 14px 20px;
+    }
+    .stats-breakdown-col:first-child {
+      border-right: 1px solid var(--border);
+    }
+    .stats-breakdown-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .stats-bar-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .stats-bar-label { min-width: 100px; color: var(--text-muted); }
+    .stats-bar-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .stats-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+    .stats-bar-count { min-width: 30px; text-align: right; font-weight: 600; }
+
+    /* ===== Filters bar ===== */
+    .rh-filters { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 20px; border-bottom: 1px solid var(--border); align-items: center; }
+    .rh-filter-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .rh-select {
+      padding: 5px 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .rh-search {
+      padding: 5px 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text);
+      font-size: 13px;
+      min-width: 180px;
+    }
+    .rh-search:focus { outline: none; border-color: var(--accent); }
+
+    /* ===== Table ===== */
+    .rh-table-wrap { overflow-x: auto; }
+    table.rh-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .rh-table th {
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      background: var(--bg-surface);
+    }
+    .rh-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); white-space: nowrap; }
+    .rh-table tr:last-child td { border-bottom: none; }
+    .rh-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .rh-table .actions-cell { white-space: nowrap; }
+
+    /* ===== Badges ===== */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .s-identified  { background: rgba(139,148,158,0.15); color: #8b949e; }
+    .s-contacted   { background: rgba(88,166,255,0.12); color: #58a6ff; }
+    .s-interested  { background: rgba(210,153,34,0.15); color: #d29922; }
+    .s-visit_planned { background: rgba(255,166,0,0.15); color: #ff9500; }
+    .s-offer       { background: rgba(188,140,255,0.15); color: #bc8cff; }
+    .s-signed      { background: rgba(63,185,80,0.15); color: #3fb950; }
+    .s-lost        { background: rgba(248,81,73,0.15); color: #f85149; }
+    .t-research    { background: rgba(88,166,255,0.12); color: #58a6ff; }
+    .t-outreach    { background: rgba(63,185,80,0.12); color: #3fb950; }
+    .t-follow_up   { background: rgba(210,153,34,0.12); color: #d29922; }
+    .t-meeting     { background: rgba(188,140,255,0.12); color: #bc8cff; }
+    .t-content     { background: rgba(255,166,0,0.12); color: #ff9500; }
+    .t-analysis    { background: rgba(248,81,73,0.12); color: #f85149; }
+    .t-other       { background: rgba(139,148,158,0.12); color: #8b949e; }
+    .t-web         { background: rgba(88,166,255,0.12); color: #58a6ff; }
+    .t-agent       { background: rgba(63,185,80,0.12); color: #3fb950; }
+    .t-diaspora    { background: rgba(210,153,34,0.12); color: #d29922; }
+    .t-salon       { background: rgba(188,140,255,0.12); color: #bc8cff; }
+    .t-referral    { background: rgba(255,166,0,0.12); color: #ff9500; }
+    .t-social      { background: rgba(248,81,73,0.12); color: #f85149; }
+    .ts-todo        { background: rgba(139,148,158,0.15); color: #8b949e; }
+    .ts-in_progress { background: rgba(88,166,255,0.12); color: #58a6ff; }
+    .ts-done        { background: rgba(63,185,80,0.12); color: #3fb950; }
+    .ts-cancelled   { background: rgba(248,81,73,0.12); color: #f85149; }
+    .p-low    { background: rgba(139,148,158,0.15); color: #8b949e; }
+    .p-medium { background: rgba(210,153,34,0.12); color: #d29922; }
+    .p-high   { background: rgba(255,166,0,0.15); color: #ff9500; }
+    .p-urgent { background: rgba(248,81,73,0.15); color: #f85149; }
+
+    /* ===== Buttons ===== */
+    .btn-primary {
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      background: var(--accent);
+      color: #000;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-secondary {
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      background: var(--bg-surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-secondary:hover { background: var(--bg-hover); }
+    .btn-danger {
+      padding: 4px 10px;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--red);
+      border: 1px solid transparent;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-danger:hover { border-color: var(--red); background: rgba(248,81,73,0.08); }
+    .btn-export {
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      background: rgba(63,185,80,0.12);
+      color: #3fb950;
+      border: 1px solid rgba(63,185,80,0.3);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .btn-export:hover { background: rgba(63,185,80,0.2); color: #3fb950; text-decoration: none; }
+    .btn-strategy {
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      background: rgba(188,140,255,0.12);
+      color: #bc8cff;
+      border: 1px solid rgba(188,140,255,0.3);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .btn-strategy:hover { background: rgba(188,140,255,0.2); color: #bc8cff; text-decoration: none; }
+
+    /* ===== Empty state ===== */
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; }
+
+    /* ===== Modal ===== */
+    .news-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .news-modal-overlay.hidden { display: none; }
+    .news-modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%;
+      max-width: 640px;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+    }
+    .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 18px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-input {
+      padding: 7px 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .form-input:focus { outline: none; border-color: var(--accent); }
+    textarea.form-input { resize: vertical; min-height: 70px; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+    .modal-close-btn {
+      position: absolute; top: 14px; right: 14px;
+      background: transparent; border: none;
+      color: var(--text-muted); font-size: 18px; cursor: pointer; line-height: 1;
+    }
+    .modal-close-btn:hover { color: var(--text); }
+
+    /* ===== Back link ===== */
+    .back-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--text-muted); font-size: 13px; text-decoration: none;
+      padding: 6px 0;
+    }
+    .back-link:hover { color: var(--accent); }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 768px) {
+      .home-header { height: auto; padding: 10px 16px; flex-wrap: wrap; row-gap: 4px; }
+      .home-header .logo { font-size: 1.1rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .home-header .clock { font-size: 12px; width: 100%; order: 2; padding-bottom: 2px; }
+      .header-nav { display: none; }
+      .hamburger-btn { display: inline-flex; }
+      .mobile-menu { top: 72px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .rh-stats { grid-template-columns: repeat(2, 1fr); }
+      .pipeline-container { grid-template-columns: repeat(2, 1fr); }
+      .stats-breakdown { grid-template-columns: 1fr; }
+      .stats-breakdown-col:first-child { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+    @media (max-width: 480px) {
+      .pipeline-container { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="home-header">
+    <div class="logo">◆ Dev Dashboard</div>
+    <span style="font-size:12px;background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:#3fb950;border-radius:var(--radius);padding:3px 10px">👁 Vue lecture seule</span>
+    <div class="clock" id="clock">--:--:--</div>
+  </header>
+
+
+
+  <main class="rh-main">
+
+    <!-- Hero -->
+    <div class="rh-hero">
+      <div class="rh-hero-row">
+        <div>
+          <div class="rh-hero-title">📊 Royal Heights — Suivi Prospection</div>
+          <div class="rh-hero-sub">Pipeline commercial · Gestion des prospects · Tâches de prospection</div>
+        </div>
+        <div class="hero-actions">
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="rh-stats" id="statsGrid">
+      <div class="rh-stat">
+        <div class="rh-stat-value" id="statTotal" style="color:var(--accent)">—</div>
+        <div class="rh-stat-label">Total prospects</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" id="statContacted" style="color:#58a6ff">—</div>
+        <div class="rh-stat-label">Contactés</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" id="statInterested" style="color:#d29922">—</div>
+        <div class="rh-stat-label">Intéressés</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" id="statVisit" style="color:#ff9500">—</div>
+        <div class="rh-stat-label">Visite planifiée</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" id="statOffer" style="color:var(--purple)">—</div>
+        <div class="rh-stat-label">En offre</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" id="statSigned" style="color:var(--green)">—</div>
+        <div class="rh-stat-label">Signés</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" id="statConversion" style="color:var(--yellow)">—%</div>
+        <div class="rh-stat-label">Taux conversion</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" id="statCountries" style="color:#bc8cff">—</div>
+        <div class="rh-stat-label">Pays couverts</div>
+      </div>
+    </div>
+
+    <!-- Enriched Stats: By Country + By Source -->
+    <div class="rh-section" id="statsBreakdownSection">
+      <div class="rh-section-header">
+        <span class="rh-section-title">📈 Répartition détaillée</span>
+      </div>
+      <div class="stats-breakdown">
+        <div class="stats-breakdown-col">
+          <div class="stats-breakdown-title">🌍 Par pays / nationalité</div>
+          <div id="countryBars">Chargement…</div>
+        </div>
+        <div class="stats-breakdown-col">
+          <div class="stats-breakdown-title">📡 Par source</div>
+          <div id="sourceBars">Chargement…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- View Tabs -->
+    <div class="view-tabs">
+      <button class="view-tab active" data-view="table" id="tabTable">📋 Liste</button>
+      <button class="view-tab" data-view="pipeline" id="tabPipeline">🔄 Pipeline</button>
+    </div>
+
+    <!-- Pipeline View (hidden by default) -->
+    <div id="pipelineView" style="display:none">
+      <div class="pipeline-container" id="pipelineGrid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Table View -->
+    <div id="tableView">
+      <div class="rh-section">
+        <div class="rh-section-header">
+          <span class="rh-section-title">👥 Pipeline Prospects</span>
+          <span id="prospectsCount" style="background:var(--accent);color:#000;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:600">0</span>
+
+        </div>
+        <div class="rh-filters">
+          <span class="rh-filter-label">Recherche:</span>
+          <input class="rh-search" id="filterSearch" placeholder="Nom, société, notes…" type="text">
+          <span class="rh-filter-label" style="margin-left:8px">Statut:</span>
+          <select class="rh-select" id="filterStatus">
+            <option value="">Tous</option>
+            <option value="identified">Identifié</option>
+            <option value="contacted">Contacté</option>
+            <option value="interested">Intéressé</option>
+            <option value="visit_planned">Visite planifiée</option>
+            <option value="offer">Offre</option>
+            <option value="signed">Signé</option>
+            <option value="lost">Perdu</option>
+          </select>
+          <span class="rh-filter-label" style="margin-left:8px">Source:</span>
+          <select class="rh-select" id="filterSource">
+            <option value="">Toutes</option>
+            <option value="web">Web</option>
+            <option value="agent">Agent</option>
+            <option value="diaspora">Diaspora</option>
+            <option value="salon">Salon</option>
+            <option value="referral">Référence</option>
+            <option value="social">Réseaux sociaux</option>
+            <option value="other">Autre</option>
+          </select>
+          <span class="rh-filter-label" style="margin-left:8px">Pays:</span>
+          <select class="rh-select" id="filterCountry">
+            <option value="">Tous</option>
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+        <div class="rh-table-wrap">
+          <table class="rh-table">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Société</th>
+                <th>Pays</th>
+                <th>Source</th>
+                <th>Statut</th>
+                <th>Email</th>
+                <th>Téléphone</th>
+                <th>Dernier contact</th>
+                <th>Prochaine action</th>
+              </tr>
+            </thead>
+            <tbody id="prospectsBody">
+              <tr><td colspan="9" class="empty-state">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tasks Table -->
+    <div class="rh-section">
+      <div class="rh-section-header">
+        <span class="rh-section-title">✅ Tâches de prospection</span>
+        <span id="tasksCount" style="background:var(--accent);color:#000;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:600">0</span>
+
+      </div>
+      <div class="rh-filters">
+        <span class="rh-filter-label">Statut:</span>
+        <select class="rh-select" id="filterTaskStatus">
+          <option value="">Tous</option>
+          <option value="todo">À faire</option>
+          <option value="in_progress">En cours</option>
+          <option value="done">Terminé</option>
+          <option value="cancelled">Annulé</option>
+        </select>
+      </div>
+      <div class="rh-table-wrap">
+        <table class="rh-table">
+          <thead>
+            <tr>
+              <th>Titre</th>
+              <th>Type</th>
+              <th>Priorité</th>
+              <th>Statut</th>
+              <th>Assigné</th>
+              <th>Échéance</th>
+              <th>Résultat</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tasksBody">
+            <tr><td colspan="7" class="empty-state">Chargement…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="padding-bottom:40px">
+
+    </div>
+
+  </main>
+
+  <script src="/js/common-sales.js"></script>
+  <script>
+    const SOURCE_LABELS = { web: 'Web', agent: 'Agent', diaspora: 'Diaspora', salon: 'Salon', referral: 'Référence', social: 'Social', other: 'Autre' };
+    const STATUS_LABELS = { identified: 'Identifié', contacted: 'Contacté', interested: 'Intéressé', visit_planned: 'Visite', offer: 'Offre', signed: 'Signé', lost: 'Perdu' };
+    const TYPE_LABELS = { research: 'Recherche', outreach: 'Prospection', follow_up: 'Suivi', meeting: 'Réunion', content: 'Contenu', analysis: 'Analyse', other: 'Autre' };
+    const TASK_STATUS_LABELS = { todo: 'À faire', in_progress: 'En cours', done: 'Terminé', cancelled: 'Annulé' };
+    const PRIORITY_LABELS = { low: 'Faible', medium: 'Moyenne', high: 'Haute', urgent: 'Urgente' };
+    const PIPELINE_STAGES = [
+      { key: 'identified', label: 'Identifié', color: '#8b949e' },
+      { key: 'contacted', label: 'Contacté', color: '#58a6ff' },
+      { key: 'interested', label: 'Intéressé', color: '#d29922' },
+      { key: 'visit_planned', label: 'Visite', color: '#ff9500' },
+      { key: 'offer', label: 'Offre', color: '#bc8cff' },
+      { key: 'signed', label: 'Signé', color: '#3fb950' },
+    ];
+    const SOURCE_COLORS = { web: '#58a6ff', agent: '#3fb950', diaspora: '#d29922', salon: '#bc8cff', referral: '#ff9500', social: '#f85149', other: '#8b949e' };
+    const COUNTRY_COLORS = ['#58a6ff', '#3fb950', '#d29922', '#bc8cff', '#ff9500', '#f85149', '#8b949e', '#79c0ff', '#56d364', '#e3b341'];
+
+    let allProspects = [];
+    let allTasks = [];
+    let editingProspectId = null;
+    let editingTaskId = null;
+    let currentView = 'table';
+
+    // ===== View Tabs =====
+    function switchView(view) {
+      currentView = view;
+      document.getElementById('tableView').style.display = view === 'table' ? '' : 'none';
+      document.getElementById('pipelineView').style.display = view === 'pipeline' ? '' : 'none';
+      document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+      if (view === 'pipeline') renderPipeline();
+    }
+
+    // ===== Stats =====
+    function computeStats() {
+      const prospects = allProspects;
+      const total = prospects.length;
+      const byStatus = {};
+      const bySource = {};
+      const byCountry = {};
+      for (const p of prospects) {
+        byStatus[p.status] = (byStatus[p.status] || 0) + 1;
+        bySource[p.source] = (bySource[p.source] || 0) + 1;
+        const c = (p.country || 'Inconnu').trim();
+        if (c) byCountry[c] = (byCountry[c] || 0) + 1;
+      }
+      const signed = byStatus['signed'] || 0;
+      const conversionRate = total > 0 ? Math.round((signed / total) * 100) : 0;
+
+      document.getElementById('statTotal').textContent = total;
+      document.getElementById('statContacted').textContent = byStatus.contacted || 0;
+      document.getElementById('statInterested').textContent = byStatus.interested || 0;
+      document.getElementById('statVisit').textContent = byStatus.visit_planned || 0;
+      document.getElementById('statOffer').textContent = byStatus.offer || 0;
+      document.getElementById('statSigned').textContent = signed;
+      document.getElementById('statConversion').textContent = conversionRate + '%';
+      document.getElementById('statCountries').textContent = Object.keys(byCountry).length;
+
+      // Country bars
+      const countryEntries = Object.entries(byCountry).sort((a,b) => b[1]-a[1]);
+      const maxCountry = countryEntries.length > 0 ? countryEntries[0][1] : 1;
+      document.getElementById('countryBars').innerHTML = countryEntries.length === 0
+        ? '<span style="color:var(--text-muted);font-size:12px">Aucun prospect</span>'
+        : countryEntries.slice(0, 15).map(([ country, count ], i) => `
+          <div class="stats-bar-item">
+            <span class="stats-bar-label">${escapeHtml(country)}</span>
+            <div class="stats-bar-track">
+              <div class="stats-bar-fill" style="width:${Math.round((count/maxCountry)*100)}%;background:${COUNTRY_COLORS[i % COUNTRY_COLORS.length]}"></div>
+            </div>
+            <span class="stats-bar-count">${count}</span>
+          </div>
+        `).join('');
+
+      // Source bars
+      const sourceEntries = Object.entries(bySource).sort((a,b) => b[1]-a[1]);
+      const maxSource = sourceEntries.length > 0 ? sourceEntries[0][1] : 1;
+      document.getElementById('sourceBars').innerHTML = sourceEntries.length === 0
+        ? '<span style="color:var(--text-muted);font-size:12px">Aucun prospect</span>'
+        : sourceEntries.map(([ src, count ]) => `
+          <div class="stats-bar-item">
+            <span class="stats-bar-label">${escapeHtml(SOURCE_LABELS[src] || src)}</span>
+            <div class="stats-bar-track">
+              <div class="stats-bar-fill" style="width:${Math.round((count/maxSource)*100)}%;background:${SOURCE_COLORS[src] || '#8b949e'}"></div>
+            </div>
+            <span class="stats-bar-count">${count}</span>
+          </div>
+        `).join('');
+
+      // Populate country filter dynamically
+      const countrySelect = document.getElementById('filterCountry');
+      const currentVal = countrySelect.value;
+      const opts = ['<option value="">Tous</option>'];
+      countryEntries.forEach(([c]) => {
+        opts.push(`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`);
+      });
+      countrySelect.innerHTML = opts.join('');
+      countrySelect.value = currentVal;
+    }
+
+    // ===== Pipeline =====
+    function renderPipeline() {
+      const grid = document.getElementById('pipelineGrid');
+      grid.innerHTML = PIPELINE_STAGES.map(stage => {
+        const prospects = allProspects.filter(p => p.status === stage.key);
+        return `
+          <div class="pipeline-column">
+            <div class="pipeline-col-header" style="border-top: 2px solid ${stage.color}">
+              <span style="color:${stage.color}">${stage.label}</span>
+              <span class="pipeline-col-count" style="color:${stage.color}">${prospects.length}</span>
+            </div>
+            <div class="pipeline-col-body">
+              ${prospects.length === 0
+                ? '<div class="pipeline-empty">Aucun prospect</div>'
+                : prospects.map(p => `
+                  <div class="pipeline-card" onclick="openProspectModal('${p.id}')">
+                    <div class="pipeline-card-name">${escapeHtml(p.name || p.company || '—')}</div>
+                    <div class="pipeline-card-info">${escapeHtml(p.company ? p.company : '')}${p.company && p.country ? ' · ' : ''}${escapeHtml(p.country || '')}</div>
+                    ${p.nextAction ? `<div class="pipeline-card-info" style="margin-top:2px;color:var(--accent)">→ ${escapeHtml(p.nextAction)}</div>` : ''}
+                  </div>
+                `).join('')
+              }
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ===== Prospects =====
+    async function loadProspects() {
+      const r = await fetch('/sales/api/royal-heights/prospects', {credentials: 'include'});
+      allProspects = await r.json();
+      computeStats();
+      renderProspects();
+      if (currentView === 'pipeline') renderPipeline();
+    }
+
+    function renderProspects() {
+      const statusFilter = document.getElementById('filterStatus').value;
+      const sourceFilter = document.getElementById('filterSource').value;
+      const countryFilter = document.getElementById('filterCountry').value;
+      const searchFilter = document.getElementById('filterSearch').value.toLowerCase().trim();
+      const filtered = allProspects.filter(p => {
+        if (statusFilter && p.status !== statusFilter) return false;
+        if (sourceFilter && p.source !== sourceFilter) return false;
+        if (countryFilter && (p.country || '').trim() !== countryFilter) return false;
+        if (searchFilter) {
+          const haystack = [p.name, p.company, p.notes, p.email, p.phone].join(' ').toLowerCase();
+          if (!haystack.includes(searchFilter)) return false;
+        }
+        return true;
+      });
+      document.getElementById('prospectsCount').textContent = filtered.length;
+      const tbody = document.getElementById('prospectsBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Aucun prospect trouvé</td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.map(p => `
+        <tr data-id="${escapeHtml(p.id)}" class="prospect-row">
+          <td><strong>${escapeHtml(p.name || '—')}</strong></td>
+          <td style="color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.company)}</td>
+          <td>${escapeHtml(p.country)}</td>
+          <td><span class="badge t-${escapeHtml(p.source)}">${escapeHtml(SOURCE_LABELS[p.source] || p.source)}</span></td>
+          <td><span class="badge s-${escapeHtml(p.status)}">${escapeHtml(STATUS_LABELS[p.status] || p.status)}</span></td>
+          <td><span style="color:var(--text-muted);font-size:12px">${escapeHtml(p.email)}</span></td>
+          <td>${escapeHtml(p.phone)}</td>
+          <td>${p.lastContactDate ? escapeHtml(p.lastContactDate.split('T')[0]) : '—'}</td>
+          <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.nextAction)}</td>
+
+        </tr>
+      `).join('');
+
+
+
+    }
+
+    async function deleteProspect(id) {
+      const p = allProspects.find(x => x.id === id);
+      if (!confirm(`Supprimer le prospect "${p ? p.name : id}" ?`)) return;
+      await fetch('/sales/api/royal-heights/prospects/' + id, { method: 'DELETE' });
+      showToast('Prospect supprimé', 'success');
+      loadProspects();
+    }
+
+    function openProspectModal(id) {
+      editingProspectId = id || null;
+      const p = id ? allProspects.find(x => x.id === id) : null;
+      document.getElementById('prospectModalTitle').textContent = p ? 'Modifier prospect' : 'Nouveau prospect';
+      document.getElementById('pName').value = p ? p.name : '';
+      document.getElementById('pEmail').value = p ? p.email : '';
+      document.getElementById('pPhone').value = p ? p.phone : '';
+      document.getElementById('pCompany').value = p ? p.company : '';
+      document.getElementById('pCountry').value = p ? p.country : '';
+      document.getElementById('pSource').value = p ? p.source : 'web';
+      document.getElementById('pStatus').value = p ? p.status : 'identified';
+      document.getElementById('pBudget').value = p ? p.budget : '';
+      document.getElementById('pUnits').value = p ? (p.unitsOfInterest || []).join(', ') : '';
+      document.getElementById('pLastContact').value = p && p.lastContactDate ? p.lastContactDate.split('T')[0] : '';
+      document.getElementById('pNextAction').value = p ? p.nextAction : '';
+      document.getElementById('pNextActionDate').value = p && p.nextActionDate ? p.nextActionDate.split('T')[0] : '';
+      document.getElementById('pNotes').value = p ? p.notes : '';
+      document.getElementById('prospectModal').classList.remove('hidden');
+    }
+
+    async function saveProspect() {
+      const name = document.getElementById('pName').value.trim();
+      if (!name) { showToast('Le nom est requis', 'error'); return; }
+      const payload = {
+        name,
+        email: document.getElementById('pEmail').value.trim(),
+        phone: document.getElementById('pPhone').value.trim(),
+        company: document.getElementById('pCompany').value.trim(),
+        country: document.getElementById('pCountry').value.trim(),
+        source: document.getElementById('pSource').value,
+        status: document.getElementById('pStatus').value,
+        budget: document.getElementById('pBudget').value.trim(),
+        unitsOfInterest: document.getElementById('pUnits').value.split(',').map(s => s.trim()).filter(Boolean),
+        lastContactDate: document.getElementById('pLastContact').value || null,
+        nextAction: document.getElementById('pNextAction').value.trim(),
+        nextActionDate: document.getElementById('pNextActionDate').value || null,
+        notes: document.getElementById('pNotes').value.trim(),
+      };
+      const url = editingProspectId ? '/sales/api/royal-heights/prospects/' + editingProspectId : '/sales/api/royal-heights/prospects';
+      const method = editingProspectId ? 'PUT' : 'POST';
+      await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      showToast(editingProspectId ? 'Prospect mis à jour' : 'Prospect ajouté', 'success');
+      document.getElementById('prospectModal').classList.add('hidden');
+      loadProspects();
+    }
+
+    // ===== Tasks =====
+    async function loadTasks() {
+      const r = await fetch('/sales/api/royal-heights/tasks', {credentials: 'include'});
+      allTasks = await r.json();
+      renderTasks();
+    }
+
+    function renderTasks() {
+      const statusFilter = document.getElementById('filterTaskStatus').value;
+      const filtered = allTasks.filter(t => !statusFilter || t.status === statusFilter);
+      document.getElementById('tasksCount').textContent = filtered.length;
+      const tbody = document.getElementById('tasksBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucune tâche trouvée</td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.map(t => `
+        <tr data-id="${escapeHtml(t.id)}" class="task-row">
+          <td><strong>${escapeHtml(t.title)}</strong></td>
+          <td><span class="badge t-${escapeHtml(t.type)}">${escapeHtml(TYPE_LABELS[t.type] || t.type)}</span></td>
+          <td><span class="badge p-${escapeHtml(t.priority)}">${escapeHtml(PRIORITY_LABELS[t.priority] || t.priority)}</span></td>
+          <td><span class="badge ts-${escapeHtml(t.status)}">${escapeHtml(TASK_STATUS_LABELS[t.status] || t.status)}</span></td>
+          <td><span style="color:var(--text-muted)">${escapeHtml(t.assignee)}</span></td>
+          <td>${t.dueDate ? escapeHtml(t.dueDate.split('T')[0]) : '—'}</td>
+          <td style="max-width:200px;white-space:normal;font-size:12px;color:var(--text-muted)">${escapeHtml(t.result || '')}</td>
+
+        </tr>
+      `).join('');
+
+
+
+    }
+
+    async function deleteTask(id) {
+      const t = allTasks.find(x => x.id === id);
+      if (!confirm(`Supprimer la tâche "${t ? t.title : id}" ?`)) return;
+      await fetch('/sales/api/royal-heights/tasks/' + id, { method: 'DELETE' });
+      showToast('Tâche supprimée', 'success');
+      loadTasks();
+    }
+
+    function openTaskModal(id) {
+      editingTaskId = id || null;
+      const t = id ? allTasks.find(x => x.id === id) : null;
+      document.getElementById('taskModalTitle').textContent = t ? 'Modifier tâche' : 'Nouvelle tâche';
+      document.getElementById('tTitle').value = t ? t.title : '';
+      document.getElementById('tType').value = t ? t.type : 'other';
+      document.getElementById('tPriority').value = t ? t.priority : 'medium';
+      document.getElementById('tStatus').value = t ? t.status : 'todo';
+      document.getElementById('tAssignee').value = t ? t.assignee : 'Agent Royal Heights';
+      document.getElementById('tDueDate').value = t && t.dueDate ? t.dueDate.split('T')[0] : '';
+      document.getElementById('tDescription').value = t ? t.description : '';
+      document.getElementById('tResult').value = t ? t.result : '';
+      document.getElementById('taskModal').classList.remove('hidden');
+    }
+
+    async function saveTask() {
+      const title = document.getElementById('tTitle').value.trim();
+      if (!title) { showToast('Le titre est requis', 'error'); return; }
+      const payload = {
+        title,
+        type: document.getElementById('tType').value,
+        priority: document.getElementById('tPriority').value,
+        status: document.getElementById('tStatus').value,
+        assignee: document.getElementById('tAssignee').value.trim(),
+        dueDate: document.getElementById('tDueDate').value || null,
+        description: document.getElementById('tDescription').value.trim(),
+        result: document.getElementById('tResult').value.trim(),
+      };
+      const url = editingTaskId ? '/sales/api/royal-heights/tasks/' + editingTaskId : '/sales/api/royal-heights/tasks';
+      const method = editingTaskId ? 'PUT' : 'POST';
+      await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      showToast(editingTaskId ? 'Tâche mise à jour' : 'Tâche ajoutée', 'success');
+      document.getElementById('taskModal').classList.add('hidden');
+      loadTasks();
+    }
+
+    // ===== Event wiring =====
+    // Sales page: skip requireAuth (uses salesAuth instead)
+    // setupLogout(); // removed for sales view
+    setupHamburgerMenu();
+    startClock();
+    (function() {
+      // View tabs
+      document.querySelectorAll('.view-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchView(tab.dataset.view));
+      });
+
+      // Filters
+      document.getElementById('filterStatus').addEventListener('change', renderProspects);
+      document.getElementById('filterSource').addEventListener('change', renderProspects);
+      document.getElementById('filterCountry').addEventListener('change', renderProspects);
+      let searchTimeout;
+      document.getElementById('filterSearch').addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(renderProspects, 200);
+      });
+      document.getElementById('filterTaskStatus').addEventListener('change', renderTasks);
+
+      // Load data
+      loadProspects();
+      loadTasks();
+    })();
+  </script>
+</body>
+</html>
