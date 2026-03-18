@@ -34,15 +34,15 @@ app.get('/sales/royal-heights', salesAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'royal-heights-sales-view.html'));
 });
 
-app.get('/sales/api/royal-heights/prospects', salesAuth, (req, res) => {
+app.get('/sales/api/royal-heights/prospects', (req, res) => {
   res.json(readJSON(PROSPECTS_PATH_RH, []));
 });
 
-app.get('/sales/api/royal-heights/tasks', salesAuth, (req, res) => {
+app.get('/sales/api/royal-heights/tasks', (req, res) => {
   res.json(readJSON(TASKS_PATH_RH, []));
 });
 
-app.get('/sales/api/royal-heights/stats', salesAuth, (req, res) => {
+app.get('/sales/api/royal-heights/stats', (req, res) => {
   const prospects = readJSON(PROSPECTS_PATH_RH, []);
   const total = prospects.length;
   const byStatus = {};
