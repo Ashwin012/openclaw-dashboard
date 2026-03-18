@@ -158,5 +158,18 @@ module.exports = function createRoyalHeightsRoutes({ requireAuth }) {
     res.json({ ok: true });
   });
 
+
+  // ===== Strategy PDF =====
+  router.get("/api/royal-heights/strategy-pdf", requireAuth, (req, res) => {
+    const fs = require("fs");
+    const strategyPath = path.join(DATA_DIR, "Royal_Heights_Strategy.html");
+    if (!fs.existsSync(strategyPath)) {
+      return res.status(404).json({ error: "Strategy file not found" });
+    }
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=Royal_Heights_Strategy.html");
+    res.sendFile(strategyPath);
+  });
+
   return router;
 };

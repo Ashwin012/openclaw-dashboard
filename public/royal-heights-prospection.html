@@ -99,6 +99,7 @@
     .rh-hero-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
     .rh-hero-title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
     .rh-hero-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+    .hero-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
     /* ===== Stats Grid ===== */
     .rh-stats {
@@ -116,7 +117,7 @@
     .rh-stat-value { font-size: 26px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
     .rh-stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
-    /* ===== Source pills row ===== */
+    /* ===== Source / Country pills row ===== */
     .source-pills { display: flex; flex-wrap: wrap; gap: 6px; }
     .source-pill {
       padding: 3px 10px; border-radius: 12px;
@@ -125,6 +126,79 @@
       border: 1px solid var(--border);
       color: var(--text-muted);
     }
+
+    /* ===== Tabs ===== */
+    .view-tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+    .view-tab {
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .view-tab:hover { background: var(--bg-hover); color: var(--text); }
+    .view-tab.active { background: rgba(88,166,255,0.1); border-color: var(--accent); color: var(--accent); }
+
+    /* ===== Pipeline Kanban ===== */
+    .pipeline-container {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+      min-height: 200px;
+    }
+    .pipeline-column {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      min-height: 200px;
+    }
+    .pipeline-col-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .pipeline-col-count {
+      background: rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 1px 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .pipeline-col-body {
+      padding: 8px;
+      flex: 1;
+      overflow-y: auto;
+      max-height: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .pipeline-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .pipeline-card:hover { border-color: var(--accent); }
+    .pipeline-card-name { font-weight: 600; margin-bottom: 3px; }
+    .pipeline-card-info { color: var(--text-muted); font-size: 11px; }
+    .pipeline-empty { color: var(--text-muted); font-size: 11px; text-align: center; padding: 20px 4px; }
 
     /* ===== Section card ===== */
     .rh-section {
@@ -144,6 +218,48 @@
     }
     .rh-section-title { font-weight: 600; font-size: 15px; flex: 1; }
 
+    /* ===== Stats breakdown grid ===== */
+    .stats-breakdown {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+    .stats-breakdown-col {
+      padding: 14px 20px;
+    }
+    .stats-breakdown-col:first-child {
+      border-right: 1px solid var(--border);
+    }
+    .stats-breakdown-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .stats-bar-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .stats-bar-label { min-width: 100px; color: var(--text-muted); }
+    .stats-bar-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .stats-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+    .stats-bar-count { min-width: 30px; text-align: right; font-weight: 600; }
+
     /* ===== Filters bar ===== */
     .rh-filters { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 20px; border-bottom: 1px solid var(--border); align-items: center; }
     .rh-filter-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
@@ -156,6 +272,16 @@
       font-size: 13px;
       cursor: pointer;
     }
+    .rh-search {
+      padding: 5px 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text);
+      font-size: 13px;
+      min-width: 180px;
+    }
+    .rh-search:focus { outline: none; border-color: var(--accent); }
 
     /* ===== Table ===== */
     .rh-table-wrap { overflow-x: auto; }
@@ -190,7 +316,6 @@
       font-weight: 600;
       white-space: nowrap;
     }
-    /* Prospect status */
     .s-identified  { background: rgba(139,148,158,0.15); color: #8b949e; }
     .s-contacted   { background: rgba(88,166,255,0.12); color: #58a6ff; }
     .s-interested  { background: rgba(210,153,34,0.15); color: #d29922; }
@@ -198,7 +323,6 @@
     .s-offer       { background: rgba(188,140,255,0.15); color: #bc8cff; }
     .s-signed      { background: rgba(63,185,80,0.15); color: #3fb950; }
     .s-lost        { background: rgba(248,81,73,0.15); color: #f85149; }
-    /* Task type */
     .t-research    { background: rgba(88,166,255,0.12); color: #58a6ff; }
     .t-outreach    { background: rgba(63,185,80,0.12); color: #3fb950; }
     .t-follow_up   { background: rgba(210,153,34,0.12); color: #d29922; }
@@ -206,12 +330,16 @@
     .t-content     { background: rgba(255,166,0,0.12); color: #ff9500; }
     .t-analysis    { background: rgba(248,81,73,0.12); color: #f85149; }
     .t-other       { background: rgba(139,148,158,0.12); color: #8b949e; }
-    /* Task status */
+    .t-web         { background: rgba(88,166,255,0.12); color: #58a6ff; }
+    .t-agent       { background: rgba(63,185,80,0.12); color: #3fb950; }
+    .t-diaspora    { background: rgba(210,153,34,0.12); color: #d29922; }
+    .t-salon       { background: rgba(188,140,255,0.12); color: #bc8cff; }
+    .t-referral    { background: rgba(255,166,0,0.12); color: #ff9500; }
+    .t-social      { background: rgba(248,81,73,0.12); color: #f85149; }
     .ts-todo        { background: rgba(139,148,158,0.15); color: #8b949e; }
     .ts-in_progress { background: rgba(88,166,255,0.12); color: #58a6ff; }
     .ts-done        { background: rgba(63,185,80,0.12); color: #3fb950; }
     .ts-cancelled   { background: rgba(248,81,73,0.12); color: #f85149; }
-    /* Priority */
     .p-low    { background: rgba(139,148,158,0.15); color: #8b949e; }
     .p-medium { background: rgba(210,153,34,0.12); color: #d29922; }
     .p-high   { background: rgba(255,166,0,0.15); color: #ff9500; }
@@ -262,6 +390,19 @@
       display: inline-flex; align-items: center; gap: 4px;
     }
     .btn-export:hover { background: rgba(63,185,80,0.2); color: #3fb950; text-decoration: none; }
+    .btn-strategy {
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      background: rgba(188,140,255,0.12);
+      color: #bc8cff;
+      border: 1px solid rgba(188,140,255,0.3);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .btn-strategy:hover { background: rgba(188,140,255,0.2); color: #bc8cff; text-decoration: none; }
 
     /* ===== Empty state ===== */
     .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; }
@@ -328,6 +469,12 @@
       .mobile-menu { top: 72px; }
       .form-grid { grid-template-columns: 1fr; }
       .rh-stats { grid-template-columns: repeat(2, 1fr); }
+      .pipeline-container { grid-template-columns: repeat(2, 1fr); }
+      .stats-breakdown { grid-template-columns: 1fr; }
+      .stats-breakdown-col:first-child { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+    @media (max-width: 480px) {
+      .pipeline-container { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -364,7 +511,11 @@
           <div class="rh-hero-title">📊 Royal Heights — Suivi Prospection</div>
           <div class="rh-hero-sub">Pipeline commercial · Gestion des prospects · Tâches de prospection</div>
         </div>
-        <a href="/royal-heights.html" class="back-link">← Retour au projet</a>
+        <div class="hero-actions">
+          <a href="/api/royal-heights/strategy-pdf" class="btn-strategy">📄 Télécharger Stratégie</a>
+          <a href="/api/royal-heights/prospects/export" class="btn-export">⬇ Exporter Prospects (Excel)</a>
+          <a href="/royal-heights.html" class="back-link">← Retour au projet</a>
+        </div>
       </div>
     </div>
 
@@ -375,86 +526,125 @@
         <div class="rh-stat-label">Total prospects</div>
       </div>
       <div class="rh-stat">
+        <div class="rh-stat-value" id="statContacted" style="color:#58a6ff">—</div>
+        <div class="rh-stat-label">Contactés</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" id="statInterested" style="color:#d29922">—</div>
+        <div class="rh-stat-label">Intéressés</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" id="statVisit" style="color:#ff9500">—</div>
+        <div class="rh-stat-label">Visite planifiée</div>
+      </div>
+      <div class="rh-stat">
+        <div class="rh-stat-value" id="statOffer" style="color:var(--purple)">—</div>
+        <div class="rh-stat-label">En offre</div>
+      </div>
+      <div class="rh-stat">
         <div class="rh-stat-value" id="statSigned" style="color:var(--green)">—</div>
         <div class="rh-stat-label">Signés</div>
       </div>
       <div class="rh-stat">
         <div class="rh-stat-value" id="statConversion" style="color:var(--yellow)">—%</div>
-        <div class="rh-stat-label">Taux de conversion</div>
+        <div class="rh-stat-label">Taux conversion</div>
       </div>
       <div class="rh-stat">
-        <div class="rh-stat-value" id="statInterested" style="color:var(--purple)">—</div>
-        <div class="rh-stat-label">Intéressés</div>
-      </div>
-      <div class="rh-stat">
-        <div class="rh-stat-value" id="statOffer" style="color:#ff9500">—</div>
-        <div class="rh-stat-label">En offre</div>
+        <div class="rh-stat-value" id="statCountries" style="color:#bc8cff">—</div>
+        <div class="rh-stat-label">Pays couverts</div>
       </div>
     </div>
 
-    <!-- Sources summary -->
-    <div class="rh-section" style="margin-bottom:20px">
+    <!-- Enriched Stats: By Country + By Source -->
+    <div class="rh-section" id="statsBreakdownSection">
       <div class="rh-section-header">
-        <span class="rh-section-title">📡 Prospects par source</span>
+        <span class="rh-section-title">📈 Répartition détaillée</span>
       </div>
-      <div style="padding:14px 20px">
-        <div class="source-pills" id="sourcePills"><span class="source-pill" style="color:var(--text-muted)">Chargement…</span></div>
+      <div class="stats-breakdown">
+        <div class="stats-breakdown-col">
+          <div class="stats-breakdown-title">🌍 Par pays / nationalité</div>
+          <div id="countryBars">Chargement…</div>
+        </div>
+        <div class="stats-breakdown-col">
+          <div class="stats-breakdown-title">📡 Par source</div>
+          <div id="sourceBars">Chargement…</div>
+        </div>
       </div>
     </div>
 
-    <!-- Prospects Table -->
-    <div class="rh-section">
-      <div class="rh-section-header">
-        <span class="rh-section-title">👥 Pipeline Prospects</span>
-        <span id="prospectsCount" style="background:var(--accent);color:#000;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:600">0</span>
-        <a href="/api/royal-heights/prospects/export" class="btn-export" id="exportBtn">⬇ Export Excel</a>
-        <button class="btn-primary" id="addProspectBtn">+ Ajouter</button>
+    <!-- View Tabs -->
+    <div class="view-tabs">
+      <button class="view-tab active" data-view="table" id="tabTable">📋 Liste</button>
+      <button class="view-tab" data-view="pipeline" id="tabPipeline">🔄 Pipeline</button>
+    </div>
+
+    <!-- Pipeline View (hidden by default) -->
+    <div id="pipelineView" style="display:none">
+      <div class="pipeline-container" id="pipelineGrid">
+        <!-- Populated by JS -->
       </div>
-      <div class="rh-filters">
-        <span class="rh-filter-label">Statut:</span>
-        <select class="rh-select" id="filterStatus">
-          <option value="">Tous</option>
-          <option value="identified">Identifié</option>
-          <option value="contacted">Contacté</option>
-          <option value="interested">Intéressé</option>
-          <option value="visit_planned">Visite planifiée</option>
-          <option value="offer">Offre</option>
-          <option value="signed">Signé</option>
-          <option value="lost">Perdu</option>
-        </select>
-        <span class="rh-filter-label" style="margin-left:8px">Source:</span>
-        <select class="rh-select" id="filterSource">
-          <option value="">Toutes</option>
-          <option value="web">Web</option>
-          <option value="agent">Agent</option>
-          <option value="diaspora">Diaspora</option>
-          <option value="salon">Salon</option>
-          <option value="referral">Référence</option>
-          <option value="social">Réseaux sociaux</option>
-          <option value="other">Autre</option>
-        </select>
-      </div>
-      <div class="rh-table-wrap">
-        <table class="rh-table">
-          <thead>
-            <tr>
-              <th>Nom</th>
-              <th>Téléphone</th>
-              <th>Email</th>
-              <th>Pays</th>
-              <th>Source</th>
-              <th>Statut</th>
-              <th>Unités</th>
-              <th>Budget</th>
-              <th>Dernier contact</th>
-              <th>Prochaine action</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="prospectsBody">
-            <tr><td colspan="11" class="empty-state">Chargement…</td></tr>
-          </tbody>
-        </table>
+    </div>
+
+    <!-- Table View -->
+    <div id="tableView">
+      <div class="rh-section">
+        <div class="rh-section-header">
+          <span class="rh-section-title">👥 Pipeline Prospects</span>
+          <span id="prospectsCount" style="background:var(--accent);color:#000;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:600">0</span>
+          <button class="btn-primary" id="addProspectBtn">+ Ajouter</button>
+        </div>
+        <div class="rh-filters">
+          <span class="rh-filter-label">Recherche:</span>
+          <input class="rh-search" id="filterSearch" placeholder="Nom, société, notes…" type="text">
+          <span class="rh-filter-label" style="margin-left:8px">Statut:</span>
+          <select class="rh-select" id="filterStatus">
+            <option value="">Tous</option>
+            <option value="identified">Identifié</option>
+            <option value="contacted">Contacté</option>
+            <option value="interested">Intéressé</option>
+            <option value="visit_planned">Visite planifiée</option>
+            <option value="offer">Offre</option>
+            <option value="signed">Signé</option>
+            <option value="lost">Perdu</option>
+          </select>
+          <span class="rh-filter-label" style="margin-left:8px">Source:</span>
+          <select class="rh-select" id="filterSource">
+            <option value="">Toutes</option>
+            <option value="web">Web</option>
+            <option value="agent">Agent</option>
+            <option value="diaspora">Diaspora</option>
+            <option value="salon">Salon</option>
+            <option value="referral">Référence</option>
+            <option value="social">Réseaux sociaux</option>
+            <option value="other">Autre</option>
+          </select>
+          <span class="rh-filter-label" style="margin-left:8px">Pays:</span>
+          <select class="rh-select" id="filterCountry">
+            <option value="">Tous</option>
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+        <div class="rh-table-wrap">
+          <table class="rh-table">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Société</th>
+                <th>Pays</th>
+                <th>Source</th>
+                <th>Statut</th>
+                <th>Email</th>
+                <th>Téléphone</th>
+                <th>Dernier contact</th>
+                <th>Prochaine action</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="prospectsBody">
+              <tr><td colspan="10" class="empty-state">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -655,67 +845,167 @@
     const TYPE_LABELS = { research: 'Recherche', outreach: 'Prospection', follow_up: 'Suivi', meeting: 'Réunion', content: 'Contenu', analysis: 'Analyse', other: 'Autre' };
     const TASK_STATUS_LABELS = { todo: 'À faire', in_progress: 'En cours', done: 'Terminé', cancelled: 'Annulé' };
     const PRIORITY_LABELS = { low: 'Faible', medium: 'Moyenne', high: 'Haute', urgent: 'Urgente' };
+    const PIPELINE_STAGES = [
+      { key: 'identified', label: 'Identifié', color: '#8b949e' },
+      { key: 'contacted', label: 'Contacté', color: '#58a6ff' },
+      { key: 'interested', label: 'Intéressé', color: '#d29922' },
+      { key: 'visit_planned', label: 'Visite', color: '#ff9500' },
+      { key: 'offer', label: 'Offre', color: '#bc8cff' },
+      { key: 'signed', label: 'Signé', color: '#3fb950' },
+    ];
+    const SOURCE_COLORS = { web: '#58a6ff', agent: '#3fb950', diaspora: '#d29922', salon: '#bc8cff', referral: '#ff9500', social: '#f85149', other: '#8b949e' };
+    const COUNTRY_COLORS = ['#58a6ff', '#3fb950', '#d29922', '#bc8cff', '#ff9500', '#f85149', '#8b949e', '#79c0ff', '#56d364', '#e3b341'];
 
     let allProspects = [];
     let allTasks = [];
     let editingProspectId = null;
     let editingTaskId = null;
+    let currentView = 'table';
+
+    // ===== View Tabs =====
+    function switchView(view) {
+      currentView = view;
+      document.getElementById('tableView').style.display = view === 'table' ? '' : 'none';
+      document.getElementById('pipelineView').style.display = view === 'pipeline' ? '' : 'none';
+      document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+      if (view === 'pipeline') renderPipeline();
+    }
 
     // ===== Stats =====
-    async function loadStats() {
-      try {
-        const r = await fetch('/api/royal-heights/stats');
-        const d = await r.json();
-        document.getElementById('statTotal').textContent = d.total;
-        document.getElementById('statSigned').textContent = d.byStatus.signed || 0;
-        document.getElementById('statConversion').textContent = d.conversionRate + '%';
-        document.getElementById('statInterested').textContent = d.byStatus.interested || 0;
-        document.getElementById('statOffer').textContent = d.byStatus.offer || 0;
+    function computeStats() {
+      const prospects = allProspects;
+      const total = prospects.length;
+      const byStatus = {};
+      const bySource = {};
+      const byCountry = {};
+      for (const p of prospects) {
+        byStatus[p.status] = (byStatus[p.status] || 0) + 1;
+        bySource[p.source] = (bySource[p.source] || 0) + 1;
+        const c = (p.country || 'Inconnu').trim();
+        if (c) byCountry[c] = (byCountry[c] || 0) + 1;
+      }
+      const signed = byStatus['signed'] || 0;
+      const conversionRate = total > 0 ? Math.round((signed / total) * 100) : 0;
 
-        const pills = document.getElementById('sourcePills');
-        const entries = Object.entries(d.bySource || {});
-        if (entries.length === 0) {
-          pills.innerHTML = '<span class="source-pill">Aucun prospect</span>';
-        } else {
-          pills.innerHTML = entries.sort((a,b) => b[1]-a[1]).map(([src, n]) =>
-            `<span class="source-pill"><strong>${escapeHtml(SOURCE_LABELS[src] || src)}</strong> &nbsp;${n}</span>`
-          ).join('');
-        }
-      } catch(e) { console.error('Stats error', e); }
+      document.getElementById('statTotal').textContent = total;
+      document.getElementById('statContacted').textContent = byStatus.contacted || 0;
+      document.getElementById('statInterested').textContent = byStatus.interested || 0;
+      document.getElementById('statVisit').textContent = byStatus.visit_planned || 0;
+      document.getElementById('statOffer').textContent = byStatus.offer || 0;
+      document.getElementById('statSigned').textContent = signed;
+      document.getElementById('statConversion').textContent = conversionRate + '%';
+      document.getElementById('statCountries').textContent = Object.keys(byCountry).length;
+
+      // Country bars
+      const countryEntries = Object.entries(byCountry).sort((a,b) => b[1]-a[1]);
+      const maxCountry = countryEntries.length > 0 ? countryEntries[0][1] : 1;
+      document.getElementById('countryBars').innerHTML = countryEntries.length === 0
+        ? '<span style="color:var(--text-muted);font-size:12px">Aucun prospect</span>'
+        : countryEntries.slice(0, 15).map(([ country, count ], i) => `
+          <div class="stats-bar-item">
+            <span class="stats-bar-label">${escapeHtml(country)}</span>
+            <div class="stats-bar-track">
+              <div class="stats-bar-fill" style="width:${Math.round((count/maxCountry)*100)}%;background:${COUNTRY_COLORS[i % COUNTRY_COLORS.length]}"></div>
+            </div>
+            <span class="stats-bar-count">${count}</span>
+          </div>
+        `).join('');
+
+      // Source bars
+      const sourceEntries = Object.entries(bySource).sort((a,b) => b[1]-a[1]);
+      const maxSource = sourceEntries.length > 0 ? sourceEntries[0][1] : 1;
+      document.getElementById('sourceBars').innerHTML = sourceEntries.length === 0
+        ? '<span style="color:var(--text-muted);font-size:12px">Aucun prospect</span>'
+        : sourceEntries.map(([ src, count ]) => `
+          <div class="stats-bar-item">
+            <span class="stats-bar-label">${escapeHtml(SOURCE_LABELS[src] || src)}</span>
+            <div class="stats-bar-track">
+              <div class="stats-bar-fill" style="width:${Math.round((count/maxSource)*100)}%;background:${SOURCE_COLORS[src] || '#8b949e'}"></div>
+            </div>
+            <span class="stats-bar-count">${count}</span>
+          </div>
+        `).join('');
+
+      // Populate country filter dynamically
+      const countrySelect = document.getElementById('filterCountry');
+      const currentVal = countrySelect.value;
+      const opts = ['<option value="">Tous</option>'];
+      countryEntries.forEach(([c]) => {
+        opts.push(`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`);
+      });
+      countrySelect.innerHTML = opts.join('');
+      countrySelect.value = currentVal;
+    }
+
+    // ===== Pipeline =====
+    function renderPipeline() {
+      const grid = document.getElementById('pipelineGrid');
+      grid.innerHTML = PIPELINE_STAGES.map(stage => {
+        const prospects = allProspects.filter(p => p.status === stage.key);
+        return `
+          <div class="pipeline-column">
+            <div class="pipeline-col-header" style="border-top: 2px solid ${stage.color}">
+              <span style="color:${stage.color}">${stage.label}</span>
+              <span class="pipeline-col-count" style="color:${stage.color}">${prospects.length}</span>
+            </div>
+            <div class="pipeline-col-body">
+              ${prospects.length === 0
+                ? '<div class="pipeline-empty">Aucun prospect</div>'
+                : prospects.map(p => `
+                  <div class="pipeline-card" onclick="openProspectModal('${p.id}')">
+                    <div class="pipeline-card-name">${escapeHtml(p.name || p.company || '—')}</div>
+                    <div class="pipeline-card-info">${escapeHtml(p.company ? p.company : '')}${p.company && p.country ? ' · ' : ''}${escapeHtml(p.country || '')}</div>
+                    ${p.nextAction ? `<div class="pipeline-card-info" style="margin-top:2px;color:var(--accent)">→ ${escapeHtml(p.nextAction)}</div>` : ''}
+                  </div>
+                `).join('')
+              }
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     // ===== Prospects =====
     async function loadProspects() {
       const r = await fetch('/api/royal-heights/prospects');
       allProspects = await r.json();
+      computeStats();
       renderProspects();
+      if (currentView === 'pipeline') renderPipeline();
     }
 
     function renderProspects() {
       const statusFilter = document.getElementById('filterStatus').value;
       const sourceFilter = document.getElementById('filterSource').value;
-      const filtered = allProspects.filter(p =>
-        (!statusFilter || p.status === statusFilter) &&
-        (!sourceFilter || p.source === sourceFilter)
-      );
+      const countryFilter = document.getElementById('filterCountry').value;
+      const searchFilter = document.getElementById('filterSearch').value.toLowerCase().trim();
+      const filtered = allProspects.filter(p => {
+        if (statusFilter && p.status !== statusFilter) return false;
+        if (sourceFilter && p.source !== sourceFilter) return false;
+        if (countryFilter && (p.country || '').trim() !== countryFilter) return false;
+        if (searchFilter) {
+          const haystack = [p.name, p.company, p.notes, p.email, p.phone].join(' ').toLowerCase();
+          if (!haystack.includes(searchFilter)) return false;
+        }
+        return true;
+      });
       document.getElementById('prospectsCount').textContent = filtered.length;
       const tbody = document.getElementById('prospectsBody');
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" class="empty-state">Aucun prospect trouvé</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Aucun prospect trouvé</td></tr>';
         return;
       }
       tbody.innerHTML = filtered.map(p => `
         <tr data-id="${escapeHtml(p.id)}" class="prospect-row">
-          <td><strong>${escapeHtml(p.name)}</strong></td>
-          <td>${escapeHtml(p.phone)}</td>
-          <td><span style="color:var(--text-muted)">${escapeHtml(p.email)}</span></td>
+          <td><strong>${escapeHtml(p.name || '—')}</strong></td>
+          <td style="color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.company)}</td>
           <td>${escapeHtml(p.country)}</td>
           <td><span class="badge t-${escapeHtml(p.source)}">${escapeHtml(SOURCE_LABELS[p.source] || p.source)}</span></td>
           <td><span class="badge s-${escapeHtml(p.status)}">${escapeHtml(STATUS_LABELS[p.status] || p.status)}</span></td>
-          <td>${escapeHtml((p.unitsOfInterest || []).join(', '))}</td>
-          <td>${escapeHtml(p.budget)}</td>
+          <td><span style="color:var(--text-muted);font-size:12px">${escapeHtml(p.email)}</span></td>
+          <td>${escapeHtml(p.phone)}</td>
           <td>${p.lastContactDate ? escapeHtml(p.lastContactDate.split('T')[0]) : '—'}</td>
-          <td>${escapeHtml(p.nextAction)}</td>
+          <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.nextAction)}</td>
           <td class="actions-cell">
             <button class="btn-danger delete-prospect-btn" data-id="${escapeHtml(p.id)}">✕</button>
           </td>
@@ -741,7 +1031,7 @@
       if (!confirm(`Supprimer le prospect "${p ? p.name : id}" ?`)) return;
       await fetch('/api/royal-heights/prospects/' + id, { method: 'DELETE' });
       showToast('Prospect supprimé', 'success');
-      loadProspects(); loadStats();
+      loadProspects();
     }
 
     function openProspectModal(id) {
@@ -787,7 +1077,7 @@
       await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       showToast(editingProspectId ? 'Prospect mis à jour' : 'Prospect ajouté', 'success');
       document.getElementById('prospectModal').classList.add('hidden');
-      loadProspects(); loadStats();
+      loadProspects();
     }
 
     // ===== Tasks =====
@@ -881,9 +1171,20 @@
 
     // ===== Event wiring =====
     initCommon(() => {
+      // View tabs
+      document.querySelectorAll('.view-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchView(tab.dataset.view));
+      });
+
       // Filters
       document.getElementById('filterStatus').addEventListener('change', renderProspects);
       document.getElementById('filterSource').addEventListener('change', renderProspects);
+      document.getElementById('filterCountry').addEventListener('change', renderProspects);
+      let searchTimeout;
+      document.getElementById('filterSearch').addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(renderProspects, 200);
+      });
       document.getElementById('filterTaskStatus').addEventListener('change', renderTasks);
 
       // Prospect modal
@@ -901,7 +1202,6 @@
       document.getElementById('taskModal').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden'); });
 
       // Load data
-      loadStats();
       loadProspects();
       loadTasks();
     });
