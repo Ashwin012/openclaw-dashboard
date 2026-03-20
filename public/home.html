@@ -499,6 +499,21 @@
     .eqs-suv{background:rgba(188,140,255,0.15);color:#bc8cff}
     .eqs-new{background:#f85149;color:#fff;font-size:9px;padding:1px 5px;border-radius:6px}
     .eqs-source{font-size:10px;color:var(--text-muted);background:var(--bg-surface);padding:1px 5px;border-radius:4px;border:1px solid var(--border)}
+    .eqs-options{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+    .eqs-opt-tag{font-size:9px;padding:1px 6px;border-radius:6px;font-weight:600;white-space:nowrap}
+    .eqs-opt-HYPERSCREEN{background:rgba(255,215,0,0.2);color:#ffd700}
+    .eqs-opt-chauffeur{background:rgba(147,112,219,0.2);color:#9370db}
+    .eqs-opt-rear-ent{background:rgba(255,105,180,0.2);color:#ff69b4}
+    .eqs-opt-amg-line{background:rgba(255,99,71,0.2);color:#ff6347}
+    .eqs-opt-night{background:rgba(100,100,100,0.25);color:#b0b0b0}
+    .eqs-opt-burmester{background:rgba(0,206,209,0.2);color:#00ced1}
+    .eqs-opt-panoramic{background:rgba(135,206,250,0.2);color:#87cefa}
+    .eqs-opt-airmatic{background:rgba(50,205,50,0.2);color:#32cd32}
+    .eqs-opt-hud{background:rgba(255,165,0,0.2);color:#ffa500}
+    .eqs-opt-53amg{background:rgba(255,0,0,0.2);color:#ff4444}
+    .eqs-opt-4matic{background:rgba(70,130,180,0.2);color:#4682b4}
+    .eqs-opt-7seats{background:rgba(186,85,211,0.2);color:#ba55d3}
+    .eqs-opt-digital-light{background:rgba(0,255,127,0.2);color:#00ff7f}
     .score-tip{display:none;position:absolute;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:11px;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.4);left:55px;top:0;width:170px}
     .eqs-score:hover .score-tip{display:block}
     .sb{display:flex;align-items:center;gap:4px;margin:2px 0}
@@ -1607,7 +1622,8 @@
         document.getElementById('eqs-count').textContent = data.total;
         if (data.updatedAt) {
           const ago = timeAgo(data.updatedAt);
-          document.getElementById('eqs-updated').textContent = 'Mis à jour ' + ago + ' | ' + data.total + ' annonces' + (data.new_count ? ' (' + data.new_count + ' nouvelles)' : '') + ' | Budget: $' + (data.budget_usd/1000) + 'k';
+          const srcList = data.sources ? Object.entries(data.sources).map(([k,v])=>k+': '+v).join(', ') : '';
+          document.getElementById('eqs-updated').textContent = 'Mis à jour ' + ago + ' | ' + data.total + ' annonces' + (data.new_count ? ' (' + data.new_count + ' nouvelles)' : '') + (srcList ? ' | ' + srcList : '');
         }
         const types = ['all','Sedan','SUV'];
         const sorts = [{k:'score',l:'⭐ Score'},{k:'price',l:'💰 Prix ↑'},{k:'km',l:'🛣️ KM ↑'},{k:'year',l:'📅 Année ↓'}];
@@ -1633,7 +1649,9 @@
             '<div class="sb"><span class="sb-l">Options</span><div class="sb-t"><div class="sb-f" style="width:'+(b.options||0)*20+'%"></div></div><span>'+(b.options||0)+'</span></div></div></div>' +
             '<div class="eqs-details"><div class="eqs-title"><span class="eqs-type-badge '+(l.type==='SUV'?'eqs-suv':'eqs-sedan')+'">'+l.type+'</span> '+escHtml(l.grade)+(l.is_new?' <span class="eqs-new">NEW</span>':'')+'</div>' +
             '<div class="eqs-meta"><span>📅 '+l.year+'/'+String(l.month).padStart(2,'0')+'</span><span>🛣️ '+l.km.toLocaleString()+' km</span><span>🎨 '+(l.color||'N/A')+'</span><span class="eqs-source">'+l.source+'</span>' +
-            (l.discount?'<span style="color:var(--red)">-$'+l.discount.toLocaleString()+'</span>':'')+'</div></div>' +
+            (l.discount?'<span style="color:var(--red)">-$'+l.discount.toLocaleString()+'</span>':'')+'</div>' +
+            (l.options&&l.options.length?'<div class="eqs-options">'+l.options.map(function(o){var cls=o==='HYPERSCREEN'?'HYPERSCREEN':o==='Chauffeur Package'?'chauffeur':o==='Rear Entertainment'?'rear-ent':o==='AMG Line'?'amg-line':o==='Night Package'?'night':o.indexOf('Burmester')>=0?'burmester':o==='Panoramic Roof'?'panoramic':o==='AIRMATIC'?'airmatic':o==='HUD'?'hud':o==='53 AMG'?'53amg':o==='4MATIC'?'4matic':o.indexOf('7 seat')>=0?'7seats':o==='Digital Light'?'digital-light':'';return '<span class="eqs-opt-tag eqs-opt-'+cls+'">'+o+'</span>';}).join('')+'</div>':'') +
+            '</div>' +
             '<div class="eqs-price">$'+l.price_usd.toLocaleString()+'<br><span style="font-size:10px;color:var(--text-muted);font-weight:400">¥'+l.price_yen.toLocaleString()+'</span></div>' +
             '</a></div>';
         }).join('');

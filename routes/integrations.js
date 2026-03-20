@@ -152,7 +152,7 @@ module.exports = function createIntegrationRoutes({ requireAuth }) {
 
   router.post('/api/eqs/refresh', requireAuth, async (req, res) => {
     try {
-      await execFileAsync('python3', [path.join(__dirname, '..', 'scripts', 'fetch-eqs.py')], { timeout: 60000 });
+      await execFileAsync('python3', [path.join(__dirname, '..', 'scripts', 'fetch-eqs.py')], { timeout: 120000 });
       res.json(JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'eqs-listings.json'))));
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
