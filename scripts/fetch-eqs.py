@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """Scrape Mercedes EQS listings from Japan, score them, detect options, save to JSON."""
-import json, re, os, datetime, hashlib, sys
+import json, re, os, datetime, hashlib, sys, ssl
 from urllib.request import urlopen, Request
 from urllib.parse import quote_plus
 from urllib.error import URLError, HTTPError
+
+# SSL context that skips verification (for sites with expired/mismatched certs)
+SSL_NOVERIFY = ssl.create_default_context()
+SSL_NOVERIFY.check_hostname = False
+SSL_NOVERIFY.verify_mode = ssl.CERT_NONE
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
 OUT_FILE = os.path.join(DATA_DIR, 'eqs-listings.json')
@@ -29,12 +34,21 @@ OPTION_TAGS = [
     ('Digital Light', re.compile(r'digital\s*light', re.I)),
 ]
 
-def fetch_url(url, timeout=25):
+def fetch_url(url, timeout=25, verify_ssl=True):
     req = Request(url, headers=HEADERS)
     try:
-        with urlopen(req, timeout=timeout) as r:
+        ctx = None if verify_ssl else SSL_NOVERIFY
+        with urlopen(req, timeout=timeout, context=ctx) as r:
             return r.read().decode('utf-8', errors='replace')
     except Exception as e:
+        # Retry without SSL verification if SSL error
+        if verify_ssl and 'SSL' in str(e):
+            try:
+                with urlopen(req, timeout=timeout, context=SSL_NOVERIFY) as r:
+                    return r.read().decode('utf-8', errors='replace')
+            except Exception as e2:
+                print(f"  ⚠️ fetch error for {url[:80]}: {e2}", file=sys.stderr)
+                return ''
         print(f"  ⚠️ fetch error for {url[:80]}: {e}", file=sys.stderr)
         return ''
 
@@ -223,8 +237,8 @@ def parse_carsfromjapan():
     """Parse Cars From Japan — EQS listings."""
     listings = []
     urls = [
-        ('https://www.carsfromjapan.com/cheap-used-mercedes-benz-eqs-for-sale', 'Sedan'),
-        ('https://www.carsfromjapan.com/cheap-used-mercedes-benz-eqs-suv-for-sale', 'SUV'),
+        ('https://carfromjapan.com/cheap-used-mercedes-benz-eqs-for-sale', 'Sedan'),
+        ('https://carfromjapan.com/cheap-used-mercedes-benz-eqs-suv-for-sale', 'SUV'),
     ]
     for url, body_type in urls:
         html = fetch_url(url)
@@ -232,11 +246,10 @@ def parse_carsfromjapan():
             continue
         # Each car card has price and details
         # Look for car blocks with links to detail pages
-        cards = re.findall(r'<a[^>]*href="(https?://www\.carsfromjapan\.com/cheap-used-mercedes-benz-eqs[^"]*)"[^>]*>(.*?)</a>', html, re.DOTALL)
+        cards = re.findall(r'<a[^>]*href="(https?://carfromjapan\.com/cheap-used-mercedes-benz-eqs[^"]*)"[^>]*>(.*?)</a>', html, re.DOTALL)
         if not cards:
-            # Try alternate pattern - find car listing blocks
-            cards = re.findall(r'href="(/cheap-used-mercedes-benz-eqs[^"]*detail[^"]*)"[^>]*>(.*?)</a>', html, re.DOTALL)
-            cards = [(f'https://www.carsfromjapan.com{u}', c) for u, c in cards]
+            cards = re.findall(r'href="(/cheap-used-mercedes-benz-eqs[^"]*)"[^>]*>(.*?)</a>', html, re.DOTALL)
+            cards = [(f'https://carfromjapan.com{u}', c) for u, c in cards]
         
         # Also try a broader approach - find all price/year/km data in listing blocks
         # CarsFromJapan typically shows cards with USD prices
@@ -253,7 +266,7 @@ def parse_carsfromjapan():
                 url_m = re.search(r'href="([^"]*eqs[^"]*)"', block, re.I)
                 car_url = url_m.group(1) if url_m else url
                 if car_url.startswith('/'):
-                    car_url = 'https://www.carsfromjapan.com' + car_url
+                    car_url = 'https://carfromjapan.com' + car_url
                 
                 # Price in USD
                 price_m = re.search(r'(?:USD|US\$|\$)\s*([\d,]+)', clean)
@@ -368,9 +381,9 @@ def parse_stcjapan():
     """Parse STC Japan — search for EQS."""
     listings = []
     urls = [
-        'https://www.stcjapan.com/used-cars?keyword=mercedes+eqs',
-        'https://www.stcjapan.com/used-cars?keyword=eqs+suv',
-        'https://www.stcjapan.com/used-cars?keyword=eqs+53',
+        'https://stcjapan.net/make/Mercedes?keyword=EQS',
+        'https://stcjapan.net/make/Mercedes?keyword=EQS+SUV',
+        'https://stcjapan.net/make/Mercedes?keyword=EQS+53',
     ]
     
     for url in urls:
@@ -390,7 +403,7 @@ def parse_stcjapan():
                 url_m = re.search(r'href="([^"]*(?:vehicle|stock|detail|car)[^"]*)"', block, re.I)
                 car_url = url_m.group(1) if url_m else url
                 if car_url.startswith('/'):
-                    car_url = 'https://www.stcjapan.com' + car_url
+                    car_url = 'https://stcjapan.net' + car_url
                 
                 price_m = re.search(r'(?:USD|US\$|\$)\s*([\d,]+)', clean)
                 if not price_m:
