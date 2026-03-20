@@ -472,9 +472,141 @@
       .pipeline-container { grid-template-columns: repeat(2, 1fr); }
       .stats-breakdown { grid-template-columns: 1fr; }
       .stats-breakdown-col:first-child { border-right: none; border-bottom: 1px solid var(--border); }
+      /* Mobile: scrollable prospects table */
+      .rh-table-wrap {
+        max-height: 450px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        position: relative;
+      }
+      .rh-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: var(--bg-card);
+      }
+      .rh-table thead th {
+        background: var(--bg-card);
+        box-shadow: 0 1px 0 var(--border);
+      }
+      .rh-filters {
+        position: sticky;
+        top: 0;
+        z-index: 11;
+        background: var(--bg-card);
+      }
+      /* Scroll fade hint at bottom */
+      .rh-section:has(.rh-table-wrap) {
+        position: relative;
+      }
     }
     @media (max-width: 480px) {
       .pipeline-container { grid-template-columns: 1fr; }
+    }
+
+    /* ===== Result Detail Modal ===== */
+    .result-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 300;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+    .result-modal-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .result-modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0;
+      width: 100%;
+      max-width: 600px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transform: translateY(20px);
+      transition: transform 0.2s;
+    }
+    .result-modal-overlay.visible .result-modal-box {
+      transform: translateY(0);
+    }
+    .result-modal-header {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .result-modal-header-title {
+      font-weight: 600;
+      font-size: 15px;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .result-modal-close {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      width: 32px; height: 32px;
+      border-radius: var(--radius);
+      font-size: 16px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .result-modal-close:hover { color: var(--text); border-color: var(--text-muted); }
+    .result-modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .result-summary {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 280px;
+    }
+    .result-summary-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text-muted);
+      font-size: 12px;
+      flex: 1;
+      min-width: 0;
+    }
+    .btn-voir-plus {
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(88,166,255,0.10);
+      color: var(--accent);
+      border: 1px solid rgba(88,166,255,0.25);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-voir-plus:hover { background: rgba(88,166,255,0.2); }
+    @media (max-width: 768px) {
+      .result-modal-box { max-width: 100%; max-height: 90vh; }
+      .result-modal-body { padding: 16px; font-size: 14px; }
+      .result-summary { max-width: 160px; }
     }
   </style>
 </head>
@@ -514,7 +646,94 @@
         <div class="hero-actions">
           <a href="/api/royal-heights/strategy-pdf" class="btn-strategy">📄 Télécharger Stratégie</a>
           <a href="/api/royal-heights/prospects/export" class="btn-export">⬇ Exporter Prospects (Excel)</a>
+      <a href="/royal-heights-russia.html" style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:var(--radius);background:rgba(188,140,255,0.08);border:1px solid rgba(188,140,255,0.25);color:#bc8cff;font-size:14px;font-weight:600;text-decoration:none;" target="_blank">
+        🇷🇺 Landing Page Russe →
+      </a>
           <a href="/royal-heights.html" class="back-link">← Retour au projet</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Prospection Marché Russe ===== -->
+    <div class="rh-section" style="border-left:3px solid #bc8cff;">
+      <div class="rh-section-header" style="background:rgba(188,140,255,0.04);">
+        <span class="rh-section-title">🇷🇺 Prospection Marché Russe</span>
+        <span style="background:#bc8cff;color:#000;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:600">NEW</span>
+      </div>
+      <div style="padding:20px;">
+        <!-- Summary Stats -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px;">
+          <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;">
+            <div style="font-size:22px;font-weight:700;color:#bc8cff;">700K+</div>
+            <div style="font-size:12px;color:var(--text-muted);">Russes résidant aux EAU</div>
+          </div>
+          <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;">
+            <div style="font-size:22px;font-weight:700;color:#d29922;">10-20K</div>
+            <div style="font-size:12px;color:var(--text-muted);">En recherche d'alternative (île Maurice)</div>
+          </div>
+          <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;">
+            <div style="font-size:22px;font-weight:700;color:#3fb950;">3</div>
+            <div style="font-size:12px;color:var(--text-muted);">Canaux de prospection identifiés</div>
+          </div>
+          <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;">
+            <div style="font-size:22px;font-weight:700;color:#58a6ff;">1</div>
+            <div style="font-size:12px;color:var(--text-muted);">Agent prioritaire identifié</div>
+          </div>
+        </div>
+
+        <!-- Canaux identifiés -->
+        <div style="margin-bottom:16px;">
+          <div style="font-weight:600;font-size:14px;margin-bottom:8px;color:var(--text);">📡 Canaux de prospection identifiés</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <span style="padding:6px 14px;border-radius:20px;font-size:13px;background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:#3fb950;">Prian.ru — Portail immobilier #1 diaspora russe</span>
+            <span style="padding:6px 14px;border-radius:20px;font-size:13px;background:rgba(88,166,255,0.1);border:1px solid rgba(88,166,255,0.3);color:#58a6ff;">Telegram — Groupes expats russes Maurice</span>
+            <span style="padding:6px 14px;border-radius:20px;font-size:13px;background:rgba(210,153,34,0.1);border:1px solid rgba(210,153,34,0.3);color:#d29922;">Agents russophones — Réseau local Maurice</span>
+          </div>
+        </div>
+
+        <!-- Agent prioritaire -->
+        <div style="margin-bottom:20px;padding:14px;background:rgba(63,185,80,0.05);border:1px solid rgba(63,185,80,0.2);border-radius:var(--radius);">
+          <div style="font-weight:600;font-size:14px;margin-bottom:6px;color:#3fb950;">⭐ Agent prioritaire : Ohana Heritage</div>
+          <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">
+            Agence immobilière russophone basée à Maurice. Spécialisée dans la clientèle CIS/russe haut de gamme.<br>
+            Contact recommandé en priorité pour la distribution de Royal Heights auprès de la diaspora russe.
+          </div>
+        </div>
+
+        <!-- Tâches -->
+        <div>
+          <div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--text);">📋 Tâches Prospection Russe</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);">
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--text-muted);text-transform:uppercase;">ID</th>
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--text-muted);text-transform:uppercase;">Tâche</th>
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--text-muted);text-transform:uppercase;">Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 10px;font-weight:600;color:#bc8cff;">RH-RU-001</td>
+                <td style="padding:8px 10px;">Étude diaspora russe EAU → Maurice</td>
+                <td style="padding:8px 10px;"><span style="background:rgba(63,185,80,0.15);color:#3fb950;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;">✅ Terminé</span></td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 10px;font-weight:600;color:#bc8cff;">RH-RU-002</td>
+                <td style="padding:8px 10px;">Landing page russe Royal Heights</td>
+                <td style="padding:8px 10px;"><span style="background:rgba(63,185,80,0.15);color:#3fb950;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;">✅ Déployé</span></td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 10px;font-weight:600;color:#bc8cff;">RH-RU-003</td>
+                <td style="padding:8px 10px;">Contact Ohana Heritage (agent russophone)</td>
+                <td style="padding:8px 10px;"><span style="background:rgba(210,153,34,0.15);color:#d29922;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;">⏳ En attente</span></td>
+              </tr>
+              <tr>
+                <td style="padding:8px 10px;font-weight:600;color:#bc8cff;">RH-RU-004</td>
+                <td style="padding:8px 10px;">Publication Prian.ru + Telegram</td>
+                <td style="padding:8px 10px;"><span style="background:rgba(210,153,34,0.15);color:#d29922;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;">⏳ En attente</span></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -838,6 +1057,18 @@
     </div>
   </div>
 
+
+  <!-- ===== Result Detail Modal ===== -->
+  <div class="result-modal-overlay" id="resultModal">
+    <div class="result-modal-box">
+      <div class="result-modal-header">
+        <span class="result-modal-header-title" id="resultModalTitle">Résultat</span>
+        <button class="result-modal-close" id="closeResultModal">✕</button>
+      </div>
+      <div class="result-modal-body" id="resultModalBody"></div>
+    </div>
+  </div>
+
   <script src="/js/common.js"></script>
   <script>
     const SOURCE_LABELS = { web: 'Web', agent: 'Agent', diaspora: 'Diaspora', salon: 'Salon', referral: 'Référence', social: 'Social', other: 'Autre' };
@@ -1104,7 +1335,12 @@
           <td><span class="badge ts-${escapeHtml(t.status)}">${escapeHtml(TASK_STATUS_LABELS[t.status] || t.status)}</span></td>
           <td><span style="color:var(--text-muted)">${escapeHtml(t.assignee)}</span></td>
           <td>${t.dueDate ? escapeHtml(t.dueDate.split('T')[0]) : '—'}</td>
-          <td style="max-width:200px;white-space:normal;font-size:12px;color:var(--text-muted)">${escapeHtml(t.result || '')}</td>
+          <td style="max-width:280px">
+            ${t.result ? `<div class="result-summary">
+              <span class="result-summary-text">${escapeHtml(truncateResult(t.result))}</span>
+              <button class="btn-voir-plus" onclick="event.stopPropagation();openResultModal('${escapeHtml(t.title)}', this)" data-result="${escapeAttr(t.result)}">Voir&nbsp;+</button>
+            </div>` : '<span style="color:var(--text-muted);font-size:12px">—</span>'}
+          </td>
           <td class="actions-cell">
             <button class="btn-danger delete-task-btn" data-id="${escapeHtml(t.id)}">✕</button>
           </td>
@@ -1169,6 +1405,45 @@
       loadTasks();
     }
 
+
+    // ===== Result Modal =====
+    function truncateResult(text) {
+      if (!text) return '';
+      // Take the first meaningful line/sentence, max ~80 chars
+      const cleaned = text.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+      if (cleaned.length <= 80) return cleaned;
+      // Try to cut at a word boundary
+      const cut = cleaned.substring(0, 77);
+      const lastSpace = cut.lastIndexOf(' ');
+      return (lastSpace > 40 ? cut.substring(0, lastSpace) : cut) + '…';
+    }
+
+    function escapeAttr(str) {
+      if (!str) return '';
+      return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function openResultModal(title, btn) {
+      const result = btn.getAttribute('data-result');
+      document.getElementById('resultModalTitle').textContent = title || 'Résultat';
+      // Format the text nicely: preserve line breaks, highlight key patterns
+      let formatted = escapeHtml(result);
+      // Bold lines that look like headers or labels (e.g., "Foo:" at start of line)
+      formatted = formatted.replace(/^([A-ZÀ-Ü][^\n:]{0,60}:)/gm, '<strong style="color:var(--text)">$1</strong>');
+      // Highlight "TRÈS CHAUD", "CHAUD", "TIÈDE" etc
+      formatted = formatted.replace(/(TRÈS\s*CHAUD)/gi, '<span style="color:#f85149;font-weight:700">$1</span>');
+      formatted = formatted.replace(/(CHAUD)/gi, '<span style="color:#ff9500;font-weight:700">$1</span>');
+      formatted = formatted.replace(/(TIÈDE)/gi, '<span style="color:#d29922;font-weight:600">$1</span>');
+      formatted = formatted.replace(/(FROID)/gi, '<span style="color:#8b949e;font-weight:600">$1</span>');
+      document.getElementById('resultModalBody').innerHTML = formatted;
+      const overlay = document.getElementById('resultModal');
+      overlay.classList.add('visible');
+    }
+
+    function closeResultModal() {
+      document.getElementById('resultModal').classList.remove('visible');
+    }
+
     // ===== Event wiring =====
     initCommon(() => {
       // View tabs
@@ -1200,6 +1475,12 @@
       document.getElementById('cancelTaskModal').addEventListener('click', () => document.getElementById('taskModal').classList.add('hidden'));
       document.getElementById('saveTaskBtn').addEventListener('click', saveTask);
       document.getElementById('taskModal').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden'); });
+
+
+      // Result modal
+      document.getElementById('closeResultModal').addEventListener('click', closeResultModal);
+      document.getElementById('resultModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeResultModal(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') closeResultModal(); });
 
       // Load data
       loadProspects();

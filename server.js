@@ -77,6 +77,8 @@ app.use('/icon-192.png', express.static(path.join(__dirname, 'public', 'icon-192
 app.use('/icon-192.svg', express.static(path.join(__dirname, 'public', 'icon-192.svg')));
 app.use('/icon-512.png', express.static(path.join(__dirname, 'public', 'icon-512.png')));
 app.use('/icon-512.svg', express.static(path.join(__dirname, 'public', 'icon-512.svg')));
+// Russian landing page — public (no auth)
+app.get('/royal-heights-russia.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'royal-heights-russia.html')));
 
 // ===== Session middleware =====
 
@@ -112,6 +114,7 @@ async function requireAuthOrBearer(req, res, next) {
 const protectedPages = [
   'dashboard.html', 'home.html', 'chat.html', 'profile.html',
   'project.html', 'royal-heights.html', 'royal-heights-prospection.html',
+  
   'pms-compare.html'
 ];
 
