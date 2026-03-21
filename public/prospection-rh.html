@@ -154,6 +154,12 @@
             </div>
           </div>
 
+          <!-- Comments Posted -->
+          <div class="card p-5 mb-6">
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">💬 Commentaires Postés <span class="text-sm font-normal text-rh-muted" id="comments-count"></span></h3>
+            <div id="comments-list" class="space-y-2 max-h-[400px] overflow-y-auto"></div>
+          </div>
+
           <!-- Angles Deployed -->
           <div class="card p-5">
             <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">🎯 Angles Marketing Déployés</h3>
@@ -575,12 +581,13 @@
       if (d.content_created?.posts) {
         postsEl.innerHTML = d.content_created.posts.map(p => `
           <div class="bg-rh-dark rounded-lg p-3 border-l-4 border-rh-gold">
-            <div class="text-sm font-medium">${p.title}</div>
+            <a href="${p.url || '#'}" target="_blank" class="text-sm font-medium block hover:text-rh-gold" style="text-decoration:none;color:inherit">${p.title} ${p.url ? '<span style=color:#D4A853>↗</span>' : ''}</a>
             <div class="flex items-center gap-3 mt-1 text-xs text-rh-muted">
               <span>📌 ${p.submolt}</span>
               <span>🎯 ${p.angle}</span>
               <span>${p.utm ? '🔗 UTM' : ''}</span>
               <span>💬 ${p.comments_received} réponses</span>
+              ${p.url ? `<a href="${p.url}" target="_blank" style="color:#D4A853;text-decoration:none;font-weight:600">voir ↗</a>` : ''}
             </div>
           </div>
         `).join('');
@@ -593,6 +600,26 @@
           `<span class="px-2 py-1 rounded-full text-xs bg-rh-dark border border-rh-border text-rh-muted">${a}</span>`
         ).join('');
       }
+
+      // Comments list
+      const commentsEl = document.getElementById('comments-list');
+      const commentActions = moltbookLog.filter(a => a.action === 'comment');
+      document.getElementById('comments-count').textContent = '(' + commentActions.length + ')';
+      commentsEl.innerHTML = commentActions.slice().reverse().map(c => {
+        const time = new Date(c.timestamp).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const postId = c.target ? c.target.replace('post/', '') : '';
+        const postUrl = 'https://www.moltbook.com/m/general/post/' + postId;
+        const utmBadge = c.utm_link_included ? '<span class="ml-1 px-1 py-0.5 text-[10px] bg-rh-gold/20 text-rh-gold rounded">UTM</span>' : '';
+        return `<div class="bg-rh-dark rounded p-2 text-xs">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-rh-muted">${time}</span>
+            <span class="text-rh-green">💬</span>
+            ${utmBadge}
+            <a href="${postUrl}" target="_blank" style="color:#D4A853;text-decoration:none;margin-left:auto">voir ↗</a>
+          </div>
+          <div class="text-rh-muted mt-1" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.content}">${c.content}</div>
+        </div>`;
+      }).join('');
 
       // Timeline
       const timelineEl = document.getElementById('timeline');
