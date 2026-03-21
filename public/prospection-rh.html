@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Royal Heights — Prospection Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            rh: {
+              gold: '#D4A853',
+              dark: '#0F1117',
+              card: '#1A1D27',
+              border: '#2A2D3A',
+              text: '#E2E8F0',
+              muted: '#94A3B8',
+              accent: '#3B82F6',
+              green: '#10B981',
+              red: '#EF4444',
+              purple: '#8B5CF6',
+              orange: '#F59E0B'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0F1117; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .card { background: #1A1D27; border: 1px solid #2A2D3A; border-radius: 12px; }
+    .card-hover:hover { border-color: #D4A853; transition: border-color 0.3s; }
+    .gold-gradient { background: linear-gradient(135deg, #D4A853, #F0D88A); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .pulse-dot { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .timeline-line { border-left: 2px solid #2A2D3A; }
+    .copy-btn { transition: all 0.2s; }
+    .copy-btn:hover { background: #D4A853; color: #0F1117; }
+    .copy-btn.copied { background: #10B981; color: white; }
+    .tab-btn.active { border-bottom: 2px solid #D4A853; color: #D4A853; }
+    .tab-btn { border-bottom: 2px solid transparent; }
+    pre { white-space: pre-wrap; word-wrap: break-word; }
+    .checklist-item input:checked + span { text-decoration: line-through; opacity: 0.6; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0F1117; }
+    ::-webkit-scrollbar-thumb { background: #2A2D3A; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen text-rh-text">
+
+  <!-- Header -->
+  <header class="border-b border-rh-border px-6 py-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-rh-gold to-yellow-600 flex items-center justify-center text-black font-bold text-lg">RH</div>
+        <div>
+          <h1 class="text-xl font-bold"><span class="gold-gradient">Royal Heights</span> — Prospection Dashboard</h1>
+          <p class="text-sm text-rh-muted">31 appartements · Balaclava, Maurice · $600K–$3M</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="pulse-dot inline-block w-2 h-2 rounded-full bg-rh-green"></span>
+        <span class="text-sm text-rh-muted" id="lastUpdate">Chargement...</span>
+        <a href="https://royal-heights.mu" target="_blank" class="text-sm px-3 py-1.5 rounded-lg border border-rh-gold text-rh-gold hover:bg-rh-gold hover:text-black transition-all">
+          🔗 Site
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="border-b border-rh-border px-6">
+    <div class="max-w-7xl mx-auto flex gap-6 overflow-x-auto">
+      <button class="tab-btn active py-3 px-1 text-sm font-medium whitespace-nowrap" data-tab="moltbook">🤖 Moltbook AI</button>
+      <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap text-rh-muted" data-tab="utm">📊 UTM / Visites</button>
+      <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap text-rh-muted" data-tab="channels">📢 Canaux Humains</button>
+      <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap text-rh-muted" data-tab="plan">📋 Plan d'Action</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-6 py-6">
+
+    <!-- ==================== MOLTBOOK SECTION ==================== -->
+    <section id="tab-moltbook" class="tab-content">
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-rh-gold" id="stat-posts">—</div>
+          <div class="text-xs text-rh-muted mt-1">Posts</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-rh-accent" id="stat-comments">—</div>
+          <div class="text-xs text-rh-muted mt-1">Commentaires</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-rh-green" id="stat-upvotes">—</div>
+          <div class="text-xs text-rh-muted mt-1">Upvotes</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-rh-purple" id="stat-follows">—</div>
+          <div class="text-xs text-rh-muted mt-1">Follows</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-rh-orange" id="stat-utm">—</div>
+          <div class="text-xs text-rh-muted mt-1">Liens UTM</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-rh-gold" id="stat-karma">—</div>
+          <div class="text-xs text-rh-muted mt-1">Karma</div>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-3 gap-6">
+        <!-- Campaign Summary -->
+        <div class="lg:col-span-2">
+          <div class="card p-5 mb-6">
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">📊 Résumé Campagne</h3>
+            <div class="grid md:grid-cols-2 gap-4" id="campaign-summary">
+              <!-- Filled by JS -->
+            </div>
+          </div>
+
+          <!-- Posts Created -->
+          <div class="card p-5 mb-6">
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">📝 Posts Créés</h3>
+            <div id="posts-list" class="space-y-3">
+              <!-- Filled by JS -->
+            </div>
+          </div>
+
+          <!-- Angles Deployed -->
+          <div class="card p-5">
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">🎯 Angles Marketing Déployés</h3>
+            <div id="angles-list" class="flex flex-wrap gap-2">
+              <!-- Filled by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div>
+          <div class="card p-5">
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">⏱️ Dernières Actions</h3>
+            <div id="timeline" class="timeline-line ml-2 pl-4 space-y-3 max-h-[700px] overflow-y-auto">
+              <!-- Filled by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== UTM SECTION ==================== -->
+    <section id="tab-utm" class="tab-content hidden">
+      <div class="card p-6 mb-6">
+        <h3 class="text-lg font-semibold mb-2">📊 UTM Tracking — Visites du site royal-heights.mu</h3>
+        <p class="text-sm text-rh-muted mb-4">Données des visites trackées via UTM sur le site de production.</p>
+
+        <div class="grid md:grid-cols-2 gap-6">
+          <!-- Chart -->
+          <div>
+            <canvas id="utmChart" height="250"></canvas>
+          </div>
+          <!-- Stats by source -->
+          <div>
+            <h4 class="font-medium mb-3">Visites par source</h4>
+            <div class="space-y-2" id="utm-sources">
+              <div class="flex justify-between items-center py-2 border-b border-rh-border">
+                <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-rh-purple inline-block"></span> Moltbook</span>
+                <span class="font-mono text-rh-gold" id="utm-moltbook">—</span>
+              </div>
+              <div class="flex justify-between items-center py-2 border-b border-rh-border">
+                <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> Facebook</span>
+                <span class="font-mono" id="utm-facebook">—</span>
+              </div>
+              <div class="flex justify-between items-center py-2 border-b border-rh-border">
+                <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-blue-700 inline-block"></span> LinkedIn</span>
+                <span class="font-mono" id="utm-linkedin">—</span>
+              </div>
+              <div class="flex justify-between items-center py-2 border-b border-rh-border">
+                <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span> Google</span>
+                <span class="font-mono" id="utm-google">—</span>
+              </div>
+              <div class="flex justify-between items-center py-2 border-b border-rh-border">
+                <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-green-500 inline-block"></span> Email</span>
+                <span class="font-mono" id="utm-email">—</span>
+              </div>
+              <div class="flex justify-between items-center py-2">
+                <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-gray-500 inline-block"></span> Direct</span>
+                <span class="font-mono" id="utm-direct">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-6">
+        <h3 class="text-lg font-semibold mb-2">⚙️ Configuration UTM</h3>
+        <p class="text-sm text-rh-muted mb-4">Liens UTM à utiliser pour chaque canal :</p>
+        <div class="space-y-3">
+          <div class="bg-rh-dark rounded-lg p-3">
+            <span class="text-xs text-rh-gold font-medium">Facebook</span>
+            <code class="block text-xs text-rh-muted mt-1 break-all">https://royal-heights.mu?utm_source=facebook&utm_medium=social&utm_campaign=prospection-mars-2026</code>
+          </div>
+          <div class="bg-rh-dark rounded-lg p-3">
+            <span class="text-xs text-rh-accent font-medium">LinkedIn</span>
+            <code class="block text-xs text-rh-muted mt-1 break-all">https://royal-heights.mu?utm_source=linkedin&utm_medium=social&utm_campaign=prospection-mars-2026</code>
+          </div>
+          <div class="bg-rh-dark rounded-lg p-3">
+            <span class="text-xs text-rh-green font-medium">Email</span>
+            <code class="block text-xs text-rh-muted mt-1 break-all">https://royal-heights.mu?utm_source=email&utm_medium=email&utm_campaign=prospection-mars-2026</code>
+          </div>
+          <div class="bg-rh-dark rounded-lg p-3">
+            <span class="text-xs text-rh-purple font-medium">Moltbook</span>
+            <code class="block text-xs text-rh-muted mt-1 break-all">https://royal-heights.mu?utm_source=moltbook&utm_medium=ai&utm_campaign=prospection-mars-2026</code>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== CHANNELS SECTION ==================== -->
+    <section id="tab-channels" class="tab-content hidden">
+      <!-- Sub-tabs -->
+      <div class="flex gap-4 mb-6 overflow-x-auto">
+        <button class="subtab-btn active px-4 py-2 rounded-lg text-sm font-medium bg-rh-card border border-rh-gold text-rh-gold" data-subtab="fb-groups">📱 Groupes Facebook</button>
+        <button class="subtab-btn px-4 py-2 rounded-lg text-sm font-medium bg-rh-card border border-rh-border text-rh-muted" data-subtab="portals">🌐 Portails Immobiliers</button>
+        <button class="subtab-btn px-4 py-2 rounded-lg text-sm font-medium bg-rh-card border border-rh-border text-rh-muted" data-subtab="marketing">✍️ Textes Marketing</button>
+        <button class="subtab-btn px-4 py-2 rounded-lg text-sm font-medium bg-rh-card border border-rh-border text-rh-muted" data-subtab="keywords">🔍 Mots-Clés Google</button>
+      </div>
+
+      <!-- Facebook Groups -->
+      <div id="subtab-fb-groups" class="subtab-content">
+        <div id="fb-groups-container" class="space-y-6">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+      <!-- Portals -->
+      <div id="subtab-portals" class="subtab-content hidden">
+        <div id="portals-container" class="space-y-4">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+      <!-- Marketing Content -->
+      <div id="subtab-marketing" class="subtab-content hidden">
+        <div class="flex gap-3 mb-4 overflow-x-auto">
+          <button class="mktg-tab-btn active px-3 py-1.5 rounded text-xs font-medium bg-rh-gold text-black" data-mktg="facebook_post">Facebook</button>
+          <button class="mktg-tab-btn px-3 py-1.5 rounded text-xs font-medium bg-rh-card text-rh-muted border border-rh-border" data-mktg="linkedin_post">LinkedIn</button>
+          <button class="mktg-tab-btn px-3 py-1.5 rounded text-xs font-medium bg-rh-card text-rh-muted border border-rh-border" data-mktg="portal_description">Portail</button>
+          <button class="mktg-tab-btn px-3 py-1.5 rounded text-xs font-medium bg-rh-card text-rh-muted border border-rh-border" data-mktg="email_sequence">Emails</button>
+          <button class="mktg-tab-btn px-3 py-1.5 rounded text-xs font-medium bg-rh-card text-rh-muted border border-rh-border" data-mktg="expat_group_post">Groupe Expat</button>
+        </div>
+        <div id="marketing-content-display" class="space-y-4">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+      <!-- Keywords -->
+      <div id="subtab-keywords" class="subtab-content hidden">
+        <div class="grid lg:grid-cols-2 gap-6">
+          <div class="card p-5">
+            <h3 class="text-lg font-semibold mb-4">🇬🇧 English Keywords</h3>
+            <div id="keywords-en" class="space-y-2">
+              <!-- Filled by JS -->
+            </div>
+          </div>
+          <div class="card p-5">
+            <h3 class="text-lg font-semibold mb-4">🇫🇷 French Keywords</h3>
+            <div id="keywords-fr" class="space-y-2">
+              <!-- Filled by JS -->
+            </div>
+          </div>
+        </div>
+        <div class="card p-5 mt-6" id="campaign-structure">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== PLAN SECTION ==================== -->
+    <section id="tab-plan" class="tab-content hidden">
+      <div class="grid lg:grid-cols-2 gap-6">
+        <!-- Done -->
+        <div class="card p-5">
+          <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">✅ Complété</h3>
+          <div class="space-y-3">
+            <label class="checklist-item flex items-start gap-3 text-sm">
+              <input type="checkbox" checked class="mt-0.5 accent-rh-green" disabled>
+              <span><strong>Site web</strong> — royal-heights.mu en ligne (FR + EN)</span>
+            </label>
+            <label class="checklist-item flex items-start gap-3 text-sm">
+              <input type="checkbox" checked class="mt-0.5 accent-rh-green" disabled>
+              <span><strong>Brochure PDF</strong> — complète avec plans et finitions</span>
+            </label>
+            <label class="checklist-item flex items-start gap-3 text-sm">
+              <input type="checkbox" checked class="mt-0.5 accent-rh-green" disabled>
+              <span><strong>Vidéo promo</strong> — vidéo promotionnelle du projet</span>
+            </label>
+            <label class="checklist-item flex items-start gap-3 text-sm">
+              <input type="checkbox" checked class="mt-0.5 accent-rh-green" disabled>
+              <span><strong>Grille de prix</strong> — tous les appartements avec prix</span>
+            </label>
+            <label class="checklist-item flex items-start gap-3 text-sm">
+              <input type="checkbox" checked class="mt-0.5 accent-rh-green" disabled>
+              <span><strong>Échéancier de paiement</strong> — plan de financement</span>
+            </label>
+            <label class="checklist-item flex items-start gap-3 text-sm">
+              <input type="checkbox" checked class="mt-0.5 accent-rh-green" disabled>
+              <span><strong>Campagne Moltbook</strong> — 3 posts, 35 comments, 96 upvotes, 44 follows, 14 UTM links</span>
+            </label>
+            <label class="checklist-item flex items-start gap-3 text-sm">
+              <input type="checkbox" checked class="mt-0.5 accent-rh-green" disabled>
+              <span><strong>Recherche Facebook groups</strong> — 25 groupes identifiés et catégorisés</span>
+            </label>
+            <label class="checklist-item flex items-start gap-3 text-sm">
+              <input type="checkbox" checked class="mt-0.5 accent-rh-green" disabled>
+              <span><strong>Portails immobiliers</strong> — 15 portails analysés avec coûts</span>
+            </label>
+            <label class="checklist-item flex items-start gap-3 text-sm">
+              <input type="checkbox" checked class="mt-0.5 accent-rh-green" disabled>
+              <span><strong>Textes marketing</strong> — FR + EN, 5 formats prêts à copier</span>
+            </label>
+            <label class="checklist-item flex items-start gap-3 text-sm">
+              <input type="checkbox" checked class="mt-0.5 accent-rh-green" disabled>
+              <span><strong>Mots-clés Google Ads</strong> — 30+ keywords EN + FR avec CPC estimé</span>
+            </label>
+            <label class="checklist-item flex items-start gap-3 text-sm">
+              <input type="checkbox" checked class="mt-0.5 accent-rh-green" disabled>
+              <span><strong>Dashboard prospection</strong> — cette page ✨</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- To Do -->
+        <div class="card p-5">
+          <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">📋 Prochaines Étapes</h3>
+          <div class="space-y-4">
+            <div>
+              <h4 class="text-sm font-semibold text-rh-gold mb-2">🔥 Priorité 1 — Cette semaine</h4>
+              <div class="space-y-2">
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-gold">
+                  <span><strong>Moltbook Wave 3</strong> — DMs débloqués après 24h. Envoyer DMs aux top 10 agents (finance, RE)</span>
+                </label>
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-gold">
+                  <span><strong>Poster dans 5 groupes Facebook</strong> — commencer par les groupes diaspora FR et UK (posts informatifs)</span>
+                </label>
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-gold">
+                  <span><strong>Lister sur JamesEdition</strong> — créer compte, uploader photos + descriptions</span>
+                </label>
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-gold">
+                  <span><strong>Lister sur LuxuryEstate.com</strong> — contacter pour abonnement développeur</span>
+                </label>
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-gold">
+                  <span><strong>UTM tracking setup</strong> — implémenter le tracking UTM sur royal-heights.mu</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <h4 class="text-sm font-semibold text-rh-accent mb-2">📅 Priorité 2 — Semaine prochaine</h4>
+              <div class="space-y-2">
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-accent">
+                  <span><strong>Souscrire ListGlobally/Properstar</strong> — distribution sur 70+ portails automatiquement</span>
+                </label>
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-accent">
+                  <span><strong>Lister sur Le Figaro Properties</strong> — cibler diaspora française</span>
+                </label>
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-accent">
+                  <span><strong>LinkedIn campaign</strong> — poster contenu investissement + connecter avec agents immobiliers Maurice</span>
+                </label>
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-accent">
+                  <span><strong>Email outreach v1</strong> — envoyer séquence email aux contacts existants</span>
+                </label>
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-accent">
+                  <span><strong>Contacter Sotheby's Mauritius</strong> — explorer co-listing</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <h4 class="text-sm font-semibold text-rh-purple mb-2">🚀 Priorité 3 — Ce mois</h4>
+              <div class="space-y-2">
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-purple">
+                  <span><strong>Google Ads</strong> — lancer campagnes EN + FR avec budget $3K/mois</span>
+                </label>
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-purple">
+                  <span><strong>Juwai listing</strong> — marché chinois (demander package Juwai Luxe)</span>
+                </label>
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-purple">
+                  <span><strong>Contacter agents locaux</strong> — Fine & Country, Pam Golding, Engel & Völkers Maurice</span>
+                </label>
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-purple">
+                  <span><strong>Moltbook submolt</strong> — créer submolt 'island-investing' ou 'luxury-real-estate'</span>
+                </label>
+                <label class="checklist-item flex items-start gap-3 text-sm">
+                  <input type="checkbox" class="mt-0.5 accent-rh-purple">
+                  <span><strong>Webinar/Virtual tour</strong> — organiser visite virtuelle pour prospects qualifiés</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Budget Summary -->
+      <div class="card p-5 mt-6">
+        <h3 class="text-lg font-semibold mb-4">💰 Budget Estimé — Prospection Mensuelle</h3>
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="bg-rh-dark rounded-lg p-4 border border-rh-border">
+            <div class="text-sm text-rh-muted mb-1">Minimum</div>
+            <div class="text-2xl font-bold text-rh-green">$3,000</div>
+            <div class="text-xs text-rh-muted mt-2">Portails prioritaires + Google Ads basique</div>
+          </div>
+          <div class="bg-rh-dark rounded-lg p-4 border border-rh-gold">
+            <div class="text-sm text-rh-gold mb-1">Recommandé ⭐</div>
+            <div class="text-2xl font-bold text-rh-gold">$7,000</div>
+            <div class="text-xs text-rh-muted mt-2">+ Juwai + Le Figaro + LinkedIn Ads</div>
+          </div>
+          <div class="bg-rh-dark rounded-lg p-4 border border-rh-border">
+            <div class="text-sm text-rh-muted mb-1">Premium</div>
+            <div class="text-2xl font-bold text-rh-purple">$15,000</div>
+            <div class="text-xs text-rh-muted mt-2">Tous canaux + agents locaux + événements</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-rh-border px-6 py-4 mt-8">
+    <div class="max-w-7xl mx-auto flex items-center justify-between text-xs text-rh-muted">
+      <span>Royal Heights Prospection Dashboard · Powered by OpenClaw</span>
+      <span>Données mises à jour automatiquement</span>
+    </div>
+  </footer>
+
+  <script>
+    // ===== DATA LOADING =====
+    const DATA_BASE = './data/rh/';
+    let dashboardData = null;
+    let moltbookLog = [];
+    let fbGroups = null;
+    let portals = null;
+    let marketingContent = null;
+    let keywords = null;
+
+    async function loadJSON(filename) {
+      try {
+        const resp = await fetch(DATA_BASE + filename + '?t=' + Date.now());
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return await resp.json();
+      } catch(e) {
+        console.warn(`Failed to load ${filename}:`, e);
+        return null;
+      }
+    }
+
+    async function loadJSONL(filename) {
+      try {
+        const resp = await fetch(DATA_BASE + filename + '?t=' + Date.now());
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const text = await resp.text();
+        return text.trim().split('\n').filter(Boolean).map(line => {
+          try { return JSON.parse(line); } catch(e) { return null; }
+        }).filter(Boolean);
+      } catch(e) {
+        console.warn(`Failed to load ${filename}:`, e);
+        return [];
+      }
+    }
+
+    async function init() {
+      [dashboardData, moltbookLog, fbGroups, portals, marketingContent, keywords] = await Promise.all([
+        loadJSON('prospection-dashboard.json'),
+        loadJSONL('moltbook-prospection.jsonl'),
+        loadJSON('facebook-groups.json'),
+        loadJSON('portails-immobiliers.json'),
+        loadJSON('marketing-content.json'),
+        loadJSON('google-ads-keywords.json')
+      ]);
+
+      renderMoltbook();
+      renderUTM();
+      renderChannels();
+      document.getElementById('lastUpdate').textContent = dashboardData ?
+        `Mis à jour: ${new Date(dashboardData.last_updated).toLocaleString('fr-FR')}` :
+        'Données non disponibles';
+    }
+
+    // ===== MOLTBOOK RENDERING =====
+    function renderMoltbook() {
+      if (!dashboardData) return;
+      const d = dashboardData;
+      const t = d.combined_totals;
+
+      document.getElementById('stat-posts').textContent = t.posts;
+      document.getElementById('stat-comments').textContent = t.comments;
+      document.getElementById('stat-upvotes').textContent = t.upvotes;
+      document.getElementById('stat-follows').textContent = t.follows;
+      document.getElementById('stat-utm').textContent = t.utm_links_placed;
+      document.getElementById('stat-karma').textContent = d.engagement_metrics?.karma || 0;
+
+      // Campaign summary
+      const summaryEl = document.getElementById('campaign-summary');
+      summaryEl.innerHTML = `
+        <div class="bg-rh-dark rounded-lg p-3">
+          <div class="text-xs text-rh-muted">Actions totales</div>
+          <div class="text-xl font-bold">${d.summary.total_actions}</div>
+        </div>
+        <div class="bg-rh-dark rounded-lg p-3">
+          <div class="text-xs text-rh-muted">Taux de succès</div>
+          <div class="text-xl font-bold text-rh-green">${d.summary.success_rate}</div>
+        </div>
+        <div class="bg-rh-dark rounded-lg p-3">
+          <div class="text-xs text-rh-muted">Vagues complétées</div>
+          <div class="text-xl font-bold">${d.summary.waves_completed}</div>
+        </div>
+        <div class="bg-rh-dark rounded-lg p-3">
+          <div class="text-xs text-rh-muted">Durée campagne</div>
+          <div class="text-xl font-bold">${d.summary.campaign_duration_hours}h</div>
+        </div>
+        <div class="bg-rh-dark rounded-lg p-3">
+          <div class="text-xs text-rh-muted">Followers gagnés</div>
+          <div class="text-xl font-bold text-rh-purple">${d.engagement_metrics?.followers_gained || 0}</div>
+        </div>
+        <div class="bg-rh-dark rounded-lg p-3">
+          <div class="text-xs text-rh-muted">Réponses reçues</div>
+          <div class="text-xl font-bold text-rh-accent">${d.engagement_metrics?.replies_received_on_posts || 0}</div>
+        </div>
+      `;
+
+      // Posts list
+      const postsEl = document.getElementById('posts-list');
+      if (d.content_created?.posts) {
+        postsEl.innerHTML = d.content_created.posts.map(p => `
+          <div class="bg-rh-dark rounded-lg p-3 border-l-4 border-rh-gold">
+            <div class="text-sm font-medium">${p.title}</div>
+            <div class="flex items-center gap-3 mt-1 text-xs text-rh-muted">
+              <span>📌 ${p.submolt}</span>
+              <span>🎯 ${p.angle}</span>
+              <span>${p.utm ? '🔗 UTM' : ''}</span>
+              <span>💬 ${p.comments_received} réponses</span>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Angles
+      const anglesEl = document.getElementById('angles-list');
+      if (d.angles_deployed) {
+        anglesEl.innerHTML = d.angles_deployed.map(a =>
+          `<span class="px-2 py-1 rounded-full text-xs bg-rh-dark border border-rh-border text-rh-muted">${a}</span>`
+        ).join('');
+      }
+
+      // Timeline
+      const timelineEl = document.getElementById('timeline');
+      const recentActions = moltbookLog.slice(-50).reverse();
+      timelineEl.innerHTML = recentActions.map(a => {
+        const time = new Date(a.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        const icons = { post: '📝', comment: '💬', upvote: '👍', follow: '👤' };
+        const icon = icons[a.action] || '⚡';
+        const statusColor = a.response === 'success' ? 'text-rh-green' : 'text-rh-red';
+        const utmBadge = a.utm_link_included ? '<span class="ml-1 px-1 py-0.5 text-[10px] bg-rh-gold/20 text-rh-gold rounded">UTM</span>' : '';
+        return `
+          <div class="relative pb-2">
+            <div class="absolute -left-[21px] top-1 w-2 h-2 rounded-full ${a.response === 'success' ? 'bg-rh-green' : 'bg-rh-red'}"></div>
+            <div class="text-xs">
+              <span class="text-rh-muted">${time}</span>
+              <span class="ml-1">${icon}</span>
+              <span class="${statusColor} font-medium ml-1">${a.action}</span>
+              ${utmBadge}
+            </div>
+            <div class="text-xs text-rh-muted mt-0.5 truncate" title="${a.content}">${a.content}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ===== UTM RENDERING =====
+    function renderUTM() {
+      // Simulated UTM data from Moltbook (we know 14 UTM links were placed)
+      const utmData = {
+        moltbook: dashboardData?.combined_totals?.utm_links_placed || 14,
+        facebook: 0,
+        linkedin: 0,
+        google: 0,
+        email: 0,
+        direct: 0
+      };
+
+      document.getElementById('utm-moltbook').textContent = utmData.moltbook + ' liens';
+      document.getElementById('utm-facebook').textContent = utmData.facebook + ' clics';
+      document.getElementById('utm-linkedin').textContent = utmData.linkedin + ' clics';
+      document.getElementById('utm-google').textContent = utmData.google + ' clics';
+      document.getElementById('utm-email').textContent = utmData.email + ' clics';
+      document.getElementById('utm-direct').textContent = utmData.direct + ' visites';
+
+      // Chart
+      const ctx = document.getElementById('utmChart');
+      if (ctx) {
+        new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Moltbook', 'Facebook', 'LinkedIn', 'Google', 'Email', 'Direct'],
+            datasets: [{
+              data: [utmData.moltbook, utmData.facebook || 1, utmData.linkedin || 1, utmData.google || 1, utmData.email || 1, utmData.direct || 1],
+              backgroundColor: ['#8B5CF6', '#3B82F6', '#1D4ED8', '#EF4444', '#10B981', '#6B7280'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#94A3B8', font: { size: 11 } } }
+            }
+          }
+        });
+      }
+    }
+
+    // ===== CHANNELS RENDERING =====
+    function renderChannels() {
+      renderFBGroups();
+      renderPortals();
+      renderMarketing();
+      renderKeywords();
+    }
+
+    function renderFBGroups() {
+      if (!fbGroups) return;
+      const container = document.getElementById('fb-groups-container');
+      container.innerHTML = fbGroups.groups.map(cat => `
+        <div class="card p-5">
+          <h3 class="text-md font-semibold mb-3 text-rh-gold">${cat.category}</h3>
+          <div class="space-y-3">
+            ${cat.groups.map(g => `
+              <div class="bg-rh-dark rounded-lg p-3 flex items-start justify-between gap-4">
+                <div class="flex-1">
+                  <a href="${g.url}" target="_blank" class="text-sm font-medium hover:text-rh-gold transition-colors">${g.name}</a>
+                  <div class="flex items-center gap-3 mt-1 text-xs text-rh-muted">
+                    <span>👥 ~${g.members_estimated.toLocaleString()}</span>
+                    <span>🌐 ${g.language}</span>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] ${g.relevance === 'haute' ? 'bg-rh-green/20 text-rh-green' : 'bg-rh-orange/20 text-rh-orange'}">${g.relevance}</span>
+                  </div>
+                  <div class="text-xs text-rh-muted mt-1">${g.notes}</div>
+                </div>
+                <a href="${g.url}" target="_blank" class="text-xs px-2 py-1 rounded border border-rh-border hover:border-rh-gold text-rh-muted hover:text-rh-gold transition-colors whitespace-nowrap">Ouvrir ↗</a>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderPortals() {
+      if (!portals) return;
+      const container = document.getElementById('portals-container');
+      container.innerHTML = portals.portals.map(p => `
+        <div class="card card-hover p-4 flex items-start justify-between gap-4">
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <a href="${p.url}" target="_blank" class="font-medium hover:text-rh-gold transition-colors">${p.name}</a>
+              <span class="px-1.5 py-0.5 rounded text-[10px] ${p.relevance === 'haute' ? 'bg-rh-green/20 text-rh-green' : 'bg-rh-orange/20 text-rh-orange'}">${p.relevance}</span>
+            </div>
+            <div class="text-xs text-rh-muted mt-1">${p.category} · ${p.audience}</div>
+            <div class="text-xs mt-1"><span class="text-rh-gold">💰 ${p.cost_estimated}</span></div>
+            <div class="text-xs text-rh-muted mt-1">${p.notes}</div>
+            <div class="text-xs text-rh-accent mt-1">→ ${p.action}</div>
+          </div>
+          <a href="${p.url}" target="_blank" class="text-xs px-2 py-1 rounded border border-rh-border hover:border-rh-gold text-rh-muted hover:text-rh-gold transition-colors whitespace-nowrap">Visiter ↗</a>
+        </div>
+      `).join('');
+    }
+
+    let currentMktgTab = 'facebook_post';
+
+    function renderMarketing() {
+      if (!marketingContent) return;
+      renderMarketingTab(currentMktgTab);
+    }
+
+    function renderMarketingTab(tabId) {
+      const display = document.getElementById('marketing-content-display');
+      const content = marketingContent.content;
+
+      if (tabId === 'email_sequence') {
+        // Special handling for email sequence
+        const emails = content.email_sequence;
+        display.innerHTML = ['fr', 'en'].map(lang => {
+          const langEmails = emails[lang];
+          const flag = lang === 'fr' ? '🇫🇷' : '🇬🇧';
+          return `
+            <div class="card p-5">
+              <h4 class="font-medium mb-3">${flag} Email Sequence (${lang.toUpperCase()})</h4>
+              ${Object.entries(langEmails).map(([key, email]) => `
+                <div class="bg-rh-dark rounded-lg p-4 mb-3">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs text-rh-gold font-medium">${key.replace(/_/g, ' ').toUpperCase()}</span>
+                    <button class="copy-btn text-xs px-2 py-1 rounded border border-rh-border text-rh-muted" onclick="copyText(this, \`Subject: ${email.subject}\\n\\n${email.body.replace(/`/g, '\\`')}\`)">📋 Copier</button>
+                  </div>
+                  <div class="text-xs text-rh-accent mb-1">Subject: ${email.subject}</div>
+                  <pre class="text-xs text-rh-muted">${email.body}</pre>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }).join('');
+      } else {
+        const section = content[tabId];
+        if (!section) return;
+        display.innerHTML = ['fr', 'en'].map(lang => {
+          const item = section[lang];
+          if (!item) return '';
+          const flag = lang === 'fr' ? '🇫🇷' : '🇬🇧';
+          return `
+            <div class="card p-5">
+              <div class="flex items-center justify-between mb-3">
+                <h4 class="font-medium">${flag} ${item.title}</h4>
+                <button class="copy-btn text-xs px-2 py-1 rounded border border-rh-border text-rh-muted" onclick="copyText(this, this.closest('.card').querySelector('pre').textContent)">📋 Copier</button>
+              </div>
+              <pre class="text-sm text-rh-muted bg-rh-dark rounded-lg p-4">${item.text}</pre>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    function renderKeywords() {
+      if (!keywords) return;
+
+      const enContainer = document.getElementById('keywords-en');
+      const frContainer = document.getElementById('keywords-fr');
+
+      enContainer.innerHTML = keywords.keywords.english_high_intent.map(k => `
+        <div class="bg-rh-dark rounded-lg p-2 flex items-center justify-between text-xs">
+          <span class="font-mono">"${k.keyword}"</span>
+          <div class="flex items-center gap-2">
+            <span class="text-rh-muted">${k.volume_monthly}/mo</span>
+            <span class="text-rh-gold">${k.cpc_estimated}</span>
+            <span class="px-1 py-0.5 rounded text-[9px] ${k.priority === 'haute' ? 'bg-rh-green/20 text-rh-green' : 'bg-rh-orange/20 text-rh-orange'}">${k.priority}</span>
+          </div>
+        </div>
+      `).join('');
+
+      frContainer.innerHTML = keywords.keywords.french_high_intent.map(k => `
+        <div class="bg-rh-dark rounded-lg p-2 flex items-center justify-between text-xs">
+          <span class="font-mono">"${k.keyword}"</span>
+          <div class="flex items-center gap-2">
+            <span class="text-rh-muted">${k.volume_monthly}/mo</span>
+            <span class="text-rh-gold">${k.cpc_estimated}</span>
+            <span class="px-1 py-0.5 rounded text-[9px] ${k.priority === 'haute' ? 'bg-rh-green/20 text-rh-green' : 'bg-rh-orange/20 text-rh-orange'}">${k.priority}</span>
+          </div>
+        </div>
+      `).join('');
+
+      const structureEl = document.getElementById('campaign-structure');
+      if (keywords.campaign_structure) {
+        const cs = keywords.campaign_structure;
+        structureEl.innerHTML = `
+          <h3 class="text-lg font-semibold mb-4">🎯 Structure Campagnes Google Ads</h3>
+          <div class="grid md:grid-cols-2 gap-4 mb-4">
+            ${cs.recommended_campaigns.map(c => `
+              <div class="bg-rh-dark rounded-lg p-3">
+                <div class="text-sm font-medium">${c.name}</div>
+                <div class="text-xs text-rh-muted mt-1">Budget: <span class="text-rh-gold">${c.budget_daily}/jour</span></div>
+                <div class="text-xs text-rh-muted">Geo: ${c.target_geo}</div>
+                <div class="text-xs text-rh-muted mt-1">${c.notes}</div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="flex gap-4 text-sm">
+            <span>Budget mensuel : </span>
+            <span class="text-rh-green">Min ${cs.total_monthly_budget_estimate.minimum}</span>
+            <span class="text-rh-gold">Rec ${cs.total_monthly_budget_estimate.recommended}</span>
+            <span class="text-rh-purple">Agr ${cs.total_monthly_budget_estimate.aggressive}</span>
+          </div>
+        `;
+      }
+    }
+
+    // ===== COPY FUNCTION =====
+    function copyText(btn, text) {
+      navigator.clipboard.writeText(text).then(() => {
+        btn.classList.add('copied');
+        btn.textContent = '✓ Copié!';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.textContent = '📋 Copier';
+        }, 2000);
+      });
+    }
+
+    // ===== TAB NAVIGATION =====
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.classList.add('text-rh-muted'); });
+        btn.classList.add('active'); btn.classList.remove('text-rh-muted');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+      });
+    });
+
+    document.querySelectorAll('.subtab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.subtab-btn').forEach(b => {
+          b.classList.remove('active', 'border-rh-gold', 'text-rh-gold');
+          b.classList.add('border-rh-border', 'text-rh-muted');
+        });
+        btn.classList.add('active', 'border-rh-gold', 'text-rh-gold');
+        btn.classList.remove('border-rh-border', 'text-rh-muted');
+        document.querySelectorAll('.subtab-content').forEach(c => c.classList.add('hidden'));
+        document.getElementById('subtab-' + btn.dataset.subtab).classList.remove('hidden');
+      });
+    });
+
+    document.querySelectorAll('.mktg-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.mktg-tab-btn').forEach(b => {
+          b.classList.remove('active', 'bg-rh-gold', 'text-black');
+          b.classList.add('bg-rh-card', 'text-rh-muted', 'border', 'border-rh-border');
+        });
+        btn.classList.add('active', 'bg-rh-gold', 'text-black');
+        btn.classList.remove('bg-rh-card', 'text-rh-muted', 'border', 'border-rh-border');
+        currentMktgTab = btn.dataset.mktg;
+        renderMarketingTab(currentMktgTab);
+      });
+    });
+
+    // ===== INIT =====
+    init();
+  </script>
+</body>
+</html>

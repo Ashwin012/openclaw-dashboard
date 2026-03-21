@@ -80,6 +80,8 @@ app.use('/icon-512.svg', express.static(path.join(__dirname, 'public', 'icon-512
 // Russian landing page — public (no auth)
 app.get('/royal-heights-russia.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'royal-heights-russia.html')));
 app.get('/spotify-auth.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'spotify-auth.html')));
+// Royal Heights prospection data (JSON)
+app.use("/data/rh", express.static(path.join(__dirname, "public", "data", "rh")));
 
 // ===== Session middleware =====
 
@@ -116,7 +118,7 @@ const protectedPages = [
   'dashboard.html', 'home.html', 'chat.html', 'profile.html',
   'project.html', 'royal-heights.html', 'royal-heights-prospection.html',
   
-  'pms-compare.html'
+  'pms-compare.html', 'prospection-rh.html'
 ];
 
 protectedPages.forEach(page => {

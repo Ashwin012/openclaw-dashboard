@@ -1113,18 +1113,7 @@
       </div>
     </div>
 
-    <!-- EQS Listings -->
-    <div class="panel" style="margin-bottom:16px">
-      <div class="panel-header">
-        <span class="panel-title">🚗 Mercedes EQS — Veille Japon</span>
-        <span id="eqs-count" style="background:var(--accent);color:#000;border-radius:20px;padding:1px 8px;font-size:12px;font-weight:600">0</span>
-        <button class="btn-nav" onclick="refreshEqs()" style="font-size:12px;padding:3px 10px">🔄</button>
-      </div>
-      <div id="eqs-updated" style="font-size:11px;color:var(--text-muted);padding:6px 12px 0"></div>
-      <div class="filter-chips" id="eqs-filters"></div>
-      <div class="panel-body" id="eqs-list" style="max-height:500px"></div>
-    </div>
-
+    <!-- EQS Listings REMOVED -->
     <!-- Children Pronote -->
     <div class="panel" style="margin-bottom:16px">
       <div class="panel-header">
@@ -1612,55 +1601,8 @@
       navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
 
-    // ===== EQS Listings =====
-    let eqsFilter = 'all', eqsSort = 'score';
-
-    async function loadEqs() {
-      try {
-        const data = await (await fetch('/api/eqs', { credentials: 'include' })).json();
-        if (!data.listings?.length) { document.getElementById('eqs-list').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">Aucune annonce — cliquez 🔄</div>'; return; }
-        document.getElementById('eqs-count').textContent = data.total;
-        if (data.updatedAt) {
-          const ago = timeAgo(data.updatedAt);
-          const srcList = data.sources ? Object.entries(data.sources).map(([k,v])=>k+': '+v).join(', ') : '';
-          document.getElementById('eqs-updated').textContent = 'Mis à jour ' + ago + ' | ' + data.total + ' annonces' + (data.new_count ? ' (' + data.new_count + ' nouvelles)' : '') + (srcList ? ' | ' + srcList : '');
-        }
-        const types = ['all','Sedan','SUV'];
-        const sorts = [{k:'score',l:'⭐ Score'},{k:'price',l:'💰 Prix ↑'},{k:'km',l:'🛣️ KM ↑'},{k:'year',l:'📅 Année ↓'}];
-        document.getElementById('eqs-filters').innerHTML =
-          types.map(t => '<span class="chip '+(eqsFilter===t?'active':'')+'" onclick="eqsFilter=\''+t+'\';loadEqs()">'+( t==='all'?'Tous':t)+'</span>').join('') +
-          '<span style="margin-left:8px"></span>' +
-          sorts.map(s => '<span class="chip '+(eqsSort===s.k?'active':'')+'" onclick="eqsSort=\''+s.k+'\';loadEqs()">'+s.l+'</span>').join('');
-        let listings = [...data.listings];
-        if (eqsFilter !== 'all') listings = listings.filter(l => l.type === eqsFilter);
-        if (eqsSort === 'price') listings.sort((a,b) => a.price_usd - b.price_usd);
-        else if (eqsSort === 'km') listings.sort((a,b) => a.km - b.km);
-        else if (eqsSort === 'year') listings.sort((a,b) => (b.year*100+b.month) - (a.year*100+a.month));
-        else listings.sort((a,b) => b.score - a.score);
-        document.getElementById('eqs-list').innerHTML = listings.map(l => {
-          const full = Math.floor(l.score), half = l.score%1>=0.3;
-          const stars = '★'.repeat(full) + (half?'½':'') + '☆'.repeat(5-full-(half?1:0));
-          const b = l.score_breakdown || {};
-          return '<div class="eqs-item"><a href="'+l.url+'" target="_blank">' +
-            '<div class="eqs-score">'+l.score+'<span class="stars">'+stars+'</span>' +
-            '<div class="score-tip"><div class="sb"><span class="sb-l">Prix</span><div class="sb-t"><div class="sb-f" style="width:'+(b.price||0)*20+'%"></div></div><span>'+(b.price||0)+'</span></div>' +
-            '<div class="sb"><span class="sb-l">KM</span><div class="sb-t"><div class="sb-f" style="width:'+(b.mileage||0)*20+'%"></div></div><span>'+(b.mileage||0)+'</span></div>' +
-            '<div class="sb"><span class="sb-l">Année</span><div class="sb-t"><div class="sb-f" style="width:'+(b.year||0)*20+'%"></div></div><span>'+(b.year||0)+'</span></div>' +
-            '<div class="sb"><span class="sb-l">Options</span><div class="sb-t"><div class="sb-f" style="width:'+(b.options||0)*20+'%"></div></div><span>'+(b.options||0)+'</span></div></div></div>' +
-            '<div class="eqs-details"><div class="eqs-title"><span class="eqs-type-badge '+(l.type==='SUV'?'eqs-suv':'eqs-sedan')+'">'+l.type+'</span> '+escHtml(l.grade)+(l.is_new?' <span class="eqs-new">NEW</span>':'')+'</div>' +
-            '<div class="eqs-meta"><span>📅 '+l.year+'/'+String(l.month).padStart(2,'0')+'</span><span>🛣️ '+l.km.toLocaleString()+' km</span><span>🎨 '+(l.color||'N/A')+'</span><span class="eqs-source">'+l.source+'</span>' +
-            (l.discount?'<span style="color:var(--red)">-$'+l.discount.toLocaleString()+'</span>':'')+'</div>' +
-            (l.options&&l.options.length?'<div class="eqs-options">'+l.options.map(function(o){var cls=o==='HYPERSCREEN'?'HYPERSCREEN':o==='Chauffeur Package'?'chauffeur':o==='Rear Entertainment'?'rear-ent':o==='AMG Line'?'amg-line':o==='Night Package'?'night':o.indexOf('Burmester')>=0?'burmester':o==='Panoramic Roof'?'panoramic':o==='AIRMATIC'?'airmatic':o==='HUD'?'hud':o==='53 AMG'?'53amg':o==='4MATIC'?'4matic':o.indexOf('7 seat')>=0?'7seats':o==='Digital Light'?'digital-light':'';return '<span class="eqs-opt-tag eqs-opt-'+cls+'">'+o+'</span>';}).join('')+'</div>':'') +
-            '</div>' +
-            '<div class="eqs-price">$'+l.price_usd.toLocaleString()+'<br><span style="font-size:10px;color:var(--text-muted);font-weight:400">¥'+l.price_yen.toLocaleString()+'</span></div>' +
-            '</a></div>';
-        }).join('');
-      } catch(e) { document.getElementById('eqs-list').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">Erreur chargement</div>'; }
-    }
-
-    async function refreshEqs() {
-      document.getElementById('eqs-updated').textContent = '⏳ Scraping en cours...';
-      try { await fetch('/api/eqs/refresh',{method:'POST',credentials:'include'}); await loadEqs(); } catch(e) { document.getElementById('eqs-updated').textContent = '❌ Erreur'; }
+    // ===== EQS Listings (REMOVED) =====
+    // EQS code removed } catch(e) { document.getElementById('eqs-updated').textContent = '❌ Erreur'; }
     }
 
     // ===== Children (Pronote) =====

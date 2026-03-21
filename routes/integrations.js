@@ -139,10 +139,11 @@ module.exports = function createIntegrationRoutes({ requireAuth }) {
     }
   });
 
-  // ===== EQS Listings =====
+  // ===== EQS Listings (DISABLED) =====
 
   const DATA_DIR = path.join(__dirname, '..', 'data');
 
+  /* DISABLED - EQS removed
   router.get('/api/eqs', requireAuth, (req, res) => {
     const fp = path.join(DATA_DIR, 'eqs-listings.json');
     if (!fs.existsSync(fp)) return res.json({ listings: [], updatedAt: null });
@@ -156,6 +157,7 @@ module.exports = function createIntegrationRoutes({ requireAuth }) {
       res.json(JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'eqs-listings.json'))));
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
+  */
 
   // ===== Children (Pronote) =====
 
