@@ -1133,7 +1133,7 @@
     let reconnectAttempts = 0;
     const MAX_RECONNECT = 10;
     let reconnectTimer = null;
-    let sidebarCollapsed = false;
+    let sidebarCollapsed = window.innerWidth <= 768;
     let activeSessionId = null;     // currently loaded session (for sidebar highlight)
     let userHasScrolledUp = false;  // Feature 3: smart auto-scroll
     let isFullscreen = false;       // Feature 7: fullscreen mode
@@ -2172,6 +2172,10 @@
     });
 
     async function init() {
+      // Auto-collapse sidebar on mobile
+      if (window.innerWidth <= 768) {
+        document.getElementById("sessionsSidebar").classList.add("collapsed");
+      }
       if (!projectId) {
         document.getElementById('topbarProject').textContent = 'No project';
         return;
