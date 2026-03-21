@@ -5,7 +5,7 @@ dashboard.log
 server.log
 __pycache__/
 data/
-.dashboard/audio/
+.dashboard/
 *.bak
 *.bak.*
 *.backup-*
