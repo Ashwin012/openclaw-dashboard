@@ -823,6 +823,106 @@
       .hamburger-btn { display: inline-flex; }
       .mobile-menu { top: 72px; }
     }
+
+    /* === Feature 1: Copy button on code blocks === */
+    .msg-content pre {
+      position: relative;
+    }
+    .code-copy-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 2;
+    }
+    .msg-content pre:hover .code-copy-btn { opacity: 1; }
+    .code-copy-btn:hover { color: var(--text); border-color: var(--text-muted); }
+    .code-copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+    /* === Feature 2: Copy message button on assistant bubbles === */
+    .message.assistant {
+      position: relative;
+    }
+    .msg-copy-btn {
+      position: absolute;
+      top: 4px;
+      right: -32px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      width: 26px;
+      height: 26px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .message.assistant:hover .msg-copy-btn { opacity: 1; }
+    .msg-copy-btn:hover { color: var(--text); border-color: var(--text-muted); }
+    .msg-copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+    /* === Feature 6: Typing indicator (3 dots) === */
+    .typing-dots {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+      padding: 4px 0;
+    }
+    .typing-dots span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      animation: typing-bounce 1.4s infinite ease-in-out;
+    }
+    .typing-dots span:nth-child(1) { animation-delay: 0s; }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing-bounce {
+      0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+      40% { opacity: 1; transform: scale(1); }
+    }
+
+    /* === Feature 7: Fullscreen mode === */
+    .chat-body.fullscreen .sessions-sidebar {
+      width: 0;
+      opacity: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .topbar-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* === Feature 8: Session search === */
+    .sidebar-search {
+      padding: 8px 12px 0;
+    }
+    .sidebar-search input {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      outline: none;
+    }
+    .sidebar-search input:focus { border-color: var(--accent); }
+    .sidebar-search input::placeholder { color: var(--text-subtle); }
   </style>
 </head>
 <body>
@@ -860,6 +960,7 @@
         <span id="statusText">No session</span>
       </div>
       <button class="topbar-btn danger" id="stopBtn" style="display:none" onclick="stopSession()">&#9632; Stop</button>
+      <button class="topbar-btn" id="fullscreenBtn" onclick="toggleFullscreen()" title="Toggle fullscreen">&#9974; Focus</button>
       <button class="topbar-btn" id="sidebarToggleBtn" onclick="toggleSidebar()">&#9776; Sessions</button>
     </div>
 
@@ -868,6 +969,9 @@
       <div class="sessions-sidebar" id="sessionsSidebar">
         <div class="sidebar-header">
           <button class="btn-new-chat" onclick="startNewChat()">&#43; New Chat</button>
+        </div>
+        <div class="sidebar-search">
+          <input type="text" id="sessionSearchInput" placeholder="Search sessions..." oninput="filterSessions(this.value)">
         </div>
         <div class="sessions-list" id="sessionsList">
           <div class="sessions-empty">No previous sessions</div>
@@ -935,7 +1039,7 @@
             <!-- Send button -->
             <button class="btn-send" id="sendBtn" disabled onclick="sendMessage()">&#9654;</button>
           </div>
-          <div class="input-hint">Ctrl+Enter to send &nbsp;·&nbsp; Claude Code is running in <span id="hintProjectPath" style="font-family:monospace"></span></div>
+          <div class="input-hint">Enter to send · Shift+Enter for new line &nbsp;·&nbsp; Claude Code is running in <span id="hintProjectPath" style="font-family:monospace"></span></div>
         </div>
       </div><!-- end chat-main -->
     </div><!-- end chat-body -->
@@ -964,6 +1068,9 @@
     let reconnectTimer = null;
     let sidebarCollapsed = false;
     let activeSessionId = null;     // currently loaded session (for sidebar highlight)
+    let userHasScrolledUp = false;  // Feature 3: smart auto-scroll
+    let isFullscreen = false;       // Feature 7: fullscreen mode
+    let allSessionsCache = [];      // Feature 8: session search cache
 
     // Configure marked with highlight.js
     marked.setOptions({
@@ -1016,7 +1123,8 @@
     }
 
     function onInputKeydown(e) {
-      if (e.key === 'Enter' && e.ctrlKey) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        // Enter (or Ctrl+Enter) = send; Shift+Enter = new line
         e.preventDefault();
         sendMessage();
       }
@@ -1159,7 +1267,7 @@
           document.getElementById('chatMessages').appendChild(el);
         }
       }
-      scrollToBottom();
+      scrollToBottom(true);
     }
 
     // ---- Reconnect banner ----
@@ -1406,6 +1514,8 @@
             enableInput();
           }
           awaitingResponse = false;
+          // Feature 4: Browser notification when tab is not active
+          sendBrowserNotification('Claude has finished responding.');
           loadSessions(); // refresh sidebar message counts
           break;
 
@@ -1442,8 +1552,10 @@
     }
 
     // ---- Message rendering ----
-    function scrollToBottom() {
+    // Feature 3: Smart auto-scroll
+    function scrollToBottom(force) {
       const msgs = document.getElementById('chatMessages');
+      if (!force && userHasScrolledUp) return;
       msgs.scrollTop = msgs.scrollHeight;
     }
 
@@ -1451,6 +1563,13 @@
       document.getElementById('chatMessages').appendChild(el);
       scrollToBottom();
     }
+
+    // Detect user scrolling up
+    document.getElementById('chatMessages').addEventListener('scroll', function() {
+      const el = this;
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+      userHasScrolledUp = !atBottom;
+    });
 
     function appendSystem(text) {
       const el = document.createElement('div');
@@ -1503,7 +1622,8 @@
       el.className = 'message assistant';
       el.innerHTML = `
         <div class="msg-avatar">&#129302;</div>
-        <div class="msg-bubble"><div class="msg-content"></div></div>`;
+        <div class="msg-bubble"><div class="msg-content"></div></div>
+        <button class="msg-copy-btn" title="Copy message" onclick="copyAssistantMessage(this)">&#128203;</button>`;
       return el;
     }
 
@@ -1544,7 +1664,7 @@
       loadingEl.className = 'message assistant';
       loadingEl.innerHTML = `
         <div class="msg-avatar">&#129302;</div>
-        <div class="msg-bubble"><div class="msg-content" style="color:var(--text-muted);font-style:italic">Thinking<span class="streaming-cursor"></span></div></div>`;
+        <div class="msg-bubble"><div class="msg-content"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>`;
       appendMessage(loadingEl);
     }
 
@@ -1629,6 +1749,7 @@
       disableInput();
       setStatus('active', 'Thinking...');
 
+      userHasScrolledUp = false; // Reset smart scroll on send
       appendUserMessage(text);
       showLoading();
 
@@ -1845,6 +1966,109 @@
       return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
     }
 
+    // ---- Feature 1: Copy buttons on code blocks ----
+    function addCopyButtonsToCodeBlocks(container) {
+      container.querySelectorAll('pre').forEach(pre => {
+        if (pre.querySelector('.code-copy-btn')) return;
+        const btn = document.createElement('button');
+        btn.className = 'code-copy-btn';
+        btn.textContent = 'Copy';
+        btn.onclick = function(e) {
+          e.stopPropagation();
+          const code = pre.querySelector('code');
+          const text = code ? code.textContent : pre.textContent;
+          navigator.clipboard.writeText(text).then(() => {
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+          });
+        };
+        pre.appendChild(btn);
+      });
+    }
+
+    // Observe new messages to add copy buttons
+    const chatMessagesEl = document.getElementById('chatMessages');
+    const codeBlockObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType === 1) addCopyButtonsToCodeBlocks(node);
+        }
+      }
+      // Also check for updated innerHTML (streaming)
+      chatMessagesEl.querySelectorAll('.msg-content pre:not(:has(.code-copy-btn))').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'code-copy-btn';
+        btn.textContent = 'Copy';
+        btn.onclick = function(e) {
+          e.stopPropagation();
+          const code = pre.querySelector('code');
+          const text = code ? code.textContent : pre.textContent;
+          navigator.clipboard.writeText(text).then(() => {
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+          });
+        };
+        pre.appendChild(btn);
+      });
+    });
+    codeBlockObserver.observe(chatMessagesEl, { childList: true, subtree: true });
+
+    // ---- Feature 2: Copy assistant message ----
+    function copyAssistantMessage(btn) {
+      const msgEl = btn.closest('.message.assistant');
+      if (!msgEl) return;
+      const contentEl = msgEl.querySelector('.msg-content');
+      if (!contentEl) return;
+      const text = contentEl.innerText || contentEl.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.innerHTML = '&#10003;';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.innerHTML = '&#128203;'; btn.classList.remove('copied'); }, 2000);
+      });
+    }
+
+    // ---- Feature 4: Browser notifications ----
+    let notificationsEnabled = false;
+    function requestNotificationPermission() {
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'granted') {
+        notificationsEnabled = true;
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(p => { notificationsEnabled = p === 'granted'; });
+      }
+    }
+
+    function sendBrowserNotification(text) {
+      if (!notificationsEnabled || document.visibilityState === 'visible') return;
+      const body = text.length > 120 ? text.substring(0, 120) + '...' : text;
+      const n = new Notification('Claude responded', { body, icon: '/icon-192.png', tag: 'claude-chat' });
+      n.onclick = () => { window.focus(); n.close(); };
+    }
+
+    // ---- Feature 7: Fullscreen toggle ----
+    function toggleFullscreen() {
+      isFullscreen = !isFullscreen;
+      document.querySelector('.chat-body').classList.toggle('fullscreen', isFullscreen);
+      document.getElementById('fullscreenBtn').classList.toggle('active', isFullscreen);
+    }
+
+    // ---- Feature 8: Session search ----
+    function filterSessions(query) {
+      const q = query.toLowerCase().trim();
+      const list = document.getElementById('sessionsList');
+      const items = list.querySelectorAll('.session-item');
+      items.forEach(item => {
+        if (!q) {
+          item.style.display = '';
+          return;
+        }
+        const preview = (item.querySelector('.session-preview') || {}).textContent || '';
+        item.style.display = preview.toLowerCase().includes(q) ? '' : 'none';
+      });
+    }
+
     // ---- Init ----
 
     // Close sidebar on mobile when clicking outside
@@ -1901,6 +2125,12 @@
     }
 
     initCommon(init);
+
+    // Feature 4: Request notification permission on first user interaction
+    document.addEventListener('click', function requestNotifOnce() {
+      requestNotificationPermission();
+      document.removeEventListener('click', requestNotifOnce);
+    });
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
