@@ -1399,7 +1399,7 @@
       disableInput();
 
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(`${proto}//${location.host}/ws/chat/${sessionId}`);
+      ws = new WebSocket(`${proto}//${location.host}/ws/chat/${sessionId}?projectId=${encodeURIComponent(projectId)}`);
 
       ws.onopen = () => {
         setStatus('active', 'Connected');

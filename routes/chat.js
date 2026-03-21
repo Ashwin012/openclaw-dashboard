@@ -173,18 +173,26 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
   wss.on('connection', (ws, req) => {
     const url = new URL(req.url, 'http://localhost');
     const sessionId = url.pathname.slice('/ws/chat/'.length);
-    const querySessionId = url.searchParams.get('sessionId');
+    const queryProjectId = url.searchParams.get('projectId');
     let session = chatSessions.get(sessionId);
 
+    // Validate project match if session is in memory and projectId was provided
+    if (session && queryProjectId && session.projectId !== queryProjectId) {
+      try { ws.send(JSON.stringify({ type: 'error', error: 'Session does not belong to this project' })); } catch (e) {}
+      ws.close(1008, 'Project mismatch');
+      return;
+    }
+
     // If not in memory, try to restore from persistent storage (handles server restarts)
-    if (!session) {
-      const lookupId = sessionId || querySessionId;
-      if (lookupId) {
-        for (const proj of config.projects) {
+    // Only restore from the specific project if projectId is provided
+    if (!session && sessionId) {
+      if (queryProjectId) {
+        // Scoped restore: only look in the specified project
+        const proj = config.projects.find(p => p.id === queryProjectId);
+        if (proj) {
           const fileSessions = readChatSessions(proj);
-          const fileSession = fileSessions.find(s => s.id === lookupId);
+          const fileSession = fileSessions.find(s => s.id === sessionId);
           if (fileSession) {
-            // Restore in-memory session from file
             session = {
               projectId: proj.id,
               projectPath: proj.path,
@@ -194,11 +202,33 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
               ws: null,
               status: 'pending',
               busy: false,
-              persistentId: lookupId,
+              persistentId: sessionId,
               currentResponseText: '',
               cleanupTimer: null
             };
-            chatSessions.set(lookupId, session);
+            chatSessions.set(sessionId, session);
+          }
+        }
+      } else {
+        // Fallback: scan all projects (legacy clients without projectId param)
+        for (const proj of config.projects) {
+          const fileSessions = readChatSessions(proj);
+          const fileSession = fileSessions.find(s => s.id === sessionId);
+          if (fileSession) {
+            session = {
+              projectId: proj.id,
+              projectPath: proj.path,
+              model: fileSession.model,
+              claudeSessionId: fileSession.claudeSessionId,
+              process: null,
+              ws: null,
+              status: 'pending',
+              busy: false,
+              persistentId: sessionId,
+              currentResponseText: '',
+              cleanupTimer: null
+            };
+            chatSessions.set(sessionId, session);
             break;
           }
         }
