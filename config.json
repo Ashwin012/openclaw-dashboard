@@ -1,97 +1,111 @@
 {
-    "webhookUrl": "",
-    "projects": [
+  "webhookUrl": "",
+  "projects": [
+    {
+      "id": "afdex",
+      "name": "Afdex",
+      "repos": [
         {
-            "id": "afdex",
-            "name": "Afdex",
-            "repos": [
-                {
-                    "name": "main",
-                    "path": "/home/openclaw/projects/afdex"
-                }
-            ],
-            "path": "/home/openclaw/projects/afdex",
-            "description": "STO Exchange Platform",
-            "testUrl": "http://158.69.1.160:3084",
-            "stagingUrl": "https://sto.afdex.io",
-            "githubUrl": "https://github.com/Infozen/afdex-sto"
-        },
-        {
-            "id": "champion-spirit",
-            "name": "Champion Spirit",
-            "repos": [
-                {
-                    "name": "api",
-                    "path": "/home/openclaw/projects/champion-spirit/api"
-                },
-                {
-                    "name": "app",
-                    "path": "/home/openclaw/projects/champion-spirit/app"
-                },
-                {
-                    "name": "docker",
-                    "path": "/home/openclaw/projects/champion-spirit/docker"
-                }
-            ],
-            "path": "/home/openclaw/projects/champion-spirit/api",
-            "description": "Fitness Management Platform",
-            "testUrl": "http://158.69.1.160:8083",
-            "stagingUrl": "https://manager.staging.championspirit.com",
-            "prodUrl": "https://manager.championspirit.com",
-            "githubUrl": "https://github.com/Champion-Spirit/championspirit-api"
-        },
-        {
-            "id": "trading-bot",
-            "name": "Trading Bot",
-            "repos": [
-                {
-                    "name": "main",
-                    "path": "/home/openclaw/projects/trading-bot"
-                }
-            ],
-            "path": "/home/openclaw/projects/trading-bot",
-            "description": "Futures Trading Bot - ETHUSDC Binance",
-            "testUrl": "http://158.69.1.160:8080",
-            "prodUrl": "http://45.77.131.11:8080/",
-            "githubUrl": "https://github.com/Ashwin012/trading-bot"
-        },
-        {
-            "id": "stho",
-            "name": "STHO",
-            "repos": [
-                {
-                    "name": "api",
-                    "path": "/home/openclaw/projects/stho/api"
-                },
-                {
-                    "name": "web",
-                    "path": "/home/openclaw/projects/stho/web"
-                },
-                {
-                    "name": "infra",
-                    "path": "/home/openclaw/projects/stho/infra"
-                }
-            ],
-            "path": "/home/openclaw/projects/stho/api",
-            "description": "STHO Global Platform",
-            "testUrl": "http://158.69.1.160:3002",
-            "stagingUrl": "https://app.staging.thestho.com/",
-            "prodUrl": "https://thestho.com/",
-            "githubUrl": "https://github.com/STHO-Global/stho-api"
-        },
-        {
-            "id": "openclaw-dashboard",
-            "name": "OpenClaw Dashboard",
-            "repos": [
-                {
-                    "name": "main",
-                    "path": "/home/openclaw/projects/dev-dashboard"
-                }
-            ],
-            "path": "/home/openclaw/projects/dev-dashboard",
-            "description": "Dashboard de gestion des projets, trading, facturation et veille",
-            "testUrl": "http://158.69.1.160:8090",
-            "githubUrl": "https://github.com/Ashwin012/openclaw-dashboard"
+          "name": "main",
+          "path": "/home/openclaw/projects/afdex"
         }
-    ]
+      ],
+      "path": "/home/openclaw/projects/afdex",
+      "description": "STO Exchange Platform",
+      "testUrl": "http://158.69.1.160:3084",
+      "stagingUrl": "https://sto.afdex.io",
+      "githubUrl": "https://github.com/Infozen/afdex-sto"
+    },
+    {
+      "id": "champion-spirit",
+      "name": "Champion Spirit",
+      "repos": [
+        {
+          "name": "api",
+          "path": "/home/openclaw/projects/champion-spirit/api"
+        },
+        {
+          "name": "app",
+          "path": "/home/openclaw/projects/champion-spirit/app"
+        },
+        {
+          "name": "docker",
+          "path": "/home/openclaw/projects/champion-spirit/docker"
+        }
+      ],
+      "path": "/home/openclaw/projects/champion-spirit/api",
+      "description": "Fitness Management Platform",
+      "testUrl": "http://158.69.1.160:8083",
+      "stagingUrl": "https://manager.staging.championspirit.com",
+      "prodUrl": "https://manager.championspirit.com",
+      "githubUrl": "https://github.com/Champion-Spirit/championspirit-api"
+    },
+    {
+      "id": "trading-bot",
+      "name": "Trading Bot",
+      "repos": [
+        {
+          "name": "main",
+          "path": "/home/openclaw/projects/trading-bot"
+        }
+      ],
+      "path": "/home/openclaw/projects/trading-bot",
+      "description": "Futures Trading Bot - ETHUSDC Binance",
+      "testUrl": "http://158.69.1.160:8080",
+      "prodUrl": "http://45.77.131.11:8080/",
+      "githubUrl": "https://github.com/Ashwin012/trading-bot"
+    },
+    {
+      "id": "stho",
+      "name": "STHO",
+      "repos": [
+        {
+          "name": "api",
+          "path": "/home/openclaw/projects/stho/api"
+        },
+        {
+          "name": "web",
+          "path": "/home/openclaw/projects/stho/web"
+        },
+        {
+          "name": "infra",
+          "path": "/home/openclaw/projects/stho/infra"
+        }
+      ],
+      "path": "/home/openclaw/projects/stho/api",
+      "description": "STHO Global Platform",
+      "testUrl": "http://158.69.1.160:3002",
+      "stagingUrl": "https://app.staging.thestho.com/",
+      "prodUrl": "https://thestho.com/",
+      "githubUrl": "https://github.com/STHO-Global/stho-api"
+    },
+    {
+      "id": "openclaw-dashboard",
+      "name": "OpenClaw Dashboard",
+      "repos": [
+        {
+          "name": "main",
+          "path": "/home/openclaw/projects/dev-dashboard"
+        }
+      ],
+      "path": "/home/openclaw/projects/dev-dashboard",
+      "description": "Dashboard de gestion des projets, trading, facturation et veille",
+      "testUrl": "http://158.69.1.160:8090",
+      "githubUrl": "https://github.com/Ashwin012/openclaw-dashboard"
+    },
+    {
+      "id": "royal-heights",
+      "name": "Royal Heights",
+      "repos": [
+        {
+          "name": "website",
+          "path": "/home/openclaw/projects/royal-heights-website"
+        }
+      ],
+      "path": "/home/openclaw/projects/royal-heights-website",
+      "description": "Luxury Apartments in Balaclava, Mauritius \u2014 32 units",
+      "prodUrl": "https://royal-heights.mu",
+      "githubUrl": "https://github.com/Infozen/royal-heights-website"
+    }
+  ]
 }
