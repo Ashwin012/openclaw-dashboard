@@ -79,6 +79,7 @@ app.use('/icon-512.png', express.static(path.join(__dirname, 'public', 'icon-512
 app.use('/icon-512.svg', express.static(path.join(__dirname, 'public', 'icon-512.svg')));
 // Russian landing page — public (no auth)
 app.get('/royal-heights-russia.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'royal-heights-russia.html')));
+app.get('/spotify-auth.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'spotify-auth.html')));
 
 // ===== Session middleware =====
 
@@ -173,4 +174,20 @@ app.get('/dev', requireAuth, (req, res) => {
 const PORT = process.env.PORT || 8090;
 server.listen(PORT, () => {
   console.log(`Dev Dashboard running on http://localhost:${PORT}`);
+});
+
+// ===== Spotify OAuth Callback =====
+app.get('/callback/spotify', (req, res) => {
+  const code = req.query.code;
+  const error = req.query.error;
+  if (error) {
+    return res.send('<h2>Spotify Authorization Failed</h2><p>' + error + '</p>');
+  }
+  if (code) {
+    // Save code to file for Gollum to pick up
+    const fs = require('fs');
+    fs.writeFileSync('/tmp/spotify-auth-code.txt', code);
+    return res.send('<h2>✅ Spotify Connected!</h2><p>Code received. You can close this tab.</p><p style="font-family:monospace;font-size:11px;color:#888">' + code + '</p>');
+  }
+  res.send('<h2>No code received</h2>');
 });
