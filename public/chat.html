@@ -1036,9 +1036,7 @@
       <div class="sessions-sidebar" id="sessionsSidebar">
         <div class="sidebar-header">
           <button class="btn-new-chat" onclick="startNewChat()">&#43; New Chat</button>
-        </div>
-        <div class="sidebar-search">
-          <input type="text" id="sessionSearchInput" placeholder="Search sessions..." oninput="filterSessions(this.value)">
+          <input type="text" id="sessionSearchInput" class="sidebar-search-input" placeholder="Search sessions..." oninput="filterSessions(this.value)" style="margin-top:8px;width:100%;background:var(--bg-card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:var(--radius);font-size:12px;outline:none;">
         </div>
         <div class="sessions-list" id="sessionsList">
           <div class="sessions-empty">No previous sessions</div>
