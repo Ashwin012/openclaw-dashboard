@@ -105,7 +105,8 @@
       "path": "/home/openclaw/projects/royal-heights",
       "description": "Luxury Apartments in Balaclava, Mauritius \u2014 32 units",
       "prodUrl": "https://royal-heights.mu",
-      "githubUrl": "https://github.com/Infozen/royal-heights-website"
+      "githubUrl": "https://github.com/Infozen/royal-heights-website",
+      "testUrl": "http://158.69.1.160:8085"
     }
   ]
 }
