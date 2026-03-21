@@ -76,6 +76,13 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       '--model', session.model
     ];
 
+    // Add effort/thinking level if specified
+    const effort = session.nextEffort || 'medium';
+    session.nextEffort = null; // consume once
+    if (effort && effort !== 'medium') {
+      args.push('--effort', effort);
+    }
+
     if (session.claudeSessionId) {
       args.push('--resume', session.claudeSessionId);
     }
@@ -260,7 +267,23 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
     ws.on('message', (data) => {
       try {
         const msg = JSON.parse(data.toString());
-        if (msg.type === 'user_message') {
+        if (msg.type === 'change_model') {
+          // Update model for next message
+          const validModels = ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-3-5'];
+          if (validModels.includes(msg.model)) {
+            session.model = msg.model;
+            // Persist model change
+            const project = config.projects.find(p => p.id === session.projectId);
+            if (project && session.persistentId) {
+              updateChatSessionMeta(project, session.persistentId, { model: msg.model });
+            }
+            if (ws.readyState === WebSocket.OPEN) {
+              try { ws.send(JSON.stringify({ type: 'model_changed', model: msg.model })); } catch (e) {}
+            }
+          }
+        } else if (msg.type === 'user_message') {
+          // Set effort for this message
+          if (msg.effort) session.nextEffort = msg.effort;
           // Save user message to persistent session
           const project = config.projects.find(p => p.id === session.projectId);
           if (project && session.persistentId) {
@@ -272,6 +295,8 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
           }
           spawnClaudeForMessage(session, msg.text, ws);
         } else if (msg.type === 'voice_message') {
+          // Set effort for this message
+          if (msg.effort) session.nextEffort = msg.effort;
           // Save voice message (with audioUrl) then send text to Claude
           const project = config.projects.find(p => p.id === session.projectId);
           if (project && session.persistentId) {

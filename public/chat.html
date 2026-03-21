@@ -923,6 +923,57 @@
     }
     .sidebar-search input:focus { border-color: var(--accent); }
     .sidebar-search input::placeholder { color: var(--text-subtle); }
+
+    /* === Model switcher in topbar === */
+    .topbar-model-switcher {
+      display: none; /* shown when session active */
+      align-items: center;
+      gap: 6px;
+    }
+    .topbar-model-switcher.visible { display: inline-flex; }
+    .topbar-model-select {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-family: monospace;
+      cursor: pointer;
+      outline: none;
+    }
+    .topbar-model-select:focus { border-color: var(--accent); }
+
+    /* === Effort/thinking badge === */
+    .effort-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .effort-select {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      cursor: pointer;
+      outline: none;
+    }
+    .effort-select:focus { border-color: var(--accent); }
+    .effort-label {
+      font-size: 10px;
+      color: var(--text-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* === Mobile: hide some topbar items to save space === */
+    @media (max-width: 768px) {
+      .topbar-model-switcher { gap: 4px; }
+      .effort-label { display: none; }
+      .chat-topbar { padding: 8px 12px; gap: 8px; }
+    }
   </style>
 </head>
 <body>
@@ -953,7 +1004,23 @@
       <span class="project-name" id="topbarProject">Loading...</span>
       <span class="sep">/</span>
       <span style="color:var(--text-muted);font-size:13px">Chat</span>
-      <span id="modelTag" class="model-tag" style="display:none"></span>
+      <!-- Model switcher (visible during active session) -->
+      <div class="topbar-model-switcher" id="modelSwitcher">
+        <select class="topbar-model-select" id="topbarModelSelect" onchange="onTopbarModelChange(this.value)">
+          <option value="claude-sonnet-4-6">sonnet-4-6</option>
+          <option value="claude-opus-4-6">opus-4-6</option>
+          <option value="claude-haiku-3-5">haiku-3-5</option>
+        </select>
+      </div>
+      <!-- Effort control -->
+      <div class="effort-control" id="effortControl">
+        <span class="effort-label">Effort</span>
+        <select class="effort-select" id="effortSelect" onchange="onEffortChange(this.value)">
+          <option value="low">Low</option>
+          <option value="medium" selected>Med</option>
+          <option value="high">High</option>
+        </select>
+      </div>
       <div class="topbar-spacer"></div>
       <div class="chat-status" id="statusBadge">
         <span class="dot"></span>
@@ -1071,6 +1138,7 @@
     let userHasScrolledUp = false;  // Feature 3: smart auto-scroll
     let isFullscreen = false;       // Feature 7: fullscreen mode
     let allSessionsCache = [];      // Feature 8: session search cache
+    let currentEffort = 'medium';   // Thinking effort level: low, medium, high
 
     // Configure marked with highlight.js
     marked.setOptions({
@@ -1316,6 +1384,11 @@
       activeSessionId = null;
       sessionId = null;
       localStorage.removeItem(storageKey('sessionId'));
+      // Bug 1 fix: close sidebar on mobile so start panel is visible
+      if (window.innerWidth <= 768) {
+        sidebarCollapsed = true;
+        document.getElementById('sessionsSidebar').classList.add('collapsed');
+      }
       showStartPanel();
     }
 
@@ -1324,7 +1397,7 @@
       document.getElementById('chatMessages').style.display = 'none';
       document.getElementById('inputArea').style.display = 'none';
       document.getElementById('stopBtn').style.display = 'none';
-      document.getElementById('modelTag') && (document.getElementById('modelTag').style.display = 'none');
+      document.getElementById('modelSwitcher').classList.remove('visible');
       setStatus('', 'No session');
       hideReconnectBanner();
       if (ws) { try { ws.close(); } catch (e) {} ws = null; }
@@ -1336,8 +1409,13 @@
       document.getElementById('chatMessages').style.display = '';
       document.getElementById('inputArea').style.display = '';
       document.getElementById('stopBtn').style.display = '';
-      const tag = document.getElementById('modelTag');
-      if (tag && sessionModel) { tag.textContent = sessionModel; tag.style.display = ''; }
+      // Show model switcher and sync its value
+      const switcher = document.getElementById('modelSwitcher');
+      switcher.classList.add('visible');
+      const sel = document.getElementById('topbarModelSelect');
+      if (sessionModel && sel.querySelector(`option[value="${sessionModel}"]`)) {
+        sel.value = sessionModel;
+      }
     }
 
     async function startSession() {
@@ -1753,7 +1831,7 @@
       appendUserMessage(text);
       showLoading();
 
-      ws.send(JSON.stringify({ type: 'user_message', text }));
+      ws.send(JSON.stringify({ type: 'user_message', text, effort: currentEffort }));
     }
 
     // ---- Voice Input ----
@@ -1867,7 +1945,7 @@
           disableInput();
           setStatus('active', 'Thinking...');
           showLoading();
-          ws.send(JSON.stringify({ type: 'voice_message', text, audioUrl }));
+          ws.send(JSON.stringify({ type: 'voice_message', text, audioUrl, effort: currentEffort }));
         }
       } catch (err) {
         appendError('Transcription error: ' + err.message);
@@ -1964,6 +2042,20 @@
       if (bytes < 1024) return bytes + 'B';
       if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
       return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
+    }
+
+    // ---- Feature: Model switcher (topbar) ----
+    function onTopbarModelChange(model) {
+      if (!sessionId || !ws || ws.readyState !== WebSocket.OPEN) return;
+      sessionModel = model;
+      // Notify backend of model change via WebSocket
+      ws.send(JSON.stringify({ type: 'change_model', model }));
+      appendSystem(`Model changed to ${model}`);
+    }
+
+    // ---- Feature: Effort/thinking level ----
+    function onEffortChange(level) {
+      currentEffort = level;
     }
 
     // ---- Feature 1: Copy buttons on code blocks ----
