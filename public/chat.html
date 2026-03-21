@@ -14,13 +14,17 @@
   <style>
     html, body {
       margin: 0;
-      height: 100vh;
-      height: 100dvh; /* mobile-safe: accounts for address bar */
+      height: var(--app-height, 100vh);
       overflow: hidden;
     }
     body {
       display: flex;
       flex-direction: column;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: var(--app-height, 100vh);
     }
 
     .chat-layout {
@@ -2230,6 +2234,23 @@
 
       // No sessions at all — sidebar stays open so user can see it's empty
     }
+
+    // ---- Mobile keyboard fix: compute --app-height from JS ----
+    function setAppHeight() {
+      const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty('--app-height', h + 'px');
+    }
+    window.addEventListener('resize', setAppHeight);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', setAppHeight);
+      window.visualViewport.addEventListener('scroll', setAppHeight);
+    }
+    setAppHeight();
+
+    // Reset layout when textarea loses focus (keyboard closing)
+    document.getElementById('chatInput').addEventListener('blur', function() {
+      setTimeout(function() { window.scrollTo(0, 0); setAppHeight(); }, 150);
+    });
 
     initCommon(init);
 
