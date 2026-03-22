@@ -107,6 +107,36 @@
       "prodUrl": "https://royal-heights.mu",
       "githubUrl": "https://github.com/Infozen/royal-heights-website",
       "testUrl": "http://158.69.1.160:8085"
+    },
+    {
+      "id": "synapcoin",
+      "name": "SynapCoin",
+      "path": "/home/openclaw/projects/synapcoin",
+      "repos": [
+        {
+          "name": "main",
+          "path": "/home/openclaw/projects/synapcoin"
+        }
+      ],
+      "description": "ERC-20 utility token for agent-to-agent economy",
+      "githubUrl": "https://github.com/Ashwin012/synapcoin",
+      "testUrl": "http://158.69.1.160:3000",
+      "apiUrl": "http://158.69.1.160:3001"
+    },
+    {
+      "id": "synaphive",
+      "name": "SynapHive",
+      "path": "/home/openclaw/projects/synaphive",
+      "repos": [
+        {
+          "name": "main",
+          "path": "/home/openclaw/projects/synaphive"
+        }
+      ],
+      "description": "AI Skills Marketplace",
+      "githubUrl": "https://github.com/Ashwin012/synaphive",
+      "testUrl": "http://158.69.1.160:3084",
+      "apiUrl": "http://158.69.1.160:4000"
     }
   ]
 }

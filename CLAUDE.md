@@ -15,6 +15,8 @@ routes/
   integrations.js         ← Trading bot proxy, EQS car listings, Pronote children, worker proxy, notifications
   invoices.js             ← Invoice CRUD, events timeline (sent/reminder/paid), client management
   uploads.js              ← Audio transcription (OpenAI Whisper or local), file attachments
+  synapcoin.js            ← SynapCoin marketing: activities CRUD, community platform stats, aggregated metrics
+  synaphive.js            ← SynapHive marketing: activities CRUD, community platform stats, aggregated metrics
 lib/
   git.js                  ← Safe git execution via execFile (no shell). Branch/hash validation.
   json-store.js           ← Atomic JSON read/write (write-to-temp + rename)
@@ -28,9 +30,11 @@ public/
   profile.html            ← User settings: password change, passkey management
   login.html              ← Auth entry point (password + passkey)
   pms-compare.html        ← Static PMS comparison table
+  synapcoin-marketing.html ← SynapCoin marketing dashboard: activity log, community stats, launch plan (Tailwind + Chart.js)
+  synaphive-marketing.html ← SynapHive marketing dashboard: activity log, community stats, launch plan (Tailwind + Chart.js)
   sw.js                   ← Service worker: network-first, caches static assets
 config.json               ← Project definitions (id, name, path, repos, URLs)
-data/                     ← Runtime data (gitignored): news.json, invoices.json, eqs-listings.json, children.json
+data/                     ← Runtime data (gitignored): news.json, invoices.json, eqs-listings.json, children.json, synapcoin/, synaphive/
 .dashboard/               ← App state (gitignored): personal-tasks.json, passkeys.json, notifications.json, audio/
 scripts/                  ← Python scripts: fetch-eqs.py, fetch-pronote.py, fetch-news.py
 ```
@@ -85,6 +89,7 @@ OPENAI_API_KEY=<OpenAI key for Whisper transcription>
 CLAUDE_CODE_OAUTH_TOKEN=<Anthropic OAuth token for Claude CLI>
 WEBAUTHN_RP_ID=dashboard.infozen-consulting.com
 WEBAUTHN_ORIGIN=https://dashboard.infozen-consulting.com
+SYNAPCOIN_DOCS_PATH=/home/node/.openclaw/workspaces/synapcoin-docs
 ```
 
 ## Configured Projects
@@ -96,6 +101,8 @@ WEBAUTHN_ORIGIN=https://dashboard.infozen-consulting.com
 | trading-bot | Trading Bot | /home/openclaw/projects/trading-bot | Futures Trading Bot - ETHUSDC Binance |
 | stho | STHO | /home/openclaw/projects/stho/api | STHO Global Platform (multi-repo: api, web, infra) |
 | openclaw-dashboard | OpenClaw Dashboard | /home/openclaw/projects/dev-dashboard | This dashboard itself |
+| synapcoin | SynapCoin | /home/openclaw/projects/synapcoin | ERC-20 utility token for agent-to-agent economy |
+| synaphive | SynapHive | /home/openclaw/projects/synaphive | AI Skills Marketplace |
 
 ## API Routes Summary
 
@@ -121,6 +128,18 @@ WEBAUTHN_ORIGIN=https://dashboard.infozen-consulting.com
 | GET | /api/trading-status | integrations | Trading bot KPIs, positions, trades |
 | GET | /api/eqs | integrations | EQS car listings |
 | GET | /api/children | integrations | Pronote children data |
+| GET | /api/synapcoin/stats | synapcoin | Aggregated marketing stats |
+| GET/POST | /api/synapcoin/activities | synapcoin | List / create marketing activities |
+| PUT/DELETE | /api/synapcoin/activities/:id | synapcoin | Update / delete activity |
+| GET | /api/synapcoin/community | synapcoin | List community platforms with follower counts |
+| PUT | /api/synapcoin/community/:platform | synapcoin | Update community platform data |
+| GET | /api/synapcoin/docs | synapcoin | List files in SYNAPCOIN_DOCS_PATH |
+| GET | /api/synapcoin/docs/:filename | synapcoin | Download a document file |
+| GET | /api/synaphive/stats | synaphive | Aggregated marketing stats |
+| GET/POST | /api/synaphive/activities | synaphive | List / create marketing activities |
+| PUT/DELETE | /api/synaphive/activities/:id | synaphive | Update / delete activity |
+| GET | /api/synaphive/community | synaphive | List community platforms with follower counts |
+| PUT | /api/synaphive/community/:platform | synaphive | Update community platform data |
 
 ## Security Rules
 

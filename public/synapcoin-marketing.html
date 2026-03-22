@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SynapCoin — Marketing Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            sc: {
+              cyan:   '#06B6D4',
+              dark:   '#080D18',
+              card:   '#0F1623',
+              border: '#1E2A3A',
+              text:   '#E8F0F8',
+              muted:  '#5A7080',
+              green:  '#10B981',
+              red:    '#EF4444',
+              purple: '#8B5CF6',
+              yellow: '#F59E0B',
+              blue:   '#3B82F6',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    html, body { overflow-x: hidden; width: 100%; max-width: 100vw; box-sizing: border-box; }
+    body { background: #080D18; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    * { box-sizing: border-box; }
+    .card { background: #0F1623; border: 1px solid #1E2A3A; border-radius: 12px; }
+    .tab-btn { border-bottom: 2px solid transparent; color: #5A7080; }
+    .tab-btn.active { border-bottom: 2px solid #06B6D4; color: #06B6D4; }
+    .tab-btn:hover:not(.active) { color: #E8F0F8; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .modal-box { background: #0F1623; border: 1px solid #1E2A3A; border-radius: 16px; width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
+    input[type=text], input[type=number], select, textarea { color: #E8F0F8; }
+    input[type=text]::placeholder, textarea::placeholder { color: #5A7080; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #080D18; }
+    ::-webkit-scrollbar-thumb { background: #1E2A3A; border-radius: 3px; }
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500; }
+    .cyan-glow { box-shadow: 0 0 20px #06B6D420; }
+    @media (max-width: 768px) {
+      main { padding: 8px !important; }
+      h1 { font-size: 16px !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen text-sc-text">
+
+  <!-- Header -->
+  <header class="border-b border-sc-border px-6 py-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sc-cyan to-sc-purple flex items-center justify-center font-bold text-black text-base cyan-glow">SC</div>
+        <div>
+          <h1 class="text-xl font-bold">SynapCoin <span style="color:#06B6D4">Marketing</span></h1>
+          <p class="text-xs text-sc-muted">ERC-20 utility token · Agent-to-Agent Economy</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-sc-muted" id="last-updated"></span>
+        <a href="/home.html" class="text-sm px-3 py-1.5 rounded-lg border border-sc-border text-sc-muted hover:text-sc-text transition-colors">← Dashboard</a>
+        <a href="https://github.com/Ashwin012/synapcoin" target="_blank" class="text-sm px-3 py-1.5 rounded-lg border border-sc-cyan text-sc-cyan hover:bg-sc-cyan hover:text-black transition-colors font-medium">⭐ GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="border-b border-sc-border px-6">
+    <div class="max-w-7xl mx-auto flex gap-6 overflow-x-auto" style="scrollbar-width:none">
+      <button class="tab-btn active py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="overview">📊 Overview</button>
+      <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="activities">📝 Activity Log</button>
+      <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="community">👥 Community</button>
+      <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="plan">📋 Launch Plan</button>
+      <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="documents">📄 Documents</button>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-6 py-6">
+
+    <!-- ==================== OVERVIEW ==================== -->
+    <section id="tab-overview" class="tab-content">
+
+      <!-- Stat Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-sc-cyan" id="stat-done">—</div>
+          <div class="text-xs text-sc-muted mt-1">Posts Published</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-sc-purple" id="stat-engagement">—</div>
+          <div class="text-xs text-sc-muted mt-1">Total Engagement</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-sc-green" id="stat-community">—</div>
+          <div class="text-xs text-sc-muted mt-1">Community Size</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-sc-yellow" id="stat-planned">—</div>
+          <div class="text-xs text-sc-muted mt-1">Planned</div>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 space-y-6">
+          <!-- Charts -->
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="card p-5">
+              <h3 class="text-xs font-semibold text-sc-muted uppercase tracking-wider mb-4">Activity by Platform</h3>
+              <canvas id="platform-chart" height="200"></canvas>
+              <div id="platform-chart-empty" class="hidden text-center text-sc-muted text-sm py-8">No activities yet</div>
+            </div>
+            <div class="card p-5">
+              <h3 class="text-xs font-semibold text-sc-muted uppercase tracking-wider mb-4">Status Distribution</h3>
+              <canvas id="status-chart" height="200"></canvas>
+              <div id="status-chart-empty" class="hidden text-center text-sc-muted text-sm py-8">No activities yet</div>
+            </div>
+          </div>
+
+          <!-- Community Summary -->
+          <div class="card p-5">
+            <h3 class="text-xs font-semibold text-sc-muted uppercase tracking-wider mb-4">Community Platforms</h3>
+            <div id="community-summary" class="grid grid-cols-3 md:grid-cols-6 gap-3"></div>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="card p-5">
+          <h3 class="text-xs font-semibold text-sc-muted uppercase tracking-wider mb-4">Recent Activities</h3>
+          <div id="recent-activities" class="space-y-3 max-h-96 overflow-y-auto"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== ACTIVITY LOG ==================== -->
+    <section id="tab-activities" class="tab-content hidden">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div class="flex items-center gap-2 flex-wrap">
+          <select id="filter-platform" class="bg-sc-card border border-sc-border rounded-lg px-3 py-2 text-sc-text text-sm">
+            <option value="">All Platforms</option>
+            <option value="twitter">Twitter / X</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="reddit">Reddit</option>
+            <option value="discord">Discord</option>
+            <option value="telegram">Telegram</option>
+            <option value="github">GitHub</option>
+            <option value="other">Other</option>
+          </select>
+          <select id="filter-status" class="bg-sc-card border border-sc-border rounded-lg px-3 py-2 text-sc-text text-sm">
+            <option value="">All Statuses</option>
+            <option value="planned">Planned</option>
+            <option value="done">Done</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <button id="btn-add-activity" class="px-4 py-2 bg-sc-cyan text-black font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity">+ Add Activity</button>
+      </div>
+
+      <div class="card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full" style="min-width:720px">
+            <thead>
+              <tr class="border-b border-sc-border text-xs text-sc-muted uppercase tracking-wider">
+                <th class="text-left p-4">Title</th>
+                <th class="text-left p-4">Platform</th>
+                <th class="text-left p-4">Type</th>
+                <th class="text-left p-4">Status</th>
+                <th class="text-left p-4">Engagement</th>
+                <th class="text-left p-4">Date</th>
+                <th class="text-left p-4"></th>
+              </tr>
+            </thead>
+            <tbody id="activities-tbody"></tbody>
+          </table>
+        </div>
+        <div id="activities-empty" class="hidden p-10 text-center text-sc-muted text-sm">No activities yet — add your first one above.</div>
+      </div>
+    </section>
+
+    <!-- ==================== COMMUNITY ==================== -->
+    <section id="tab-community" class="tab-content hidden">
+      <div class="card p-5 mb-6 flex items-center gap-6">
+        <div>
+          <div class="text-4xl font-bold text-sc-cyan" id="total-community">—</div>
+          <div class="text-sm text-sc-muted mt-1">Total community size across all platforms</div>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="community-platforms"></div>
+    </section>
+
+    <!-- ==================== PLAN ==================== -->
+    <section id="tab-plan" class="tab-content hidden">
+      <div class="grid lg:grid-cols-2 gap-6">
+
+        <!-- Token Launch Checklist -->
+        <div class="card p-5">
+          <h3 class="text-lg font-semibold mb-5">🚀 Token Launch Checklist</h3>
+          <div class="space-y-3 text-sm">
+            <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span><strong>ERC-20 Contract</strong> — Deploy and verify on Ethereum mainnet/testnet</span></label>
+            <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span><strong>Whitepaper</strong> — Draft tokenomics, use cases, and distribution model</span></label>
+            <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span><strong>Landing page</strong> — Website with token info, roadmap, and buy link</span></label>
+            <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span><strong>Twitter / X account</strong> — Create and brand with project identity</span></label>
+            <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span><strong>Discord server</strong> — Set up community channels and moderation</span></label>
+            <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span><strong>GitHub public repo</strong> — Contract source code + README</span></label>
+            <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span><strong>Smart contract audit</strong> — Engage reputable auditing firm</span></label>
+            <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span><strong>CoinGecko listing</strong> — Submit application with token info</span></label>
+            <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span><strong>CoinMarketCap listing</strong> — Submit application with contract address</span></label>
+            <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span><strong>Uniswap liquidity</strong> — Create trading pair and seed initial liquidity</span></label>
+          </div>
+        </div>
+
+        <!-- Marketing Roadmap -->
+        <div class="card p-5">
+          <h3 class="text-lg font-semibold mb-5">📣 Marketing Roadmap</h3>
+          <div class="space-y-5 text-sm">
+            <div>
+              <h4 class="font-semibold text-sc-cyan mb-2">🔥 Phase 1 — Pre-Launch</h4>
+              <div class="space-y-2 pl-1">
+                <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span>Build Twitter/X to 500 followers — post 3x/week on AI agent use cases</span></label>
+                <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span>Launch Discord — 100 members target, set up channels and bots</span></label>
+                <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span>Engage in r/ethereum, r/artificial, r/defi — provide value before promoting</span></label>
+                <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span>Write 2 blog posts on Medium about agent-to-agent economy</span></label>
+              </div>
+            </div>
+            <div>
+              <h4 class="font-semibold text-sc-purple mb-2">🌙 Phase 2 — Launch</h4>
+              <div class="space-y-2 pl-1">
+                <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-purple-400"><span>Token launch announcement thread on Twitter (20+ tweets)</span></label>
+                <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-purple-400"><span>Submit to Product Hunt and Hacker News (Show HN)</span></label>
+                <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-purple-400"><span>Reach out to 10 AI/blockchain newsletters for coverage</span></label>
+                <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-purple-400"><span>Cross-promote with SynapHive ecosystem accounts</span></label>
+              </div>
+            </div>
+            <div>
+              <h4 class="font-semibold text-sc-green mb-2">🚀 Phase 3 — Growth</h4>
+              <div class="space-y-2 pl-1">
+                <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-green-400"><span>KOL outreach — identify 20 AI + crypto influencers</span></label>
+                <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-green-400"><span>Launch ambassador / referral program</span></label>
+                <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-green-400"><span>Apply to CEX listings (targeting Tier 2 exchanges)</span></label>
+                <label class="flex items-start gap-3 cursor-pointer"><input type="checkbox" class="mt-0.5 accent-green-400"><span>Hackathon sponsorship or participation</span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Messages -->
+      <div class="card p-5 mt-6">
+        <h3 class="text-lg font-semibold mb-5">💡 Key Marketing Messages</h3>
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="rounded-lg p-4 border border-sc-border" style="background:#06B6D408">
+            <div class="font-semibold text-sc-cyan mb-2">🤖 AI-Native Token</div>
+            <div class="text-sm text-sc-muted">SynapCoin powers the agent-to-agent economy — enabling AI agents to pay, incentivize, and collaborate autonomously without human intermediaries.</div>
+          </div>
+          <div class="rounded-lg p-4 border border-sc-border" style="background:#8B5CF608">
+            <div class="font-semibold text-sc-purple mb-2">⚡ ERC-20 Standard</div>
+            <div class="text-sm text-sc-muted">Built on Ethereum — fully composable with the DeFi ecosystem. Integrate SynapCoin into any smart contract, DEX, or agent protocol.</div>
+          </div>
+          <div class="rounded-lg p-4 border border-sc-border" style="background:#10B98108">
+            <div class="font-semibold text-sc-green mb-2">🌐 SynapHive Ecosystem</div>
+            <div class="text-sm text-sc-muted">The native currency of SynapHive's AI Skills Marketplace — powering skill trades, bounties, and reputation staking across the ecosystem.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== DOCUMENTS ==================== -->
+    <section id="tab-documents" class="tab-content hidden">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div>
+          <h2 class="text-base font-semibold">Generated Documents</h2>
+          <p class="text-xs text-sc-muted mt-0.5">Files produced by the synapcoin-docs agent</p>
+        </div>
+        <button id="btn-refresh-docs" class="text-xs px-3 py-1.5 border border-sc-border rounded-lg text-sc-muted hover:text-sc-text transition-colors">↻ Refresh</button>
+      </div>
+      <div id="docs-error" class="hidden card p-4 mb-4 text-sm" style="border-color:#EF444440;color:#EF4444"></div>
+      <div id="docs-empty" class="hidden card p-10 text-center text-sc-muted text-sm">No documents found.</div>
+      <div class="card overflow-hidden" id="docs-table-wrap">
+        <div class="overflow-x-auto">
+          <table class="w-full" style="min-width:520px">
+            <thead>
+              <tr class="border-b border-sc-border text-xs text-sc-muted uppercase tracking-wider">
+                <th class="text-left p-4">Filename</th>
+                <th class="text-left p-4">Size</th>
+                <th class="text-left p-4">Modified</th>
+                <th class="text-left p-4"></th>
+              </tr>
+            </thead>
+            <tbody id="docs-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===== ADD/EDIT ACTIVITY MODAL ===== -->
+  <div id="activity-modal" class="modal-overlay hidden">
+    <div class="modal-box p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-lg font-semibold" id="modal-title">Add Activity</h2>
+        <button id="modal-close" class="text-sc-muted hover:text-sc-text text-2xl leading-none">×</button>
+      </div>
+      <form id="activity-form" class="space-y-4">
+        <input type="hidden" id="activity-id">
+        <div>
+          <label class="block text-xs text-sc-muted mb-1">Title *</label>
+          <input type="text" id="activity-title" required class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm" placeholder="e.g. Twitter thread about AI agents">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-sc-muted mb-1">Platform</label>
+            <select id="activity-platform" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm">
+              <option value="twitter">Twitter / X</option>
+              <option value="linkedin">LinkedIn</option>
+              <option value="reddit">Reddit</option>
+              <option value="discord">Discord</option>
+              <option value="telegram">Telegram</option>
+              <option value="github">GitHub</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-sc-muted mb-1">Type</label>
+            <select id="activity-type" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm">
+              <option value="post">Post</option>
+              <option value="thread">Thread</option>
+              <option value="campaign">Campaign</option>
+              <option value="dm">DM Outreach</option>
+              <option value="community">Community Post</option>
+              <option value="pr">Press / PR</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-sc-muted mb-1">Status</label>
+          <select id="activity-status" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm">
+            <option value="planned">Planned</option>
+            <option value="done">Done</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-sc-muted mb-1">Content / Notes</label>
+          <textarea id="activity-content" rows="3" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm" placeholder="Content or notes..."></textarea>
+        </div>
+        <div>
+          <label class="block text-xs text-sc-muted mb-1">URL (optional)</label>
+          <input type="text" id="activity-url" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm" placeholder="https://...">
+        </div>
+        <div>
+          <label class="block text-xs text-sc-muted mb-2">Engagement Metrics</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-sc-muted mb-1">Likes / Reactions</label>
+              <input type="number" id="activity-likes" min="0" value="0" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs text-sc-muted mb-1">Reposts / Shares</label>
+              <input type="number" id="activity-reposts" min="0" value="0" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs text-sc-muted mb-1">Comments / Replies</label>
+              <input type="number" id="activity-comments" min="0" value="0" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs text-sc-muted mb-1">Clicks / Views</label>
+              <input type="number" id="activity-clicks" min="0" value="0" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm">
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 pt-2 border-t border-sc-border">
+          <button type="button" id="modal-cancel" class="px-4 py-2 border border-sc-border text-sc-muted rounded-lg text-sm hover:text-sc-text">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-sc-cyan text-black font-semibold rounded-lg text-sm hover:opacity-90">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== COMMUNITY EDIT MODAL ===== -->
+  <div id="community-modal" class="modal-overlay hidden">
+    <div class="modal-box p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-lg font-semibold" id="community-modal-title">Update Stats</h2>
+        <button id="community-modal-close" class="text-sc-muted hover:text-sc-text text-2xl leading-none">×</button>
+      </div>
+      <form id="community-form" class="space-y-4">
+        <input type="hidden" id="community-platform-id">
+        <div>
+          <label class="block text-xs text-sc-muted mb-1">Followers / Members</label>
+          <input type="number" id="community-followers" min="0" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sc-text text-sm">
+        </div>
+        <div>
+          <label class="block text-xs text-sc-muted mb-1">Profile URL</label>
+          <input type="text" id="community-url" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm" placeholder="https://...">
+        </div>
+        <div class="flex justify-end gap-3 pt-2 border-t border-sc-border">
+          <button type="button" id="community-modal-cancel" class="px-4 py-2 border border-sc-border text-sc-muted rounded-lg text-sm hover:text-sc-text">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-sc-cyan text-black font-semibold rounded-lg text-sm hover:opacity-90">Update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ===== STATE =====
+    let activities = [];
+    let community = [];
+    let platformChart = null;
+    let statusChart = null;
+
+    const PLATFORM_COLORS = {
+      twitter: '#06B6D4', linkedin: '#3B82F6', reddit: '#F59E0B',
+      discord: '#8B5CF6', telegram: '#06B6D4', github: '#94A3B8', other: '#6B7280'
+    };
+    const STATUS_COLORS = { done: '#10B981', planned: '#F59E0B', cancelled: '#EF4444' };
+
+    // ===== API =====
+    async function api(method, path, body) {
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      const resp = await fetch(path, opts);
+      if (resp.status === 401) { window.location.href = '/login.html'; return; }
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return resp.json();
+    }
+
+    async function loadAll() {
+      try {
+        [activities, community] = await Promise.all([
+          api('GET', '/api/synapcoin/activities'),
+          api('GET', '/api/synapcoin/community'),
+        ]);
+        document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+        renderOverview();
+        renderActivitiesTable();
+        renderCommunityTab();
+      } catch (e) {
+        console.error('Failed to load data:', e);
+      }
+    }
+
+    // ===== OVERVIEW =====
+    function renderOverview() {
+      const stats = computeStats();
+
+      document.getElementById('stat-done').textContent = stats.totalDone;
+      document.getElementById('stat-engagement').textContent = stats.totalEngagement.toLocaleString();
+      document.getElementById('stat-community').textContent = stats.totalCommunity.toLocaleString();
+      document.getElementById('stat-planned').textContent = stats.totalPlanned;
+
+      // Community summary grid
+      document.getElementById('community-summary').innerHTML = community.map(c => {
+        const color = PLATFORM_COLORS[c.platform] || '#6B7280';
+        return `
+          <div class="rounded-lg p-3 border border-sc-border text-center" style="background:${color}10">
+            <div class="text-xl">${c.icon}</div>
+            <div class="text-sm font-bold mt-1" style="color:${color}">${(c.followers||0).toLocaleString()}</div>
+            <div class="text-xs text-sc-muted truncate">${c.label}</div>
+          </div>`;
+      }).join('');
+
+      // Recent activities
+      const recentEl = document.getElementById('recent-activities');
+      const recent = [...activities].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).slice(0, 12);
+      if (recent.length === 0) {
+        recentEl.innerHTML = '<div class="text-sc-muted text-sm text-center py-6">No activities yet.<br><span class="text-xs">Switch to Activity Log to add one.</span></div>';
+      } else {
+        recentEl.innerHTML = recent.map(a => {
+          const pColor = PLATFORM_COLORS[a.platform] || '#6B7280';
+          const sColor = STATUS_COLORS[a.status] || '#6B7280';
+          const date = new Date(a.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+          return `
+            <div class="border-b border-sc-border pb-3 last:border-0 last:pb-0">
+              <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+                <span class="badge text-xs" style="background:${pColor}20;color:${pColor}">${a.platform}</span>
+                <span class="badge text-xs" style="background:${sColor}20;color:${sColor}">${a.status}</span>
+                <span class="text-xs text-sc-muted ml-auto">${date}</span>
+              </div>
+              <div class="text-sm truncate">${escHtml(a.title)}</div>
+            </div>`;
+        }).join('');
+      }
+
+      renderCharts(stats);
+    }
+
+    function computeStats() {
+      const totalDone = activities.filter(a => a.status === 'done').length;
+      const totalPlanned = activities.filter(a => a.status === 'planned').length;
+      const totalEngagement = activities.reduce((sum, a) => {
+        const e = a.engagement || {};
+        return sum + (e.likes||0) + (e.reposts||0) + (e.comments||0) + (e.clicks||0);
+      }, 0);
+      const totalCommunity = community.reduce((sum, c) => sum + (c.followers||0), 0);
+      const byPlatform = {};
+      const byStatus = { done: 0, planned: 0, cancelled: 0 };
+      for (const a of activities) {
+        byPlatform[a.platform] = (byPlatform[a.platform] || 0) + 1;
+        if (a.status in byStatus) byStatus[a.status]++;
+      }
+      return { totalDone, totalPlanned, totalEngagement, totalCommunity, byPlatform, byStatus };
+    }
+
+    function renderCharts(stats) {
+      const platformCtx = document.getElementById('platform-chart');
+      const statusCtx = document.getElementById('status-chart');
+      const hasActivities = activities.length > 0;
+
+      document.getElementById('platform-chart-empty').classList.toggle('hidden', hasActivities);
+      document.getElementById('status-chart-empty').classList.toggle('hidden', hasActivities);
+      if (!hasActivities) { platformCtx.classList.add('hidden'); statusCtx.classList.add('hidden'); return; }
+      platformCtx.classList.remove('hidden'); statusCtx.classList.remove('hidden');
+
+      if (platformChart) platformChart.destroy();
+      const pLabels = Object.keys(stats.byPlatform);
+      platformChart = new Chart(platformCtx, {
+        type: 'bar',
+        data: {
+          labels: pLabels,
+          datasets: [{ data: Object.values(stats.byPlatform), backgroundColor: pLabels.map(p => (PLATFORM_COLORS[p] || '#6B7280') + '80'), borderColor: pLabels.map(p => PLATFORM_COLORS[p] || '#6B7280'), borderWidth: 1 }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#5A7080', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#5A7080', stepSize: 1 }, grid: { color: '#1E2A3A60' } } } }
+      });
+
+      if (statusChart) statusChart.destroy();
+      statusChart = new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Done', 'Planned', 'Cancelled'],
+          datasets: [{ data: [stats.byStatus.done, stats.byStatus.planned, stats.byStatus.cancelled], backgroundColor: ['#10B981', '#F59E0B', '#EF4444'], borderWidth: 0 }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#5A7080', font: { size: 11 }, boxWidth: 10 } } } }
+      });
+    }
+
+    // ===== ACTIVITIES TABLE =====
+    function renderActivitiesTable() {
+      const filterPlatform = document.getElementById('filter-platform').value;
+      const filterStatus = document.getElementById('filter-status').value;
+      let filtered = activities;
+      if (filterPlatform) filtered = filtered.filter(a => a.platform === filterPlatform);
+      if (filterStatus) filtered = filtered.filter(a => a.status === filterStatus);
+
+      const tbody = document.getElementById('activities-tbody');
+      const empty = document.getElementById('activities-empty');
+      if (filtered.length === 0) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+
+      const sorted = [...filtered].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+      tbody.innerHTML = sorted.map(a => {
+        const pColor = PLATFORM_COLORS[a.platform] || '#6B7280';
+        const sColor = STATUS_COLORS[a.status] || '#6B7280';
+        const e = a.engagement || {};
+        const total = (e.likes||0) + (e.reposts||0) + (e.comments||0) + (e.clicks||0);
+        const date = new Date(a.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+        const urlHtml = a.url ? `<a href="${escHtml(a.url)}" target="_blank" class="text-xs hover:underline" style="color:#06B6D4">${escHtml(a.url.length > 38 ? a.url.slice(0,38)+'…' : a.url)}</a>` : '';
+        const engHtml = total > 0
+          ? `<span class="text-xs font-mono text-sc-muted">❤ ${e.likes||0} &nbsp;🔁 ${e.reposts||0} &nbsp;💬 ${e.comments||0}</span>`
+          : '<span class="text-sc-muted text-xs">—</span>';
+        return `
+          <tr class="border-b border-sc-border hover:bg-white/[0.03] transition-colors">
+            <td class="p-4">
+              <div class="text-sm font-medium">${escHtml(a.title)}</div>
+              ${urlHtml}
+            </td>
+            <td class="p-4"><span class="badge" style="background:${pColor}20;color:${pColor}">${a.platform}</span></td>
+            <td class="p-4 text-xs text-sc-muted">${a.type}</td>
+            <td class="p-4"><span class="badge" style="background:${sColor}20;color:${sColor}">${a.status}</span></td>
+            <td class="p-4">${engHtml}</td>
+            <td class="p-4 text-xs text-sc-muted whitespace-nowrap">${date}</td>
+            <td class="p-4">
+              <div class="flex gap-1.5">
+                <button onclick="openEditActivity('${a.id}')" class="text-xs text-sc-muted hover:text-sc-text px-2 py-1 border border-sc-border rounded transition-colors">Edit</button>
+                <button onclick="deleteActivity('${a.id}')" class="text-xs px-2 py-1 border border-red-900/50 rounded transition-colors" style="color:#EF4444" onmouseover="this.style.background='#EF444420'" onmouseout="this.style.background=''">Del</button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    // ===== COMMUNITY TAB =====
+    function renderCommunityTab() {
+      const total = community.reduce((sum, c) => sum + (c.followers||0), 0);
+      document.getElementById('total-community').textContent = total.toLocaleString();
+
+      document.getElementById('community-platforms').innerHTML = community.map(c => {
+        const color = PLATFORM_COLORS[c.platform] || '#6B7280';
+        const urlHtml = c.url
+          ? `<a href="${escHtml(c.url)}" target="_blank" class="text-xs hover:underline" style="color:${color}">View profile →</a>`
+          : '<span class="text-xs text-sc-muted">No URL set</span>';
+        const updated = new Date(c.updatedAt).toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+        return `
+          <div class="card p-5">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style="background:${color}20">${c.icon}</div>
+                <div>
+                  <div class="font-semibold">${c.label}</div>
+                  ${urlHtml}
+                </div>
+              </div>
+              <button onclick="openCommunityModal('${c.platform}')" class="text-xs text-sc-muted hover:text-sc-text px-2 py-1 border border-sc-border rounded transition-colors">Edit</button>
+            </div>
+            <div class="text-3xl font-bold" style="color:${color}">${(c.followers||0).toLocaleString()}</div>
+            <div class="text-xs text-sc-muted mt-1">Followers / Members</div>
+            <div class="text-xs text-sc-muted mt-2">Updated ${updated}</div>
+          </div>`;
+      }).join('');
+    }
+
+    // ===== ACTIVITY MODAL =====
+    function openAddActivity() { openActivityModal(null); }
+    function openEditActivity(id) { openActivityModal(id); }
+
+    function openActivityModal(id) {
+      const modal = document.getElementById('activity-modal');
+      document.getElementById('modal-title').textContent = id ? 'Edit Activity' : 'Add Activity';
+      if (id) {
+        const a = activities.find(x => x.id === id);
+        if (!a) return;
+        document.getElementById('activity-id').value = a.id;
+        document.getElementById('activity-title').value = a.title;
+        document.getElementById('activity-platform').value = a.platform;
+        document.getElementById('activity-type').value = a.type;
+        document.getElementById('activity-status').value = a.status;
+        document.getElementById('activity-content').value = a.content || '';
+        document.getElementById('activity-url').value = a.url || '';
+        const e = a.engagement || {};
+        document.getElementById('activity-likes').value = e.likes || 0;
+        document.getElementById('activity-reposts').value = e.reposts || 0;
+        document.getElementById('activity-comments').value = e.comments || 0;
+        document.getElementById('activity-clicks').value = e.clicks || 0;
+      } else {
+        document.getElementById('activity-form').reset();
+        document.getElementById('activity-id').value = '';
+        ['activity-likes','activity-reposts','activity-comments','activity-clicks'].forEach(id => document.getElementById(id).value = 0);
+      }
+      modal.classList.remove('hidden');
+    }
+
+    function closeActivityModal() { document.getElementById('activity-modal').classList.add('hidden'); }
+
+    async function deleteActivity(id) {
+      if (!confirm('Delete this activity?')) return;
+      try {
+        await api('DELETE', `/api/synapcoin/activities/${id}`);
+        await loadAll();
+      } catch (e) { alert('Error deleting activity'); }
+    }
+
+    document.getElementById('activity-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('activity-id').value;
+      const body = {
+        title: document.getElementById('activity-title').value.trim(),
+        platform: document.getElementById('activity-platform').value,
+        type: document.getElementById('activity-type').value,
+        status: document.getElementById('activity-status').value,
+        content: document.getElementById('activity-content').value,
+        url: document.getElementById('activity-url').value.trim(),
+        engagement: {
+          likes:    parseInt(document.getElementById('activity-likes').value)    || 0,
+          reposts:  parseInt(document.getElementById('activity-reposts').value)  || 0,
+          comments: parseInt(document.getElementById('activity-comments').value) || 0,
+          clicks:   parseInt(document.getElementById('activity-clicks').value)   || 0,
+        }
+      };
+      try {
+        if (id) { await api('PUT', `/api/synapcoin/activities/${id}`, body); }
+        else     { await api('POST', '/api/synapcoin/activities', body); }
+        closeActivityModal();
+        await loadAll();
+      } catch (e) { alert('Error saving activity'); }
+    });
+
+    // ===== COMMUNITY MODAL =====
+    function openCommunityModal(platform) {
+      const c = community.find(x => x.platform === platform);
+      if (!c) return;
+      document.getElementById('community-modal-title').textContent = `Update ${c.label}`;
+      document.getElementById('community-platform-id').value = platform;
+      document.getElementById('community-followers').value = c.followers || 0;
+      document.getElementById('community-url').value = c.url || '';
+      document.getElementById('community-modal').classList.remove('hidden');
+    }
+
+    function closeCommunityModal() { document.getElementById('community-modal').classList.add('hidden'); }
+
+    document.getElementById('community-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const platform = document.getElementById('community-platform-id').value;
+      const body = {
+        followers: parseInt(document.getElementById('community-followers').value) || 0,
+        url: document.getElementById('community-url').value.trim(),
+      };
+      try {
+        await api('PUT', `/api/synapcoin/community/${platform}`, body);
+        closeCommunityModal();
+        await loadAll();
+      } catch (e) { alert('Error updating community stats'); }
+    });
+
+    // ===== DOCUMENTS =====
+    async function loadDocs() {
+      const errorEl = document.getElementById('docs-error');
+      const emptyEl = document.getElementById('docs-empty');
+      const wrapEl  = document.getElementById('docs-table-wrap');
+      const tbody   = document.getElementById('docs-tbody');
+      errorEl.classList.add('hidden');
+      emptyEl.classList.add('hidden');
+      try {
+        const data = await api('GET', '/api/synapcoin/docs');
+        if (data.error) {
+          errorEl.textContent = data.error;
+          errorEl.classList.remove('hidden');
+          wrapEl.classList.add('hidden');
+          return;
+        }
+        wrapEl.classList.remove('hidden');
+        if (data.files.length === 0) {
+          tbody.innerHTML = '';
+          emptyEl.classList.remove('hidden');
+          return;
+        }
+        emptyEl.classList.add('hidden');
+        tbody.innerHTML = data.files.map(f => {
+          const ext = f.name.split('.').pop().toLowerCase();
+          const extColors = { md: '#06B6D4', pdf: '#EF4444', txt: '#8B949E', json: '#F59E0B', html: '#8B5CF6' };
+          const extColor = extColors[ext] || '#5A7080';
+          const size = f.size < 1024 ? `${f.size} B`
+            : f.size < 1024*1024 ? `${(f.size/1024).toFixed(1)} KB`
+            : `${(f.size/1024/1024).toFixed(1)} MB`;
+          const mtime = new Date(f.mtime).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'2-digit', hour:'2-digit', minute:'2-digit' });
+          return `
+            <tr class="border-b border-sc-border hover:bg-white/[0.03] transition-colors">
+              <td class="p-4">
+                <div class="flex items-center gap-2">
+                  <span class="badge" style="background:${extColor}20;color:${extColor}">${escHtml(ext)}</span>
+                  <span class="text-sm font-mono">${escHtml(f.name)}</span>
+                </div>
+              </td>
+              <td class="p-4 text-xs text-sc-muted">${size}</td>
+              <td class="p-4 text-xs text-sc-muted whitespace-nowrap">${mtime}</td>
+              <td class="p-4">
+                <a href="/api/synapcoin/docs/${encodeURIComponent(f.name)}" download="${escHtml(f.name)}"
+                   class="text-xs px-3 py-1.5 border border-sc-border rounded-lg text-sc-muted hover:text-sc-text transition-colors">Download</a>
+              </td>
+            </tr>`;
+        }).join('');
+      } catch (e) {
+        errorEl.textContent = 'Failed to load documents: ' + e.message;
+        errorEl.classList.remove('hidden');
+        wrapEl.classList.add('hidden');
+      }
+    }
+
+    document.getElementById('btn-refresh-docs').addEventListener('click', loadDocs);
+
+    // ===== TAB NAVIGATION =====
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
+        document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+        if (btn.dataset.tab === 'documents') loadDocs();
+      });
+    });
+
+    // ===== EVENT LISTENERS =====
+    document.getElementById('btn-add-activity').addEventListener('click', openAddActivity);
+    document.getElementById('modal-close').addEventListener('click', closeActivityModal);
+    document.getElementById('modal-cancel').addEventListener('click', closeActivityModal);
+    document.getElementById('community-modal-close').addEventListener('click', closeCommunityModal);
+    document.getElementById('community-modal-cancel').addEventListener('click', closeCommunityModal);
+    document.getElementById('filter-platform').addEventListener('change', renderActivitiesTable);
+    document.getElementById('filter-status').addEventListener('change', renderActivitiesTable);
+    document.getElementById('activity-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeActivityModal(); });
+    document.getElementById('community-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeCommunityModal(); });
+
+    // ===== UTILS =====
+    function escHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ===== INIT =====
+    loadAll();
+  </script>
+</body>
+</html>

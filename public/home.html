@@ -446,6 +446,15 @@
       .rh-summary-card { grid-template-columns: 1fr; }
     }
 
+    /* SynapCoin / SynapHive summary card responsive */
+    .synap-summary-card { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 16px; align-items: center; }
+    @media (max-width: 900px) {
+      .synap-summary-card { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 500px) {
+      .synap-summary-card { grid-template-columns: 1fr; }
+    }
+
     /* Responsive */
     @media (max-width: 900px) {
       .two-col { grid-template-columns: 1fr; }
@@ -993,6 +1002,20 @@
       .inv-detail-actions { flex-direction: column; }
       .inv-action-btn { width: 100%; text-align: center; }
     }
+
+    /* Synap unified links grid */
+    .synap-links-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 900px) {
+      .synap-links-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 500px) {
+      .synap-links-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -1003,6 +1026,9 @@
       <a href="/home.html" class="btn-nav">🏠 Accueil</a>
       <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
       <a href="/royal-heights.html" class="btn-nav">🏛️ Royal Heights</a>
+      <a href="/synapcoin-marketing.html" class="btn-nav">⚡ SynapCoin</a>
+      <a href="/synaphive-marketing.html" class="btn-nav">🐝 SynapHive</a>
+      <a href="/synapcoin-docs.html" class="btn-nav">📄 SC Docs</a>
       <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
       <button class="btn-logout-home" id="logoutBtn">🚪 Déconnexion</button>
     </nav>
@@ -1014,6 +1040,9 @@
     <a href="/home.html" class="btn-nav">🏠 Accueil</a>
     <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
     <a href="/royal-heights.html" class="btn-nav">🏛️ Royal Heights</a>
+    <a href="/synapcoin-marketing.html" class="btn-nav">⚡ SynapCoin</a>
+    <a href="/synaphive-marketing.html" class="btn-nav">🐝 SynapHive</a>
+    <a href="/synapcoin-docs.html" class="btn-nav">📄 SC Docs</a>
     <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
     <button class="btn-logout-home" id="logoutBtnMobile">🚪 Déconnexion</button>
   </div>
@@ -1149,6 +1178,26 @@
       <div>
         <a href="/royal-heights.html" class="btn-nav" style="padding:9px 18px;font-size:13px;background:var(--accent);border-color:var(--accent);color:#fff">Voir →</a>
       </div>
+    </div>
+
+    <!-- Synap Section (unified) -->
+    <div class="section-title">🧠 Synap</div>
+    <div class="synap-links-grid">
+      <a href="/synaphive-marketing.html" class="quick-link" style="padding:20px;gap:10px">
+        <div class="ql-icon" style="font-size:28px">🏪</div>
+        <div class="ql-label" style="font-size:14px">SynapHive Marketing</div>
+        <div class="ql-sub">Stratégie & campagnes SynapHive</div>
+      </a>
+      <a href="/synapcoin-marketing.html" class="quick-link" style="padding:20px;gap:10px">
+        <div class="ql-icon" style="font-size:28px">🪙</div>
+        <div class="ql-label" style="font-size:14px">SynapCoin Marketing</div>
+        <div class="ql-sub">Stratégie & campagnes SynapCoin</div>
+      </a>
+      <a href="/synapcoin-docs.html" class="quick-link" style="padding:20px;gap:10px">
+        <div class="ql-icon" style="font-size:28px">📄</div>
+        <div class="ql-label" style="font-size:14px">SynapCoin Documentation</div>
+        <div class="ql-sub">Docs techniques & intégration</div>
+      </a>
     </div>
 
     <!-- Dev Summary -->
@@ -1297,8 +1346,34 @@
 
     // ===== Load data =====
     async function loadAll() {
-      await Promise.all([loadTasks(), loadNews(), loadProjects()]);
+      await Promise.all([loadTasks(), loadNews(), loadProjects(), loadSynapCoin(), loadSynapHive()]);
       updateStats();
+    }
+
+    async function loadSynapCoin() {
+      try {
+        const res = await fetch('/api/synapcoin/stats', { credentials: 'include' });
+        if (!res.ok) return;
+        const d = await res.json();
+        const el = (id) => document.getElementById(id);
+        if (el('synapcoin-done')) el('synapcoin-done').textContent = d.totalDone + ' faites';
+        if (el('synapcoin-planned')) el('synapcoin-planned').textContent = d.totalPlanned + ' planifiées';
+        if (el('synapcoin-engagement')) el('synapcoin-engagement').textContent = d.totalEngagement;
+        if (el('synapcoin-community')) el('synapcoin-community').textContent = d.totalCommunitySize;
+      } catch (e) {}
+    }
+
+    async function loadSynapHive() {
+      try {
+        const res = await fetch('/api/synaphive/stats', { credentials: 'include' });
+        if (!res.ok) return;
+        const d = await res.json();
+        const el = (id) => document.getElementById(id);
+        if (el('synaphive-done')) el('synaphive-done').textContent = d.totalDone + ' faites';
+        if (el('synaphive-planned')) el('synaphive-planned').textContent = d.totalPlanned + ' planifiées';
+        if (el('synaphive-engagement')) el('synaphive-engagement').textContent = d.totalEngagement;
+        if (el('synaphive-community')) el('synaphive-community').textContent = d.totalCommunitySize;
+      } catch (e) {}
     }
 
     async function loadTasks() {

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SynapCoin — Documents</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            sc: {
+              cyan:   '#06B6D4',
+              dark:   '#080D18',
+              card:   '#0F1623',
+              border: '#1E2A3A',
+              text:   '#E8F0F8',
+              muted:  '#5A7080',
+              green:  '#10B981',
+              red:    '#EF4444',
+              purple: '#8B5CF6',
+              yellow: '#F59E0B',
+              blue:   '#3B82F6',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    html, body { overflow-x: hidden; width: 100%; max-width: 100vw; box-sizing: border-box; }
+    body { background: #080D18; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    * { box-sizing: border-box; }
+    .card { background: #0F1623; border: 1px solid #1E2A3A; border-radius: 12px; }
+    .cyan-glow { box-shadow: 0 0 20px #06B6D420; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #080D18; }
+    ::-webkit-scrollbar-thumb { background: #1E2A3A; border-radius: 3px; }
+
+    .doc-icon { font-size: 2rem; }
+    .doc-card { transition: all 0.2s ease; cursor: pointer; }
+    .doc-card:hover { border-color: #06B6D4; transform: translateY(-2px); box-shadow: 0 4px 20px rgba(6,182,212,0.15); }
+
+    /* Markdown viewer styles */
+    .md-viewer { display: none; }
+    .md-viewer.active { display: block; }
+    .md-content { color: #E8F0F8; line-height: 1.7; }
+    .md-content h1 { font-size: 1.8rem; font-weight: 700; color: #06B6D4; margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid #1E2A3A; }
+    .md-content h2 { font-size: 1.35rem; font-weight: 600; color: #E8F0F8; margin: 28px 0 12px; }
+    .md-content h3 { font-size: 1.1rem; font-weight: 600; color: #8B5CF6; margin: 20px 0 8px; }
+    .md-content h4 { font-size: 1rem; font-weight: 600; color: #5A7080; margin: 16px 0 6px; }
+    .md-content p { margin: 8px 0; color: #B0C4D4; }
+    .md-content strong { color: #E8F0F8; }
+    .md-content ul, .md-content ol { margin: 8px 0; padding-left: 24px; color: #B0C4D4; }
+    .md-content li { margin: 4px 0; }
+    .md-content blockquote { border-left: 3px solid #06B6D4; padding: 8px 16px; margin: 12px 0; background: #06B6D408; border-radius: 0 8px 8px 0; }
+    .md-content blockquote p { color: #8BA8B8; }
+    .md-content code { background: #1E2A3A; padding: 2px 6px; border-radius: 4px; font-size: 0.88em; color: #06B6D4; }
+    .md-content pre { background: #0A1220; border: 1px solid #1E2A3A; border-radius: 8px; padding: 16px; overflow-x: auto; margin: 12px 0; }
+    .md-content pre code { background: none; padding: 0; color: #B0C4D4; }
+    .md-content table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    .md-content th { background: #1E2A3A; color: #06B6D4; text-align: left; padding: 10px 14px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .md-content td { padding: 10px 14px; border-bottom: 1px solid #1E2A3A; font-size: 0.92rem; color: #B0C4D4; }
+    .md-content tr:hover td { background: #1E2A3A30; }
+    .md-content hr { border: none; border-top: 1px solid #1E2A3A; margin: 24px 0; }
+    .md-content a { color: #06B6D4; text-decoration: underline; }
+    .md-content a:hover { color: #22D3EE; }
+
+    @media (max-width: 768px) {
+      main { padding: 8px !important; }
+      h1 { font-size: 16px !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen text-sc-text">
+
+  <!-- Header -->
+  <header class="border-b border-sc-border px-6 py-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sc-cyan to-sc-purple flex items-center justify-center font-bold text-black text-base cyan-glow">SC</div>
+        <div>
+          <h1 class="text-xl font-bold">SynapCoin <span style="color:#06B6D4">Documents</span></h1>
+          <p class="text-xs text-sc-muted">Whitepaper, Tokenomics, Pitch Deck & Brand Assets</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="/synapcoin-marketing.html" class="text-sm px-3 py-1.5 rounded-lg border border-sc-border text-sc-muted hover:text-sc-text transition-colors">📊 Marketing</a>
+        <a href="/home.html" class="text-sm px-3 py-1.5 rounded-lg border border-sc-border text-sc-muted hover:text-sc-text transition-colors">← Dashboard</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+
+    <!-- Document Cards Grid -->
+    <div id="docs-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <!-- Populated by JS -->
+    </div>
+
+    <div id="docs-empty" class="hidden card p-12 text-center">
+      <div class="text-4xl mb-4">📄</div>
+      <div class="text-sc-muted">No documents found.</div>
+    </div>
+
+    <!-- Markdown Viewer -->
+    <div id="md-viewer" class="md-viewer">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <button id="btn-back" class="text-sm px-4 py-2 rounded-lg border border-sc-border text-sc-muted hover:text-sc-text transition-colors">← Back to Documents</button>
+        <div class="flex gap-2">
+          <a id="btn-download" href="#" class="text-sm px-4 py-2 rounded-lg bg-sc-cyan text-black font-semibold hover:opacity-90 transition-opacity">⬇ Download .md</a>
+        </div>
+      </div>
+      <div class="card p-6 md:p-10">
+        <div id="md-content" class="md-content"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    const DOC_META = {
+      'WHITEPAPER.md': {
+        icon: '📜',
+        title: 'White Paper',
+        desc: 'Vision, architecture, use cases, and technical specifications for the SynapCoin protocol.',
+        color: '#06B6D4',
+      },
+      'TOKENOMICS.md': {
+        icon: '📊',
+        title: 'Tokenomics',
+        desc: 'Token distribution, vesting schedules, supply mechanics, and economic model.',
+        color: '#8B5CF6',
+      },
+      'PITCH_DECK.md': {
+        icon: '🚀',
+        title: 'Pitch Deck',
+        desc: 'Investor presentation — problem, solution, market, roadmap, and team.',
+        color: '#10B981',
+      },
+      'synap-logo.png': {
+        icon: '🎨',
+        title: 'Logo Synap',
+        desc: 'Logo Synap — Complet avec texte, pour sites web et présentations.',
+        color: '#F59E0B',
+        binary: true,
+      },
+      'synap-icon.png': {
+        icon: '🖼️',
+        title: 'Icône Synap',
+        desc: 'Icône Synap — Sans texte, pour favicon, avatar, MoonPay.',
+        color: '#3B82F6',
+        binary: true,
+      },
+    };
+
+    let docs = [];
+
+    async function api(method, url) {
+      const resp = await fetch(url, { method });
+      if (resp.status === 401) { window.location.href = '/login.html'; return; }
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return resp;
+    }
+
+    async function loadDocs() {
+      try {
+        const resp = await api('GET', '/api/synapcoin-docs');
+        docs = await resp.json();
+        renderGrid();
+      } catch (e) {
+        console.error('Failed to load docs:', e);
+        document.getElementById('docs-empty').classList.remove('hidden');
+      }
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      return (bytes / 1024).toFixed(1) + ' KB';
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById('docs-grid');
+      const empty = document.getElementById('docs-empty');
+
+      if (docs.length === 0) { grid.innerHTML = ''; empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+
+      grid.innerHTML = docs.map(doc => {
+        const meta = DOC_META[doc.name] || { icon: '📄', title: doc.name, desc: '', color: '#5A7080' };
+        const isBinary = meta.binary;
+        const cardClick = isBinary ? '' : `onclick="viewDoc('${doc.name}')"`;
+        const preview = isBinary
+          ? `<div class="mb-3 rounded-lg overflow-hidden border border-sc-border" style="max-height:120px"><img src="${doc.url}" alt="${meta.title}" style="width:100%;object-fit:contain;max-height:120px;background:#1E2A3A"></div>`
+          : '';
+        const buttons = isBinary
+          ? `<a href="${doc.url}" download="${doc.name}" onclick="event.stopPropagation()" class="text-xs px-3 py-1.5 rounded-lg bg-sc-cyan/20 text-sc-cyan hover:bg-sc-cyan hover:text-black transition-colors font-medium" style="text-decoration:none">⬇ Download</a>`
+          : `<button onclick="event.stopPropagation(); viewDoc('${doc.name}')" class="text-xs px-3 py-1.5 rounded-lg border border-sc-border text-sc-muted hover:text-sc-text transition-colors">Read</button>
+                <a href="${doc.url}" onclick="event.stopPropagation()" class="text-xs px-3 py-1.5 rounded-lg bg-sc-cyan/20 text-sc-cyan hover:bg-sc-cyan hover:text-black transition-colors font-medium" style="text-decoration:none">⬇</a>`;
+        return `
+          <div class="card doc-card p-6" ${cardClick}>
+            <div class="flex items-start justify-between mb-4">
+              <div class="doc-icon">${meta.icon}</div>
+              <span class="text-xs text-sc-muted font-mono">${formatSize(doc.size)}</span>
+            </div>
+            <h3 class="text-lg font-semibold mb-2" style="color:${meta.color}">${meta.title}</h3>
+            ${preview}
+            <p class="text-sm text-sc-muted mb-4 leading-relaxed">${meta.desc}</p>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono text-sc-muted">${doc.name}</span>
+              <div class="flex gap-2">
+                ${buttons}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    async function viewDoc(name) {
+      try {
+        const resp = await fetch('/api/synapcoin-docs/' + encodeURIComponent(name));
+        if (resp.status === 401) { window.location.href = '/login.html'; return; }
+        const text = await resp.text();
+        const meta = DOC_META[name] || { title: name };
+
+        document.getElementById('md-content').innerHTML = marked.parse(text);
+        document.getElementById('btn-download').href = '/api/synapcoin-docs/' + encodeURIComponent(name);
+        document.getElementById('docs-grid').style.display = 'none';
+        document.getElementById('md-viewer').classList.add('active');
+        window.scrollTo(0, 0);
+      } catch (e) {
+        console.error('Failed to load document:', e);
+        alert('Error loading document');
+      }
+    }
+
+    function showGrid() {
+      document.getElementById('md-viewer').classList.remove('active');
+      document.getElementById('docs-grid').style.display = '';
+    }
+
+    document.getElementById('btn-back').addEventListener('click', showGrid);
+
+    loadDocs();
+  </script>
+</body>
+</html>

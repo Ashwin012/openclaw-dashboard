@@ -576,7 +576,7 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
-    const allowed = ['testUrl', 'stagingUrl', 'prodUrl', 'githubUrl', 'description'];
+    const allowed = ['testUrl', 'apiUrl', 'stagingUrl', 'prodUrl', 'githubUrl', 'description'];
     for (const key of allowed) {
       if (req.body[key] !== undefined) {
         if (req.body[key] === '') {

@@ -117,8 +117,7 @@ async function requireAuthOrBearer(req, res, next) {
 const protectedPages = [
   'dashboard.html', 'home.html', 'chat.html', 'profile.html',
   'project.html', 'royal-heights.html', 'royal-heights-prospection.html',
-  
-  'pms-compare.html', 'prospection-rh.html'
+  'pms-compare.html', 'prospection-rh.html', 'synapcoin-marketing.html', 'synaphive-marketing.html', 'synapcoin-docs.html'
 ];
 
 protectedPages.forEach(page => {
@@ -156,6 +155,33 @@ app.use(invoiceRouter);
 
 const royalHeightsRouter = require('./routes/royal-heights')({ requireAuth });
 app.use(royalHeightsRouter);
+
+const synapCoinRouter = require('./routes/synapcoin')({ requireAuth });
+app.use(synapCoinRouter);
+
+const synapHiveRouter = require('./routes/synaphive')({ requireAuth });
+app.use(synapHiveRouter);
+
+// ===== SynapCoin Docs API =====
+app.get("/api/synapcoin-docs", requireAuth, (req, res) => {
+  const docsDir = path.join(__dirname, "data", "synapcoin-docs");
+  try {
+    const files = fs.readdirSync(docsDir).filter(f => f.endsWith(".md"));
+    res.json(files.map(f => ({
+      name: f,
+      size: fs.statSync(path.join(docsDir, f)).size,
+      url: "/api/synapcoin-docs/" + encodeURIComponent(f)
+    })));
+  } catch (e) { res.json([]); }
+});
+app.get("/api/synapcoin-docs/:filename", requireAuth, (req, res) => {
+  const safeName = path.basename(req.params.filename);
+  const filePath = path.join(__dirname, "data", "synapcoin-docs", safeName);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Not found" });
+  res.setHeader("Content-Disposition", "attachment; filename=" + safeName);
+  res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+  res.sendFile(filePath);
+});
 
 const uploadRouter = require('./routes/uploads')({ config, requireAuth });
 app.use(uploadRouter);
