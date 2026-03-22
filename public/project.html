@@ -258,6 +258,10 @@
           <input id="cfgProdUrl" type="text" style="width:100%;padding:8px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box">
         </div>
         <div>
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px">Prod API URL</label>
+          <input id="cfgProdApiUrl" type="text" style="width:100%;padding:8px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box">
+        </div>
+        <div>
           <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px">GitHub URL</label>
           <input id="cfgGithubUrl" type="text" style="width:100%;padding:8px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box">
         </div>
@@ -595,6 +599,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
             ${data.apiUrl ? `<a href="${escapeHtml(data.apiUrl)}" target="_blank" style="background:#c4a7e7;color:var(--bg);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">API</a>` : ''}
             ${data.stagingUrl ? `<a href="${escapeHtml(data.stagingUrl)}" target="_blank" style="background:var(--yellow);color:var(--bg);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Staging</a>` : ''}
             ${data.prodUrl ? `<a href="${escapeHtml(data.prodUrl)}" target="_blank" style="background:var(--green);color:var(--bg);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Prod</a>` : ''}
+            ${data.prodApiUrl ? `<a href="${escapeHtml(data.prodApiUrl)}" target="_blank" style="background:#40a02b;color:var(--bg);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Prod API</a>` : ''}
             ${data.githubUrl ? `<a href="${escapeHtml(data.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">GitHub</a>` : ''}
             <button onclick="openConfigModal()" style="background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:14px;cursor:pointer;line-height:1" title="Edit project config">⚙</button>
             <button onclick="gitPull()" style="background:var(--green);color:var(--bg);border:none;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer" id="pullBtn">Pull</button>
@@ -1430,6 +1435,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       document.getElementById('cfgApiUrl').value = d.apiUrl || '';
       document.getElementById('cfgStagingUrl').value = d.stagingUrl || '';
       document.getElementById('cfgProdUrl').value = d.prodUrl || '';
+      document.getElementById('cfgProdApiUrl').value = d.prodApiUrl || '';
       document.getElementById('cfgGithubUrl').value = d.githubUrl || '';
       const modal = document.getElementById('configModal');
       modal.style.display = 'flex';
@@ -1446,6 +1452,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         apiUrl: document.getElementById('cfgApiUrl').value.trim(),
         stagingUrl: document.getElementById('cfgStagingUrl').value.trim(),
         prodUrl: document.getElementById('cfgProdUrl').value.trim(),
+        prodApiUrl: document.getElementById('cfgProdApiUrl').value.trim(),
         githubUrl: document.getElementById('cfgGithubUrl').value.trim(),
       };
       try {

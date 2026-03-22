@@ -121,7 +121,9 @@
       "description": "ERC-20 utility token for agent-to-agent economy",
       "githubUrl": "https://github.com/Ashwin012/synapcoin",
       "testUrl": "http://158.69.1.160:3000",
-      "apiUrl": "http://158.69.1.160:3001"
+      "apiUrl": "http://158.69.1.160:3001",
+      "prodUrl": "https://synapcoin.io",
+      "prodApiUrl": "https://api.synapcoin.io"
     },
     {
       "id": "synaphive",
@@ -136,7 +138,9 @@
       "description": "AI Skills Marketplace",
       "githubUrl": "https://github.com/Ashwin012/synaphive",
       "testUrl": "http://158.69.1.160:3084",
-      "apiUrl": "http://158.69.1.160:4000"
+      "apiUrl": "http://158.69.1.160:4000",
+      "prodUrl": "https://synaphive.io",
+      "prodApiUrl": "https://api.synaphive.io"
     }
   ]
 }
