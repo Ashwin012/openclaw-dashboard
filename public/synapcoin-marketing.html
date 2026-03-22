@@ -81,6 +81,8 @@
       <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="community">👥 Community</button>
       <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="plan">📋 Launch Plan</button>
       <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="documents">📄 Documents</button>
+      <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="twitter">🐦 Twitter</button>
+      <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="telegram">✈️ Telegram</button>
     </div>
   </nav>
 
@@ -297,6 +299,101 @@
             <tbody id="docs-tbody"></tbody>
           </table>
         </div>
+      </div>
+    </section>
+
+
+    <!-- ==================== TWITTER ==================== -->
+    <section id="tab-twitter" class="tab-content hidden">
+      <!-- Twitter Stats Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold" style="color:#1DA1F2" id="tw-stat-tweets">—</div>
+          <div class="text-xs text-sc-muted mt-1">Tweets Posted</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold" style="color:#1DA1F2" id="tw-stat-followers">—</div>
+          <div class="text-xs text-sc-muted mt-1">Followers</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-sc-green" id="tw-stat-engagement">—</div>
+          <div class="text-xs text-sc-muted mt-1">Engagement Rate</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-sc-purple" id="tw-stat-impressions">—</div>
+          <div class="text-xs text-sc-muted mt-1">Total Impressions</div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div class="flex items-center gap-2">
+          <span class="badge text-sm" style="background:#1DA1F220;color:#1DA1F2;padding:4px 12px">🐦 Twitter / X</span>
+          <button id="btn-edit-tw-stats" class="text-xs px-3 py-1.5 border border-sc-border rounded-lg text-sc-muted hover:text-sc-text transition-colors">⚙️ Edit Stats</button>
+        </div>
+        <button id="btn-add-tweet" class="px-4 py-2 bg-gradient-to-r text-white font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity" style="background:linear-gradient(135deg,#1DA1F2,#0d8ed9)">+ Nouveau tweet</button>
+      </div>
+
+      <div class="card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full" style="min-width:640px">
+            <thead>
+              <tr class="border-b border-sc-border text-xs text-sc-muted uppercase tracking-wider">
+                <th class="text-left p-4">Date</th>
+                <th class="text-left p-4">Content</th>
+                <th class="text-left p-4">❤️ Likes</th>
+                <th class="text-left p-4">🔁 Retweets</th>
+                <th class="text-left p-4">👁 Impressions</th>
+                <th class="text-left p-4"></th>
+              </tr>
+            </thead>
+            <tbody id="tweets-tbody"></tbody>
+          </table>
+        </div>
+        <div id="tweets-empty" class="hidden p-10 text-center text-sc-muted text-sm">No tweets yet — add your first one above.</div>
+      </div>
+    </section>
+
+    <!-- ==================== TELEGRAM ==================== -->
+    <section id="tab-telegram" class="tab-content hidden">
+      <!-- Telegram Stats Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold" style="color:#0088cc" id="tg-stat-messages">—</div>
+          <div class="text-xs text-sc-muted mt-1">Messages Posted</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold" style="color:#0088cc" id="tg-stat-members">—</div>
+          <div class="text-xs text-sc-muted mt-1">Channel Members</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-sc-purple" id="tg-stat-views">—</div>
+          <div class="text-xs text-sc-muted mt-1">Total Views</div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div class="flex items-center gap-2">
+          <span class="badge text-sm" style="background:#0088cc20;color:#0088cc;padding:4px 12px">✈️ Telegram</span>
+          <button id="btn-edit-tg-stats" class="text-xs px-3 py-1.5 border border-sc-border rounded-lg text-sc-muted hover:text-sc-text transition-colors">⚙️ Edit Stats</button>
+        </div>
+        <button id="btn-add-tg-msg" class="px-4 py-2 text-white font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity" style="background:linear-gradient(135deg,#0088cc,#006ba1)">+ Nouveau message</button>
+      </div>
+
+      <div class="card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full" style="min-width:540px">
+            <thead>
+              <tr class="border-b border-sc-border text-xs text-sc-muted uppercase tracking-wider">
+                <th class="text-left p-4">Date</th>
+                <th class="text-left p-4">Content</th>
+                <th class="text-left p-4">👁 Views</th>
+                <th class="text-left p-4"></th>
+              </tr>
+            </thead>
+            <tbody id="telegram-tbody"></tbody>
+          </table>
+        </div>
+        <div id="telegram-empty" class="hidden p-10 text-center text-sc-muted text-sm">No messages yet — add your first one above.</div>
       </div>
     </section>
 
@@ -774,6 +871,8 @@
         document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
         document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
         if (btn.dataset.tab === 'documents') loadDocs();
+        if (btn.dataset.tab === 'twitter') loadTwitter();
+        if (btn.dataset.tab === 'telegram') loadTelegram();
       });
     });
 
@@ -793,8 +892,378 @@
       return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+
+    // ===== TWITTER =====
+    let twitterData = { stats: { followers: 0, engagementRate: 0 }, tweets: [] };
+
+    async function loadTwitter() {
+      try {
+        twitterData = await api('GET', '/api/synapcoin/twitter');
+        renderTwitter();
+      } catch (e) { console.error('Failed to load twitter:', e); }
+    }
+
+    function renderTwitter() {
+      const tw = twitterData;
+      document.getElementById('tw-stat-tweets').textContent = tw.tweets.length;
+      document.getElementById('tw-stat-followers').textContent = (tw.stats.followers || 0).toLocaleString();
+      document.getElementById('tw-stat-engagement').textContent = (tw.stats.engagementRate || 0).toFixed(2) + '%';
+      const totalImpr = tw.tweets.reduce((sum, t) => sum + (t.impressions || 0), 0);
+      document.getElementById('tw-stat-impressions').textContent = totalImpr.toLocaleString();
+
+      const tbody = document.getElementById('tweets-tbody');
+      const empty = document.getElementById('tweets-empty');
+      if (tw.tweets.length === 0) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+
+      const sorted = [...tw.tweets].sort((a, b) => new Date(b.date) - new Date(a.date));
+      tbody.innerHTML = sorted.map(t => {
+        const date = new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+        const contentShort = t.content.length > 120 ? t.content.slice(0, 120) + '…' : t.content;
+        const urlHtml = t.url ? `<a href="${escHtml(t.url)}" target="_blank" class="text-xs hover:underline" style="color:#1DA1F2">View →</a>` : '';
+        return `
+          <tr class="border-b border-sc-border hover:bg-white/[0.03] transition-colors">
+            <td class="p-4 text-xs text-sc-muted whitespace-nowrap">${date}</td>
+            <td class="p-4">
+              <div class="text-sm">${escHtml(contentShort)}</div>
+              ${urlHtml}
+            </td>
+            <td class="p-4 text-sm font-mono" style="color:#EF4444">${(t.likes||0).toLocaleString()}</td>
+            <td class="p-4 text-sm font-mono" style="color:#10B981">${(t.retweets||0).toLocaleString()}</td>
+            <td class="p-4 text-sm font-mono text-sc-muted">${(t.impressions||0).toLocaleString()}</td>
+            <td class="p-4">
+              <div class="flex gap-1.5">
+                <button onclick="openEditTweet('${t.id}')" class="text-xs text-sc-muted hover:text-sc-text px-2 py-1 border border-sc-border rounded transition-colors">Edit</button>
+                <button onclick="deleteTweet('${t.id}')" class="text-xs px-2 py-1 border border-red-900/50 rounded transition-colors" style="color:#EF4444" onmouseover="this.style.background='#EF444420'" onmouseout="this.style.background=''">Del</button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    function openTweetModal(id) {
+      const modal = document.getElementById('tweet-modal');
+      document.getElementById('tweet-modal-title').textContent = id ? 'Edit tweet' : 'Nouveau tweet';
+      if (id) {
+        const t = twitterData.tweets.find(x => x.id === id);
+        if (!t) return;
+        document.getElementById('tweet-id').value = t.id;
+        document.getElementById('tweet-content').value = t.content;
+        document.getElementById('tweet-date').value = t.date ? t.date.slice(0,10) : '';
+        document.getElementById('tweet-url').value = t.url || '';
+        document.getElementById('tweet-likes').value = t.likes || 0;
+        document.getElementById('tweet-retweets').value = t.retweets || 0;
+        document.getElementById('tweet-impressions').value = t.impressions || 0;
+        document.getElementById('tweet-charcount').textContent = (t.content || '').length;
+      } else {
+        document.getElementById('tweet-form').reset();
+        document.getElementById('tweet-id').value = '';
+        document.getElementById('tweet-charcount').textContent = '0';
+        ['tweet-likes','tweet-retweets','tweet-impressions'].forEach(id => document.getElementById(id).value = 0);
+      }
+      modal.classList.remove('hidden');
+    }
+
+    function openEditTweet(id) { openTweetModal(id); }
+    function closeTweetModal() { document.getElementById('tweet-modal').classList.add('hidden'); }
+
+    async function deleteTweet(id) {
+      if (!confirm('Delete this tweet?')) return;
+      try { await api('DELETE', `/api/synapcoin/twitter/${id}`); await loadTwitter(); } catch (e) { alert('Error deleting tweet'); }
+    }
+
+    document.getElementById('tweet-content').addEventListener('input', function() {
+      document.getElementById('tweet-charcount').textContent = this.value.length;
+    });
+
+    document.getElementById('tweet-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('tweet-id').value;
+      const body = {
+        content: document.getElementById('tweet-content').value.trim(),
+        date: document.getElementById('tweet-date').value || new Date().toISOString(),
+        url: document.getElementById('tweet-url').value.trim(),
+        likes: parseInt(document.getElementById('tweet-likes').value) || 0,
+        retweets: parseInt(document.getElementById('tweet-retweets').value) || 0,
+        impressions: parseInt(document.getElementById('tweet-impressions').value) || 0,
+      };
+      try {
+        if (id) { await api('PUT', `/api/synapcoin/twitter/${id}`, body); }
+        else    { await api('POST', '/api/synapcoin/twitter', body); }
+        closeTweetModal();
+        await loadTwitter();
+      } catch (e) { alert('Error saving tweet'); }
+    });
+
+    document.getElementById('btn-add-tweet').addEventListener('click', () => openTweetModal(null));
+    document.getElementById('tweet-modal-close').addEventListener('click', closeTweetModal);
+    document.getElementById('tweet-modal-cancel').addEventListener('click', closeTweetModal);
+    document.getElementById('tweet-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeTweetModal(); });
+
+    // Twitter Stats Modal
+    document.getElementById('btn-edit-tw-stats').addEventListener('click', () => {
+      document.getElementById('tw-stats-followers').value = twitterData.stats.followers || 0;
+      document.getElementById('tw-stats-engagement').value = twitterData.stats.engagementRate || 0;
+      document.getElementById('tw-stats-modal').classList.remove('hidden');
+    });
+    document.getElementById('tw-stats-modal-close').addEventListener('click', () => document.getElementById('tw-stats-modal').classList.add('hidden'));
+    document.getElementById('tw-stats-modal-cancel').addEventListener('click', () => document.getElementById('tw-stats-modal').classList.add('hidden'));
+    document.getElementById('tw-stats-modal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('tw-stats-modal').classList.add('hidden'); });
+    document.getElementById('tw-stats-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await api('PUT', '/api/synapcoin/twitter/stats', {
+          followers: parseInt(document.getElementById('tw-stats-followers').value) || 0,
+          engagementRate: parseFloat(document.getElementById('tw-stats-engagement').value) || 0,
+        });
+        document.getElementById('tw-stats-modal').classList.add('hidden');
+        await loadTwitter();
+      } catch (e) { alert('Error updating stats'); }
+    });
+
+    // ===== TELEGRAM =====
+    let telegramData = { stats: { members: 0 }, messages: [] };
+
+    async function loadTelegram() {
+      try {
+        telegramData = await api('GET', '/api/synapcoin/telegram');
+        renderTelegram();
+      } catch (e) { console.error('Failed to load telegram:', e); }
+    }
+
+    function renderTelegram() {
+      const tg = telegramData;
+      document.getElementById('tg-stat-messages').textContent = tg.messages.length;
+      document.getElementById('tg-stat-members').textContent = (tg.stats.members || 0).toLocaleString();
+      const totalViews = tg.messages.reduce((sum, m) => sum + (m.views || 0), 0);
+      document.getElementById('tg-stat-views').textContent = totalViews.toLocaleString();
+
+      const tbody = document.getElementById('telegram-tbody');
+      const empty = document.getElementById('telegram-empty');
+      if (tg.messages.length === 0) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+
+      const sorted = [...tg.messages].sort((a, b) => new Date(b.date) - new Date(a.date));
+      tbody.innerHTML = sorted.map(m => {
+        const date = new Date(m.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+        const contentShort = m.content.length > 150 ? m.content.slice(0, 150) + '…' : m.content;
+        const urlHtml = m.url ? `<a href="${escHtml(m.url)}" target="_blank" class="text-xs hover:underline" style="color:#0088cc">View →</a>` : '';
+        return `
+          <tr class="border-b border-sc-border hover:bg-white/[0.03] transition-colors">
+            <td class="p-4 text-xs text-sc-muted whitespace-nowrap">${date}</td>
+            <td class="p-4">
+              <div class="text-sm">${escHtml(contentShort)}</div>
+              ${urlHtml}
+            </td>
+            <td class="p-4 text-sm font-mono text-sc-muted">${(m.views||0).toLocaleString()}</td>
+            <td class="p-4">
+              <div class="flex gap-1.5">
+                <button onclick="openEditTgMsg('${m.id}')" class="text-xs text-sc-muted hover:text-sc-text px-2 py-1 border border-sc-border rounded transition-colors">Edit</button>
+                <button onclick="deleteTgMsg('${m.id}')" class="text-xs px-2 py-1 border border-red-900/50 rounded transition-colors" style="color:#EF4444" onmouseover="this.style.background='#EF444420'" onmouseout="this.style.background=''">Del</button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    function openTgMsgModal(id) {
+      const modal = document.getElementById('tg-msg-modal');
+      document.getElementById('tg-msg-modal-title').textContent = id ? 'Edit message' : 'Nouveau message';
+      if (id) {
+        const m = telegramData.messages.find(x => x.id === id);
+        if (!m) return;
+        document.getElementById('tg-msg-id').value = m.id;
+        document.getElementById('tg-msg-content').value = m.content;
+        document.getElementById('tg-msg-date').value = m.date ? m.date.slice(0,10) : '';
+        document.getElementById('tg-msg-views').value = m.views || 0;
+        document.getElementById('tg-msg-url').value = m.url || '';
+      } else {
+        document.getElementById('tg-msg-form').reset();
+        document.getElementById('tg-msg-id').value = '';
+        document.getElementById('tg-msg-views').value = 0;
+      }
+      modal.classList.remove('hidden');
+    }
+
+    function openEditTgMsg(id) { openTgMsgModal(id); }
+    function closeTgMsgModal() { document.getElementById('tg-msg-modal').classList.add('hidden'); }
+
+    async function deleteTgMsg(id) {
+      if (!confirm('Delete this message?')) return;
+      try { await api('DELETE', `/api/synapcoin/telegram/${id}`); await loadTelegram(); } catch (e) { alert('Error deleting message'); }
+    }
+
+    document.getElementById('tg-msg-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('tg-msg-id').value;
+      const body = {
+        content: document.getElementById('tg-msg-content').value.trim(),
+        date: document.getElementById('tg-msg-date').value || new Date().toISOString(),
+        views: parseInt(document.getElementById('tg-msg-views').value) || 0,
+        url: document.getElementById('tg-msg-url').value.trim(),
+      };
+      try {
+        if (id) { await api('PUT', `/api/synapcoin/telegram/${id}`, body); }
+        else    { await api('POST', '/api/synapcoin/telegram', body); }
+        closeTgMsgModal();
+        await loadTelegram();
+      } catch (e) { alert('Error saving message'); }
+    });
+
+    document.getElementById('btn-add-tg-msg').addEventListener('click', () => openTgMsgModal(null));
+    document.getElementById('tg-msg-modal-close').addEventListener('click', closeTgMsgModal);
+    document.getElementById('tg-msg-modal-cancel').addEventListener('click', closeTgMsgModal);
+    document.getElementById('tg-msg-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeTgMsgModal(); });
+
+    // Telegram Stats Modal
+    document.getElementById('btn-edit-tg-stats').addEventListener('click', () => {
+      document.getElementById('tg-stats-members').value = telegramData.stats.members || 0;
+      document.getElementById('tg-stats-modal').classList.remove('hidden');
+    });
+    document.getElementById('tg-stats-modal-close').addEventListener('click', () => document.getElementById('tg-stats-modal').classList.add('hidden'));
+    document.getElementById('tg-stats-modal-cancel').addEventListener('click', () => document.getElementById('tg-stats-modal').classList.add('hidden'));
+    document.getElementById('tg-stats-modal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('tg-stats-modal').classList.add('hidden'); });
+    document.getElementById('tg-stats-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await api('PUT', '/api/synapcoin/telegram/stats', {
+          members: parseInt(document.getElementById('tg-stats-members').value) || 0,
+        });
+        document.getElementById('tg-stats-modal').classList.add('hidden');
+        await loadTelegram();
+      } catch (e) { alert('Error updating stats'); }
+    });
+
     // ===== INIT =====
     loadAll();
+    loadTwitter();
+    loadTelegram();
   </script>
+
+  <!-- ===== TWEET MODAL ===== -->
+  <div id="tweet-modal" class="modal-overlay hidden">
+    <div class="modal-box p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-lg font-semibold" id="tweet-modal-title">Nouveau tweet</h2>
+        <button id="tweet-modal-close" class="text-sc-muted hover:text-sc-text text-2xl leading-none">&times;</button>
+      </div>
+      <form id="tweet-form" class="space-y-4">
+        <input type="hidden" id="tweet-id">
+        <div>
+          <label class="block text-xs text-sc-muted mb-1">Content *</label>
+          <textarea id="tweet-content" rows="4" required class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm" placeholder="Tweet content..." maxlength="280"></textarea>
+          <div class="text-xs text-sc-muted text-right mt-1"><span id="tweet-charcount">0</span>/280</div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-sc-muted mb-1">Date</label>
+            <input type="text" id="tweet-date" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm" placeholder="YYYY-MM-DD">
+          </div>
+          <div>
+            <label class="block text-xs text-sc-muted mb-1">URL (optional)</label>
+            <input type="text" id="tweet-url" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm" placeholder="https://x.com/...">
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs text-sc-muted mb-1">❤️ Likes</label>
+            <input type="number" id="tweet-likes" min="0" value="0" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs text-sc-muted mb-1">🔁 Retweets</label>
+            <input type="number" id="tweet-retweets" min="0" value="0" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs text-sc-muted mb-1">👁 Impressions</label>
+            <input type="number" id="tweet-impressions" min="0" value="0" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm">
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 pt-2 border-t border-sc-border">
+          <button type="button" id="tweet-modal-cancel" class="px-4 py-2 border border-sc-border text-sc-muted rounded-lg text-sm hover:text-sc-text">Cancel</button>
+          <button type="submit" class="px-4 py-2 text-white font-semibold rounded-lg text-sm hover:opacity-90" style="background:#1DA1F2">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== TWITTER STATS MODAL ===== -->
+  <div id="tw-stats-modal" class="modal-overlay hidden">
+    <div class="modal-box p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-lg font-semibold">🐦 Twitter Stats</h2>
+        <button id="tw-stats-modal-close" class="text-sc-muted hover:text-sc-text text-2xl leading-none">&times;</button>
+      </div>
+      <form id="tw-stats-form" class="space-y-4">
+        <div>
+          <label class="block text-xs text-sc-muted mb-1">Followers</label>
+          <input type="number" id="tw-stats-followers" min="0" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sc-text text-sm">
+        </div>
+        <div>
+          <label class="block text-xs text-sc-muted mb-1">Engagement Rate (%)</label>
+          <input type="number" id="tw-stats-engagement" min="0" step="0.01" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sc-text text-sm">
+        </div>
+        <div class="flex justify-end gap-3 pt-2 border-t border-sc-border">
+          <button type="button" id="tw-stats-modal-cancel" class="px-4 py-2 border border-sc-border text-sc-muted rounded-lg text-sm hover:text-sc-text">Cancel</button>
+          <button type="submit" class="px-4 py-2 text-white font-semibold rounded-lg text-sm hover:opacity-90" style="background:#1DA1F2">Update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== TELEGRAM MESSAGE MODAL ===== -->
+  <div id="tg-msg-modal" class="modal-overlay hidden">
+    <div class="modal-box p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-lg font-semibold" id="tg-msg-modal-title">Nouveau message</h2>
+        <button id="tg-msg-modal-close" class="text-sc-muted hover:text-sc-text text-2xl leading-none">&times;</button>
+      </div>
+      <form id="tg-msg-form" class="space-y-4">
+        <input type="hidden" id="tg-msg-id">
+        <div>
+          <label class="block text-xs text-sc-muted mb-1">Content *</label>
+          <textarea id="tg-msg-content" rows="4" required class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm" placeholder="Message content..."></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-sc-muted mb-1">Date</label>
+            <input type="text" id="tg-msg-date" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm" placeholder="YYYY-MM-DD">
+          </div>
+          <div>
+            <label class="block text-xs text-sc-muted mb-1">👁 Views</label>
+            <input type="number" id="tg-msg-views" min="0" value="0" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-sc-muted mb-1">URL (optional)</label>
+          <input type="text" id="tg-msg-url" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sm" placeholder="https://t.me/...">
+        </div>
+        <div class="flex justify-end gap-3 pt-2 border-t border-sc-border">
+          <button type="button" id="tg-msg-modal-cancel" class="px-4 py-2 border border-sc-border text-sc-muted rounded-lg text-sm hover:text-sc-text">Cancel</button>
+          <button type="submit" class="px-4 py-2 text-white font-semibold rounded-lg text-sm hover:opacity-90" style="background:#0088cc">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== TELEGRAM STATS MODAL ===== -->
+  <div id="tg-stats-modal" class="modal-overlay hidden">
+    <div class="modal-box p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-lg font-semibold">✈️ Telegram Stats</h2>
+        <button id="tg-stats-modal-close" class="text-sc-muted hover:text-sc-text text-2xl leading-none">&times;</button>
+      </div>
+      <form id="tg-stats-form" class="space-y-4">
+        <div>
+          <label class="block text-xs text-sc-muted mb-1">Channel Members</label>
+          <input type="number" id="tg-stats-members" min="0" class="w-full bg-sc-dark border border-sc-border rounded-lg px-3 py-2 text-sc-text text-sm">
+        </div>
+        <div class="flex justify-end gap-3 pt-2 border-t border-sc-border">
+          <button type="button" id="tg-stats-modal-cancel" class="px-4 py-2 border border-sc-border text-sc-muted rounded-lg text-sm hover:text-sc-text">Cancel</button>
+          <button type="submit" class="px-4 py-2 text-white font-semibold rounded-lg text-sm hover:opacity-90" style="background:#0088cc">Update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 </body>
 </html>
