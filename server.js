@@ -163,10 +163,15 @@ const synapHiveRouter = require('./routes/synaphive')({ requireAuth });
 app.use(synapHiveRouter);
 
 // ===== SynapCoin Docs API =====
+const SYNAPCOIN_DOCS_BLACKLIST = new Set([
+  "AGENTS.md", "BOOTSTRAP.md", "HEARTBEAT.md", "IDENTITY.md",
+  "SOUL.md", "TOOLS.md", "USER.md", "workspace-state.json"
+]);
 app.get("/api/synapcoin-docs", requireAuth, (req, res) => {
   const docsDir = path.join(__dirname, "data", "synapcoin-docs");
   try {
-    const files = fs.readdirSync(docsDir).filter(f => f.endsWith(".md"));
+    const files = fs.readdirSync(docsDir)
+      .filter(f => !f.startsWith(".") && !SYNAPCOIN_DOCS_BLACKLIST.has(f));
     res.json(files.map(f => ({
       name: f,
       size: fs.statSync(path.join(docsDir, f)).size,
@@ -177,9 +182,9 @@ app.get("/api/synapcoin-docs", requireAuth, (req, res) => {
 app.get("/api/synapcoin-docs/:filename", requireAuth, (req, res) => {
   const safeName = path.basename(req.params.filename);
   const filePath = path.join(__dirname, "data", "synapcoin-docs", safeName);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Not found" });
-  res.setHeader("Content-Disposition", "attachment; filename=" + safeName);
-  res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+  if (!fs.existsSync(filePath) || SYNAPCOIN_DOCS_BLACKLIST.has(safeName)) return res.status(404).json({ error: "Not found" });
+  // Let Express detect content-type from extension
+  
   res.sendFile(filePath);
 });
 
