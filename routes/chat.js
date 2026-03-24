@@ -162,6 +162,82 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
     });
   }
 
+  // ===== Codex Process Spawning =====
+
+  function spawnCodexForMessage(session, text, ws) {
+    if (session.busy) {
+      if (ws.readyState === WebSocket.OPEN) {
+        try { ws.send(JSON.stringify({ type: 'error', error: 'Already processing a message, please wait.' })); } catch (e) {}
+      }
+      return;
+    }
+    session.busy = true;
+    session.currentResponseText = '';
+
+    const args = ['--model', session.model || 'gpt-5.4'];
+
+    const codexProc = require('child_process').spawn('codex', args, {
+      cwd: session.projectPath,
+      env: { ...process.env, PATH: '/home/openclaw/.nvm/versions/node/v20.20.1/bin:' + (process.env.PATH || '/usr/local/bin:/usr/bin:/bin') },
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    session.process = codexProc;
+
+    let stdoutBuf = '';
+
+    codexProc.stdout.on('data', (chunk) => {
+      stdoutBuf += chunk.toString();
+      // Codex outputs plain text — send as a text event
+      if (ws.readyState === WebSocket.OPEN) {
+        session.currentResponseText += chunk.toString();
+        try { ws.send(JSON.stringify({ type: 'content_block_delta', delta: { type: 'text_delta', text: chunk.toString() } })); } catch (e) {}
+      }
+    });
+
+    codexProc.stderr.on('data', (chunk) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        try { ws.send(JSON.stringify({ type: 'stderr', data: chunk.toString() })); } catch (e) {}
+      }
+    });
+
+    codexProc.on('close', (code) => {
+      session.busy = false;
+      session.process = null;
+      // Save assistant response
+      const project = require('../server').getConfig ? require('../server').getConfig().projects.find(p => p.id === session.projectId) : null;
+      const configRef = session._config;
+      if (configRef) {
+        const proj = configRef.projects.find(p => p.id === session.projectId);
+        if (proj && session.persistentId && session.currentResponseText) {
+          addChatMessage(proj, session.persistentId, {
+            role: 'assistant',
+            content: session.currentResponseText,
+            timestamp: new Date().toISOString()
+          });
+          session.currentResponseText = '';
+        }
+      }
+      if (ws.readyState === WebSocket.OPEN) {
+        try { ws.send(JSON.stringify({ type: 'result', total_cost_usd: 0, duration_ms: 0 })); } catch (e) {}
+      }
+    });
+
+    codexProc.on('error', (err) => {
+      session.busy = false;
+      session.process = null;
+      if (ws.readyState === WebSocket.OPEN) {
+        try { ws.send(JSON.stringify({ type: 'error', error: `Failed to run codex: ${err.message}` })); } catch (e) {}
+      }
+    });
+
+    // Send text to codex via stdin
+    try {
+      codexProc.stdin.write(text + '\n');
+      codexProc.stdin.end();
+    } catch (e) {}
+  }
+
   // ===== WebSocket Setup =====
 
   function setupWebSocket() {
@@ -204,6 +280,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
               projectId: proj.id,
               projectPath: proj.path,
               model: fileSession.model,
+              engine: fileSession.engine || 'claude',
               claudeSessionId: fileSession.claudeSessionId,
               process: null,
               ws: null,
@@ -211,7 +288,8 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
               busy: false,
               persistentId: sessionId,
               currentResponseText: '',
-              cleanupTimer: null
+              cleanupTimer: null,
+              _config: config
             };
             chatSessions.set(sessionId, session);
           }
@@ -226,6 +304,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
               projectId: proj.id,
               projectPath: proj.path,
               model: fileSession.model,
+              engine: fileSession.engine || 'claude',
               claudeSessionId: fileSession.claudeSessionId,
               process: null,
               ws: null,
@@ -233,7 +312,8 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
               busy: false,
               persistentId: sessionId,
               currentResponseText: '',
-              cleanupTimer: null
+              cleanupTimer: null,
+              _config: config
             };
             chatSessions.set(sessionId, session);
             break;
@@ -293,7 +373,11 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
               timestamp: new Date().toISOString()
             });
           }
-          spawnClaudeForMessage(session, msg.text, ws);
+          if (session.engine === 'codex') {
+            spawnCodexForMessage(session, msg.text, ws);
+          } else {
+            spawnClaudeForMessage(session, msg.text, ws);
+          }
         } else if (msg.type === 'voice_message') {
           // Set effort for this message
           if (msg.effort) session.nextEffort = msg.effort;
@@ -308,7 +392,11 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
               timestamp: new Date().toISOString()
             });
           }
-          spawnClaudeForMessage(session, msg.text, ws);
+          if (session.engine === 'codex') {
+            spawnCodexForMessage(session, msg.text, ws);
+          } else {
+            spawnClaudeForMessage(session, msg.text, ws);
+          }
         }
       } catch (e) {}
     });
@@ -353,7 +441,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       }
     }
 
-    const { model = 'sonnet' } = req.body;
+    const { model = 'sonnet', engine = 'claude' } = req.body;
     const modelMap = { sonnet: 'claude-sonnet-4-6', opus: 'claude-opus-4-6', haiku: 'claude-haiku-3-5' };
     const resolvedModel = modelMap[model] || model;
 
@@ -364,6 +452,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       id: sessionId,
       claudeSessionId: null,
       model: resolvedModel,
+      engine: engine,
       messages: [],
       createdAt: now,
       lastActivityAt: now,
@@ -376,6 +465,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       projectId: req.params.id,
       projectPath: project.path,
       model: resolvedModel,
+      engine: engine,
       claudeSessionId: null,
       process: null,
       ws: null,
@@ -383,10 +473,11 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       busy: false,
       persistentId: sessionId,
       currentResponseText: '',
-      cleanupTimer: null
+      cleanupTimer: null,
+      _config: config
     });
 
-    res.json({ sessionId, model: resolvedModel });
+    res.json({ sessionId, model: resolvedModel, engine });
   });
 
   router.post('/api/projects/:id/chat/stop', requireAuth, (req, res) => {
@@ -432,6 +523,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
     const sessions = readChatSessions(project).slice(0, 20).map(s => ({
       id: s.id,
       model: s.model,
+      engine: s.engine || 'claude',
       createdAt: s.createdAt,
       lastActivityAt: s.lastActivityAt,
       status: s.status,
@@ -496,6 +588,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       projectId: req.params.id,
       projectPath: project.path,
       model: persistent.model,
+      engine: persistent.engine || 'claude',
       claudeSessionId: persistent.claudeSessionId,
       process: null,
       ws: null,
@@ -503,7 +596,8 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       busy: false,
       persistentId: sessionId,
       currentResponseText: '',
-      cleanupTimer: null
+      cleanupTimer: null,
+      _config: config
     });
 
     updateChatSessionMeta(project, sessionId, { status: 'active', lastActivityAt: new Date().toISOString() });

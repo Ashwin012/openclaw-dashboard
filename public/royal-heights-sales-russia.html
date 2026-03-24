@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Royal Heights Mauritius — премиальные апартаменты (Vue Vente)</title>
+    <meta name="description" content="Премиальные апартаменты на Маврикии с постоянным видом на жительство для русскоязычных инвесторов.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="/js/common-sales.js"></script>
+    <style>
+        :root {
+            --navy: #0a1628; --navy-light: #1a2d4a; --gold: #c9a96e; --gold-light: #e0c68a;
+            --white: #ffffff; --off-white: #f8f6f3; --text: #2c3e50; --text-light: #8899aa; --accent-red: #e74c3c;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', sans-serif; color: var(--text); line-height: 1.6; overflow-x: hidden; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+        /* ===== SALES HEADER ===== */
+        .sales-header {
+            background: var(--navy);
+            padding: 0 24px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 200;
+            border-bottom: 1px solid rgba(201,169,110,0.2);
+        }
+        .sales-logo { font-size: 16px; font-weight: 600; color: var(--gold); flex: 1; }
+        .sales-clock { font-size: 13px; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; }
+        .readonly-badge-ru { font-size: 12px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #10B981; border-radius: 6px; padding: 3px 10px; white-space: nowrap; flex-shrink: 0; }
+        .btn-nav-sales {
+            padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(201,169,110,0.3);
+            background: transparent; color: rgba(255,255,255,0.8); font-size: 13px; cursor: pointer;
+            text-decoration: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+        }
+        .btn-nav-sales:hover { background: rgba(201,169,110,0.1); color: var(--gold); text-decoration: none; }
+        .btn-nav-sales.active { background: rgba(201,169,110,0.15); border-color: var(--gold); color: var(--gold); }
+        .header-nav-sales { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .hamburger-btn {
+            display: none; background: transparent; border: 1px solid rgba(201,169,110,0.3); color: var(--gold);
+            font-size: 18px; width: 36px; height: 36px; border-radius: 6px; cursor: pointer;
+            align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .hamburger-btn:hover { background: rgba(201,169,110,0.1); }
+        .mobile-menu-sales {
+            display: none; position: fixed; top: 56px; left: 0; right: 0;
+            background: var(--navy); border-bottom: 1px solid rgba(201,169,110,0.2); z-index: 199;
+            flex-direction: column; padding: 8px 16px 12px; gap: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .mobile-menu-sales.open { display: flex; }
+        .mobile-menu-sales .btn-nav-sales { padding: 10px 14px; font-size: 14px; width: 100%; justify-content: flex-start; }
+
+        /* ===== HERO SECTION ===== */
+        .hero {
+            background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+            min-height: 90vh;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--white); position: relative; overflow: hidden;
+        }
+        .hero::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="%23c9a96e" fill-opacity="0.08" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,149.3C960,160,1056,160,1152,138.7C1248,117,1344,75,1392,53.3L1440,32L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') no-repeat bottom;
+            background-size: cover;
+        }
+        .hero-content { position: relative; z-index: 1; text-align: center; padding: 40px 20px; max-width: 800px; }
+        .hero-badge { display: inline-block; border: 1px solid var(--gold); color: var(--gold); padding: 8px 24px; border-radius: 30px; font-size: 0.75rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px; font-weight: 600; }
+        .hero h1 { font-family: 'Playfair Display', serif; font-size: clamp(2.5rem, 6vw, 4.2rem); font-weight: 700; margin-bottom: 24px; line-height: 1.15; }
+        .hero h1 span { color: var(--gold); }
+        .hero p { font-size: 1.25rem; color: rgba(255,255,255,0.85); margin-bottom: 40px; line-height: 1.7; font-weight: 300; }
+        .hero-cta { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+        .btn { display: inline-block; padding: 16px 40px; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 1rem; transition: all 0.3s ease; cursor: pointer; border: none; text-align: center; }
+        .btn-gold { background: var(--gold); color: var(--navy); }
+        .btn-gold:hover { background: var(--gold-light); transform: translateY(-2px); box-shadow: 0 8px 16px rgba(201,169,110,0.3); }
+        .btn-outline { border: 2px solid var(--white); color: var(--white); background: transparent; }
+        .btn-outline:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+
+        /* ===== SECTIONS ===== */
+        .problem-solution { background: white; padding: 80px 0; }
+        .ps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+        .ps-content h2 { font-family: 'Playfair Display', serif; font-size: 2.2rem; margin-bottom: 24px; color: var(--navy); }
+        .ps-content h3 { color: var(--accent-red); font-size: 1.3rem; margin-top: 32px; margin-bottom: 12px; }
+        .ps-content p { color: var(--text-light); margin-bottom: 16px; line-height: 1.8; }
+        .problem-list { list-style: none; margin: 24px 0; }
+        .problem-list li { padding: 12px 0; padding-left: 32px; position: relative; color: var(--text); font-weight: 500; }
+        .problem-list li::before { content: '✗'; position: absolute; left: 0; color: var(--accent-red); font-weight: bold; font-size: 1.2rem; }
+        .solution-list li::before { content: '✓'; position: absolute; left: 0; color: var(--gold); font-weight: bold; font-size: 1.2rem; }
+
+        .why-mauritius { background: var(--off-white); padding: 80px 0; }
+        .section-title { font-family: 'Playfair Display', serif; font-size: 2.2rem; text-align: center; margin-bottom: 16px; color: var(--navy); }
+        .section-subtitle { text-align: center; color: var(--text-light); max-width: 700px; margin: 0 auto 48px; font-size: 1.1rem; }
+        .benefits-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 32px; }
+        .benefit-card { background: white; padding: 36px; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .benefit-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+        .benefit-card h3 { font-family: 'Playfair Display', serif; font-size: 1.3rem; margin-bottom: 12px; color: var(--navy); }
+        .benefit-card p { color: var(--text-light); font-size: 0.95rem; }
+
+        .features { padding: 80px 0; background: white; }
+        .features-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px; }
+        .feature { padding: 24px; border-left: 4px solid var(--gold); background: var(--off-white); border-radius: 4px; }
+        .feature h3 { color: var(--navy); margin-bottom: 12px; font-family: 'Playfair Display', serif; font-size: 1.2rem; }
+        .feature p { color: var(--text-light); }
+
+        .pricing { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%); padding: 80px 0; color: white; }
+        .pricing-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-top: 48px; }
+        .price-card { background: rgba(255,255,255,0.05); border: 1px solid var(--gold); padding: 40px; border-radius: 8px; text-align: center; }
+        .price-card h3 { font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 12px; }
+        .price-tag { font-family: 'Playfair Display', serif; font-size: 2.8rem; color: var(--gold); margin: 24px 0; font-weight: 700; }
+        .price-card ul { list-style: none; text-align: left; margin: 24px 0; }
+        .price-card li { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+
+        .cta-section { background: var(--off-white); padding: 60px 0; text-align: center; }
+        .cta-section h2 { font-family: 'Playfair Display', serif; font-size: 2.2rem; margin-bottom: 24px; color: var(--navy); }
+        .cta-section p { font-size: 1.1rem; color: var(--text-light); margin-bottom: 32px; max-width: 700px; margin-left: auto; margin-right: auto; }
+        .contact-methods { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+        .method-btn { display: flex; align-items: center; gap: 8px; padding: 14px 28px; background: white; border: 2px solid var(--gold); border-radius: 4px; text-decoration: none; color: var(--navy); font-weight: 600; transition: all 0.3s ease; }
+        .method-btn:hover { background: var(--gold); color: var(--navy); transform: translateY(-2px); }
+
+        .contact-form { background: white; padding: 80px 0; }
+        .form-container { max-width: 600px; margin: 0 auto; background: var(--off-white); padding: 48px; border-radius: 8px; }
+        .form-group { margin-bottom: 24px; }
+        .form-group label { display: block; margin-bottom: 8px; color: var(--navy); font-weight: 600; }
+        .form-group input, .form-group textarea { width: 100%; padding: 12px 16px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 1rem; transition: border-color 0.3s ease; }
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,169,110,0.1); }
+        .form-group textarea { resize: vertical; min-height: 120px; }
+
+        footer { background: var(--navy); color: white; padding: 48px 0 24px; text-align: center; font-size: 0.9rem; }
+        footer p { margin: 8px 0; color: rgba(255,255,255,0.7); }
+
+        @media (max-width: 768px) {
+            .sales-header { height: auto; padding: 10px 16px; flex-wrap: wrap; row-gap: 4px; }
+            .sales-logo { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .sales-clock { width: 100%; order: 3; }
+            .header-nav-sales { display: none; }
+            .hamburger-btn { display: inline-flex; }
+            .mobile-menu-sales { top: 72px; }
+            .hero h1 { font-size: 2rem; }
+            .hero p { font-size: 1rem; }
+            .ps-grid { grid-template-columns: 1fr; gap: 40px; }
+            .features-grid { grid-template-columns: 1fr; }
+            .hero-cta { flex-direction: column; }
+            .btn { width: 100%; }
+            .pricing-cards { grid-template-columns: 1fr; }
+            .section-title { font-size: 1.6rem; }
+        }
+    </style>
+</head>
+<body>
+
+  <!-- Sales Header -->
+  <div class="sales-header">
+    <div class="sales-logo">🏛️ Royal Heights</div>
+    <span class="readonly-badge-ru">👁 Vue lecture seule</span>
+    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
+    <nav class="header-nav-sales">
+      <a href="/sales/royal-heights" class="btn-nav-sales">🏛️ Projet</a>
+      <a href="/sales/royal-heights/prospection-ia" class="btn-nav-sales">📊 Prospection IA</a>
+      <a href="/sales/royal-heights/prospection" class="btn-nav-sales">📋 Prospection</a>
+      <a href="/sales/royal-heights/russia" class="btn-nav-sales active">🇷🇺 Marché Russe</a>
+    </nav>
+    <div class="sales-clock" id="clock">--:--:--</div>
+  </div>
+
+  <div class="mobile-menu-sales" id="mobileMenu">
+    <a href="/sales/royal-heights" class="btn-nav-sales">🏛️ Projet</a>
+    <a href="/sales/royal-heights/prospection-ia" class="btn-nav-sales">📊 Prospection IA</a>
+    <a href="/sales/royal-heights/prospection" class="btn-nav-sales">📋 Prospection</a>
+    <a href="/sales/royal-heights/russia" class="btn-nav-sales active">🇷🇺 Marché Russe</a>
+  </div>
+
+<!-- HERO -->
+<section class="hero">
+    <div class="hero-content">
+        <div class="hero-badge">🌴 ВЫХОД ИЗ ДУБАЯ</div>
+        <h1>Royal Heights на <span>Маврикии</span></h1>
+        <p>Ваше спасение от нестабильности. Премиальные апартаменты с постоянным резидентством для российских инвесторов и экспатов из ОАЭ.</p>
+        <div class="hero-cta">
+            <a href="#contact" class="btn btn-gold">Консультация</a>
+            <a href="#whatsapp" class="btn btn-outline">WhatsApp</a>
+        </div>
+    </div>
+</section>
+
+<!-- ПРОБЛЕМА VS РЕШЕНИЕ -->
+<section class="problem-solution">
+    <div class="container">
+        <div class="ps-grid">
+            <div class="ps-content">
+                <h2>Ваша ситуация в Дубае</h2>
+                <ul class="problem-list">
+                    <li>Виза привязана к работодателю</li>
+                    <li>Риск потери статуса при потере работы</li>
+                    <li>Невозможность свободно вести бизнес</li>
+                    <li>Налоговые неопределённости</li>
+                    <li>Нестабильность политики ОАЭ</li>
+                    <li>Отсутствие реального имущества</li>
+                </ul>
+            </div>
+            <div class="ps-content">
+                <h2>Ваше будущее на Маврикии</h2>
+                <ul class="solution-list problem-list">
+                    <li><strong>Постоянное резидентство</strong> на основе инвестиции</li>
+                    <li>Полная независимость от работодателя</li>
+                    <li>Свобода вести бизнес и инвестировать</li>
+                    <li>Нулевой налог на иностранный доход</li>
+                    <li>Стабильная, демократичная юрисдикция</li>
+                    <li>Реальная недвижимость в раю</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ПОЧЕМУ МАВРИКИЙ -->
+<section class="why-mauritius">
+    <div class="container">
+        <h2 class="section-title">Почему Маврикий — лучший выбор</h2>
+        <p class="section-subtitle">Маврикий — единственное африканское государство AAA. Стабильность, безопасность, иностранные инвестиции.</p>
+        <div class="benefits-grid">
+            <div class="benefit-card"><div style="font-size:2.5rem;margin-bottom:12px">🌍</div><h3>Политическая Стабильность</h3><p>Самая стабильная демократия в Африке. Мирная смена власти, юридическая система на основе английского права.</p></div>
+            <div class="benefit-card"><div style="font-size:2.5rem;margin-bottom:12px">💰</div><h3>Налоговое Преимущество</h3><p>Нулевой налог на иностранный доход. Идеально для инвесторов, фрилансеров, предпринимателей.</p></div>
+            <div class="benefit-card"><div style="font-size:2.5rem;margin-bottom:12px">🏝️</div><h3>Качество Жизни</h3><p>Тропический рай с развитой инфраструктурой. Пляжи, морской спорт, природа в пяти минутах.</p></div>
+            <div class="benefit-card"><div style="font-size:2.5rem;margin-bottom:12px">🏠</div><h3>Постоянное Резидентство</h3><p>Программа PDS. Инвестируйте в недвижимость — получайте 20-летний ПМЖ (легко продлевается).</p></div>
+            <div class="benefit-card"><div style="font-size:2.5rem;margin-bottom:12px">🚀</div><h3>Экономический Потенциал</h3><p>Финансовый центр, туризм, растущий рынок недвижимости. Стабильная валюта, хорошие инвестиции.</p></div>
+            <div class="benefit-card"><div style="font-size:2.5rem;margin-bottom:12px">👨‍👩‍👧‍👦</div><h3>Интернациональное Сообщество</h3><p>Большое русскоязычное сообщество. Школы, магазины, услуги на русском языке.</p></div>
+        </div>
+    </div>
+</section>
+
+<!-- ОСОБЕННОСТИ ROYAL HEIGHTS -->
+<section class="features">
+    <div class="container">
+        <h2 class="section-title">Royal Heights: Ваше Пространство</h2>
+        <p class="section-subtitle">32 премиальные резиденции на берегу Индийского океана в Балаклаве</p>
+        <div class="features-grid">
+            <div class="feature"><h3>🏊 Прямой выход на пляж</h3><p>Приватный доступ к песчаному пляжу. Снорклинг, плавание, закаты над океаном каждый день.</p></div>
+            <div class="feature"><h3>🏗️ Архитектура премиум-класса</h3><p>Современный дизайн, высокие потолки, панорамные окна, балконы с видом на океан.</p></div>
+            <div class="feature"><h3>🔒 Закрытое сообщество</h3><p>Охрана 24/7, приватный парк, басейн, спортзал, спа-центр — всё включено.</p></div>
+            <div class="feature"><h3>👨‍⚖️ Юридическая гарантия</h3><p>Полная собственность недвижимости + программа постоянного резидентства (PDS) на 20 лет.</p></div>
+            <div class="feature"><h3>🚗 Припаркованное место</h3><p>Припаркованное место для автомобиля в закрытом подземном гараже.</p></div>
+            <div class="feature"><h3>🌳 Экологичный район</h3><p>Балаклава — лучший район западного побережья. Тихо, безопасно, близко к столице Порт-Луи.</p></div>
+            <div class="feature"><h3>📈 Инвестиционный потенциал</h3><p>Недвижимость на Маврикии растёт в цене. Рента от туристов (AirBnB) 7-10% в год.</p></div>
+            <div class="feature"><h3>🏦 Финансирование помощь</h3><p>Помощь в подборе банка для льготного кредитования. Льготные условия для иностранных инвесторов.</p></div>
+        </div>
+    </div>
+</section>
+
+<!-- ЦЕНЫ -->
+<section class="pricing">
+    <div class="container">
+        <h2 class="section-title" style="color:white">Инвестиционный Диапазон</h2>
+        <p class="section-subtitle" style="color:rgba(255,255,255,0.8)">Разные размеры, разные бюджеты. Всё в премиум-комплексе Royal Heights.</p>
+        <div class="pricing-cards">
+            <div class="price-card">
+                <h3>Studio / 1BR</h3><div class="price-tag">$375K</div><p style="font-size:0.9rem;margin-bottom:20px">~40-50 m²</p>
+                <ul><li>✓ Спальня / студия</li><li>✓ Ванная</li><li>✓ Кухня-гостиная</li><li>✓ Балкон</li><li>✓ ПМЖ включен</li></ul>
+            </div>
+            <div class="price-card">
+                <h3>2 Спальни</h3><div class="price-tag">$525K</div><p style="font-size:0.9rem;margin-bottom:20px">~70-85 m²</p>
+                <ul><li>✓ 2 спальни</li><li>✓ 2 ванные</li><li>✓ Полная кухня</li><li>✓ Гостиная</li><li>✓ ПМЖ включен</li></ul>
+            </div>
+            <div class="price-card">
+                <h3>3 Спальни</h3><div class="price-tag">$675K</div><p style="font-size:0.9rem;margin-bottom:20px">~100-120 m²</p>
+                <ul><li>✓ 3 спальни</li><li>✓ 3 ванные</li><li>✓ Полная кухня</li><li>✓ 2 балкона</li><li>✓ ПМЖ включен</li></ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- КОНТАКТ -->
+<section class="cta-section" id="whatsapp">
+    <div class="container">
+        <h2>Готовы к Переходу?</h2>
+        <p>Консультация бесплатна. Мы объясним весь процесс: инвестиция → покупка → резидентство.</p>
+        <div class="contact-methods">
+            <a href="https://wa.me/23054981000?text=Интересуюсь%20Royal%20Heights%20на%20Маврикии" target="_blank" class="method-btn">💬 WhatsApp</a>
+            <a href="mailto:info@royal-heights.mu" class="method-btn">✉️ Email</a>
+            <a href="tel:+23054981000" class="method-btn">☎️ Позвонить</a>
+        </div>
+    </div>
+</section>
+
+<!-- ФОРМА -->
+<section class="contact-form" id="contact">
+    <div class="container">
+        <h2 class="section-title">Получите Консультацию</h2>
+        <form class="form-container" onsubmit="handleFormSubmit(event)">
+            <div class="form-group"><label for="name">Ваше ФИО *</label><input type="text" id="name" name="name" required></div>
+            <div class="form-group"><label for="email">Email *</label><input type="email" id="email" name="email" required></div>
+            <div class="form-group"><label for="phone">Телефон (WhatsApp) *</label><input type="tel" id="phone" name="phone" required></div>
+            <div class="form-group">
+                <label for="location">Где вы сейчас? *</label>
+                <select id="location" name="location" required style="width:100%;padding:12px 16px;border:1px solid #ddd;border-radius:4px;font-family:'Inter',sans-serif;font-size:1rem;">
+                    <option value="">-- Выберите --</option>
+                    <option value="dubai">Дубай / ОАЭ</option>
+                    <option value="russia">Россия</option>
+                    <option value="europe">Европа</option>
+                    <option value="other">Другое</option>
+                </select>
+            </div>
+            <div class="form-group"><label for="message">Сообщение (опционально)</label><textarea id="message" name="message" placeholder="Расскажите о вашей ситуации..."></textarea></div>
+            <button type="submit" class="btn btn-gold" style="width:100%">Отправить Запрос</button>
+        </form>
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <p><strong>Royal Heights Mauritius</strong> — Ваш выход к независимости</p>
+        <p>Инвестируйте в недвижимость. Получайте резидентство. Живите в раю.</p>
+        <p style="margin-top:20px;color:rgba(255,255,255,0.5)">© 2026 Royal Heights. Всё права защищены.</p>
+    </div>
+</footer>
+
+<script>
+function handleFormSubmit(event) {
+    event.preventDefault();
+    const name = document.getElementById('name').value;
+    const email = document.getElementById('email').value;
+    const phone = document.getElementById('phone').value;
+    const location = document.getElementById('location').value;
+    const message = document.getElementById('message').value;
+    const whatsappMessage = `Привет! Я интересуюсь Royal Heights.\n\nИмя: ${name}\nEmail: ${email}\nГде я сейчас: ${location}\n\n${message}`;
+    const whatsappUrl = `https://wa.me/23054981000?text=${encodeURIComponent(whatsappMessage)}`;
+    window.open(whatsappUrl, '_blank');
+    event.target.reset();
+}
+
+startClock();
+setupHamburgerMenu();
+</script>
+
+</body>
+</html>

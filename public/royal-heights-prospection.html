@@ -611,10 +611,11 @@
   </style>
 </head>
 <body>
-  <header class="home-header">
+  <header class="home-header" id="mainHeader">
     <div class="logo">◆ Dev Dashboard</div>
+    <span id="readonlyBadge" style="display:none;font-size:12px;background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:#3fb950;border-radius:var(--radius);padding:3px 10px">👁 Vue lecture seule</span>
     <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
-    <nav class="header-nav">
+    <nav class="header-nav" id="mainNav">
       <a href="/home.html" class="btn-nav">🏠 Accueil</a>
       <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
       <a href="/royal-heights.html" class="btn-nav">🏛️ Royal Heights</a>
@@ -1201,7 +1202,8 @@
 
     // ===== Prospects =====
     async function loadProspects() {
-      const r = await fetch('/api/royal-heights/prospects');
+      const apiBase = (window._salesMode) ? '/sales/api' : '/api';
+      const r = await fetch(apiBase + '/royal-heights/prospects');
       allProspects = await r.json();
       computeStats();
       renderProspects();
@@ -1241,13 +1243,14 @@
           <td>${p.lastContactDate ? escapeHtml(p.lastContactDate.split('T')[0]) : '—'}</td>
           <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.nextAction)}</td>
           <td class="actions-cell">
-            <button class="btn-danger delete-prospect-btn" data-id="${escapeHtml(p.id)}">✕</button>
+            ${window._salesMode ? '' : `<button class="btn-danger delete-prospect-btn" data-id="${escapeHtml(p.id)}">✕</button>`}
           </td>
         </tr>
       `).join('');
 
       tbody.querySelectorAll('.prospect-row').forEach(row => {
         row.addEventListener('click', e => {
+          if (window._salesMode) return;
           if (e.target.closest('.delete-prospect-btn')) return;
           openProspectModal(row.dataset.id);
         });
@@ -1316,7 +1319,8 @@
 
     // ===== Tasks =====
     async function loadTasks() {
-      const r = await fetch('/api/royal-heights/tasks');
+      const apiBaseT = (window._salesMode) ? '/sales/api' : '/api';
+      const r = await fetch(apiBaseT + '/royal-heights/tasks');
       allTasks = await r.json();
       renderTasks();
     }
@@ -1448,7 +1452,39 @@
     }
 
     // ===== Event wiring =====
+    // ===== Read-Only Mode Detection =====
+    const isReadOnlyMode = window.location.pathname.startsWith('/sales/');
+
+    function applyReadOnlyMode() {
+      if (!isReadOnlyMode) return;
+      // Show readonly badge
+      const badge = document.getElementById('readonlyBadge');
+      if (badge) badge.style.display = '';
+      // Hide main nav (sales users shouldn't see dev nav)
+      const nav = document.getElementById('mainNav');
+      if (nav) nav.style.display = 'none';
+      const mobileMenu = document.getElementById('mobileMenu');
+      if (mobileMenu) mobileMenu.style.display = 'none';
+      // Hide add/edit/delete buttons
+      ['addProspectBtn', 'addTaskBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      // Hide delete buttons in tables (rendered dynamically — use CSS)
+      const style = document.createElement('style');
+      style.textContent = '.delete-prospect-btn, .delete-task-btn { display: none !important; } .btn-danger { display: none !important; }';
+      document.head.appendChild(style);
+      // Make pipeline cards non-clickable (no edit modal)
+      document.querySelectorAll('.pipeline-card').forEach(el => {
+        el.style.cursor = 'default';
+        el.onclick = null;
+      });
+      // Rewrite API calls to use sales endpoints
+      window._salesMode = true;
+    }
+
     initCommon(() => {
+      applyReadOnlyMode();
       // View tabs
       document.querySelectorAll('.view-tab').forEach(tab => {
         tab.addEventListener('click', () => switchView(tab.dataset.view));

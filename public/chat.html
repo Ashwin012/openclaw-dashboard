@@ -1077,8 +1077,15 @@
         <!-- Start panel -->
         <div class="chat-start-panel" id="startPanel">
           <div class="start-card">
-            <h2>&#128172; Start a Chat Session</h2>
+            <h2>&#128172; Start a Chat Session — <span id="startEngineLabel">Claude Code</span></h2>
             <p id="startProjectName">Select a model and start chatting with Claude Code in your project directory.</p>
+            <div class="model-selector-group">
+              <label>ENGINE</label>
+              <select class="model-select" id="engineSelect" onchange="onEngineSelectChange()">
+                <option value="claude">🟣 Claude Code</option>
+                <option value="codex">🟢 Codex (OpenAI)</option>
+              </select>
+            </div>
             <div class="model-selector-group">
               <label>Model</label>
               <select class="model-select" id="modelSelect" onchange="onModelChange()">
@@ -1181,6 +1188,29 @@
       if (val === 'custom') customInput.focus();
     }
 
+    function onEngineSelectChange() {
+      const engine = document.getElementById('engineSelect').value;
+      const modelSel = document.getElementById('modelSelect');
+      const label = document.getElementById('startEngineLabel');
+      if (engine === 'codex') {
+        label.textContent = 'Codex';
+        modelSel.innerHTML = `
+          <option value="gpt-5.4">gpt-5.4</option>
+          <option value="gpt-5.3-codex">gpt-5.3-codex</option>
+        `;
+      } else {
+        label.textContent = 'Claude Code';
+        modelSel.innerHTML = `
+          <option value="sonnet">Sonnet — claude-sonnet-4-6</option>
+          <option value="opus">Opus — claude-opus-4-6</option>
+          <option value="haiku">Haiku — claude-haiku-3-5</option>
+          <option value="custom">Custom model ID...</option>
+        `;
+      }
+      // Reset custom input display
+      document.getElementById('customModelInput').style.display = 'none';
+    }
+
     // ---- Status display ----
     function setStatus(state, text) {
       const badge = document.getElementById('statusBadge');
@@ -1260,11 +1290,12 @@
       const date = formatRelativeDate(s.lastActivityAt || s.createdAt);
       const preview = s.firstMessage || '(empty session)';
       const count = s.messageCount || 0;
+      const engineBadge = s.engine === 'codex' ? '🟢' : '🟣';
 
       div.innerHTML = `
         <div class="session-item-top">
           <span class="session-date">${date}</span>
-          <span class="session-model-badge">${escapeHtml(modelShort)}</span>
+          <span class="session-model-badge">${engineBadge} ${escapeHtml(modelShort)}</span>
           <span class="session-msg-count">${count} msg${count !== 1 ? 's' : ''}</span>
         </div>
         <div class="session-preview">${escapeHtml(preview)}</div>
@@ -1448,12 +1479,13 @@
       const model = selectVal === 'custom'
         ? (document.getElementById('customModelInput').value.trim() || 'claude-sonnet-4-6')
         : selectVal;
+      const engine = (document.getElementById('engineSelect') || {}).value || 'claude';
 
       try {
         const res = await fetch(`/api/projects/${projectId}/chat/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model })
+          body: JSON.stringify({ model, engine })
         });
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         const data = await res.json();
@@ -2208,8 +2240,14 @@
         if (res.ok) {
           projectData = await res.json();
           document.getElementById('topbarProject').textContent = projectData.name;
+          const projEngine = projectData.engine || 'claude';
+          const engineSel = document.getElementById('engineSelect');
+          if (engineSel) {
+            engineSel.value = projEngine;
+            onEngineSelectChange();
+          }
           document.getElementById('startProjectName').textContent =
-            `Chat with Claude Code in ${projectData.name} (${projectData.description})`;
+            `Chat with ${projEngine === 'codex' ? 'Codex' : 'Claude Code'} in ${projectData.name} (${projectData.description})`;
           document.getElementById('hintProjectPath').textContent = projectData.path;
           document.title = `${projectData.name} Chat — Dev Dashboard`;
         }

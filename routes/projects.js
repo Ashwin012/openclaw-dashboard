@@ -595,5 +595,21 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
     }
   });
 
+
+  // PUT /api/projects/:id/engine
+  router.put("/api/projects/:id/engine", requireAuth, (req, res) => {
+    const { engine } = req.body;
+    if (!["claude", "codex"].includes(engine)) return res.status(400).json({ error: "Invalid engine" });
+    const project = config.projects.find(p => p.id === req.params.id);
+    if (!project) return res.status(404).json({ error: "Project not found" });
+    project.engine = engine;
+    try {
+      writeJSON(require("path").join(__dirname, "..", "config.json"), config);
+      res.json({ ok: true, engine });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   return router;
 };

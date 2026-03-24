@@ -375,6 +375,7 @@
     let draggedTaskId = null;
     let editingTaskId = null;
     let expandedTaskId = null;
+    let currentEngine = 'claude';
 
     function getStatusClass(status) {
       if (status === 'M' || status === 'MM') return 'status-M';
@@ -570,6 +571,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
 
     function renderPage(data) {
       projectData = data;
+      currentEngine = data.engine || 'claude';
       const hasChanges = data.files && data.files.length > 0;
 
       document.title = `${data.name} — Dev Dashboard`;
@@ -603,6 +605,13 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
             ${data.githubUrl ? `<a href="${escapeHtml(data.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">GitHub</a>` : ''}
             <button onclick="openConfigModal()" style="background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:14px;cursor:pointer;line-height:1" title="Edit project config">⚙</button>
             <button onclick="gitPull()" style="background:var(--green);color:var(--bg);border:none;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer" id="pullBtn">Pull</button>
+            <div class="engine-selector" style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:11px;color:var(--text-muted)">Engine:</span>
+              <select id="engineSelect" onchange="onEngineChange()" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer">
+                <option value="claude" ${data.engine !== 'codex' ? 'selected' : ''}>🟣 Claude Code</option>
+                <option value="codex" ${data.engine === 'codex' ? 'selected' : ''}>🟢 Codex (OpenAI)</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -1288,6 +1297,29 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         }
       }
     });
+
+    async function onEngineChange() {
+      const sel = document.getElementById('engineSelect');
+      if (!sel) return;
+      const engine = sel.value;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/engine`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ engine }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          currentEngine = engine;
+          showToast(`Engine changée : ${engine === 'codex' ? '\ud83d\udfe2 Codex (OpenAI)' : '\ud83d\udfe3 Claude Code'}`);
+        } else {
+          showToast(data.error || 'Erreur changement engine', 'error');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
 
     async function loadProject() {
       if (!projectId) {

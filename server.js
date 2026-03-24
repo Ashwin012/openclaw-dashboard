@@ -34,6 +34,18 @@ app.get('/sales/royal-heights', salesAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'royal-heights-sales-view.html'));
 });
 
+app.get('/sales/royal-heights/prospection', salesAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'royal-heights-sales-prospection.html'));
+});
+
+app.get('/sales/royal-heights/prospection-ia', salesAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'royal-heights-sales-prospection-ia.html'));
+});
+
+app.get('/sales/royal-heights/russia', salesAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'royal-heights-sales-russia.html'));
+});
+
 app.get('/sales/api/royal-heights/prospects', (req, res) => {
   res.json(readJSON(PROSPECTS_PATH_RH, []));
 });

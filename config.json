@@ -96,7 +96,7 @@
       "description": "Dashboard de gestion des projets, trading, facturation et veille",
       "testUrl": "http://158.69.1.160:8090",
       "githubUrl": "https://github.com/Ashwin012/openclaw-dashboard",
-      "engine": "claude"
+      "engine": "codex"
     },
     {
       "id": "royal-heights",
