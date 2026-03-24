@@ -349,6 +349,17 @@
     .status-dot.yellow { background: var(--yellow); }
     .status-dot.red { background: var(--red); }
     .status-dot.gray { background: #6e7681; }
+    .engine-badge {
+      margin-left: auto;
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      background: var(--bg-hover);
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .engine-badge.engine-claude { color: #cba6f7; }
+    .engine-badge.engine-codex { color: #a6e3a1; }
     .dev-card-name { font-weight: 600; font-size: 14px; }
     .dev-card-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
     .dev-card-stats { display: flex; gap: 12px; font-size: 12px; color: var(--text-subtle); }
@@ -1657,6 +1668,7 @@
             <div class="dev-card-header">
               <div class="status-dot ${dotClass}"></div>
               <div class="dev-card-name">${escHtml(p.name)}</div>
+              <span class="engine-badge engine-${p.engine === 'codex' ? 'codex' : 'claude'}">${p.engine === 'codex' ? '\ud83d\udfe2 Codex' : '\ud83d\udfe3 Claude'}</span>
             </div>
             <div class="dev-card-desc">${escHtml(p.description || '')}</div>
             <div class="dev-card-stats">

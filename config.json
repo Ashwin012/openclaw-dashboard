@@ -14,7 +14,8 @@
       "description": "STO Exchange Platform",
       "testUrl": "http://158.69.1.160:3084",
       "stagingUrl": "https://sto.afdex.io",
-      "githubUrl": "https://github.com/Infozen/afdex-sto"
+      "githubUrl": "https://github.com/Infozen/afdex-sto",
+      "engine": "claude"
     },
     {
       "id": "champion-spirit",
@@ -38,7 +39,8 @@
       "testUrl": "http://158.69.1.160:8083",
       "stagingUrl": "https://manager.staging.championspirit.com",
       "prodUrl": "https://manager.championspirit.com",
-      "githubUrl": "https://github.com/Champion-Spirit/championspirit-api"
+      "githubUrl": "https://github.com/Champion-Spirit/championspirit-api",
+      "engine": "claude"
     },
     {
       "id": "trading-bot",
@@ -53,7 +55,8 @@
       "description": "Futures Trading Bot - ETHUSDC Binance",
       "testUrl": "http://158.69.1.160:8080",
       "prodUrl": "http://45.77.131.11:8080/",
-      "githubUrl": "https://github.com/Ashwin012/trading-bot"
+      "githubUrl": "https://github.com/Ashwin012/trading-bot",
+      "engine": "claude"
     },
     {
       "id": "stho",
@@ -77,7 +80,8 @@
       "testUrl": "http://158.69.1.160:3002",
       "stagingUrl": "https://app.staging.thestho.com/",
       "prodUrl": "https://thestho.com/",
-      "githubUrl": "https://github.com/STHO-Global/stho-api"
+      "githubUrl": "https://github.com/STHO-Global/stho-api",
+      "engine": "claude"
     },
     {
       "id": "openclaw-dashboard",
@@ -91,7 +95,8 @@
       "path": "/home/openclaw/projects/dev-dashboard",
       "description": "Dashboard de gestion des projets, trading, facturation et veille",
       "testUrl": "http://158.69.1.160:8090",
-      "githubUrl": "https://github.com/Ashwin012/openclaw-dashboard"
+      "githubUrl": "https://github.com/Ashwin012/openclaw-dashboard",
+      "engine": "claude"
     },
     {
       "id": "royal-heights",
@@ -103,10 +108,11 @@
         }
       ],
       "path": "/home/openclaw/projects/royal-heights",
-      "description": "Luxury Apartments in Balaclava, Mauritius \u2014 32 units",
+      "description": "Luxury Apartments in Balaclava, Mauritius — 32 units",
       "prodUrl": "https://royal-heights.mu",
       "githubUrl": "https://github.com/Infozen/royal-heights-website",
-      "testUrl": "http://158.69.1.160:8085"
+      "testUrl": "http://158.69.1.160:8085",
+      "engine": "codex"
     },
     {
       "id": "synapcoin",
@@ -123,7 +129,8 @@
       "testUrl": "http://158.69.1.160:3000",
       "apiUrl": "http://158.69.1.160:3001",
       "prodUrl": "https://synapcoin.io",
-      "prodApiUrl": "https://api.synapcoin.io"
+      "prodApiUrl": "https://api.synapcoin.io",
+      "engine": "claude"
     },
     {
       "id": "synaphive",
@@ -140,7 +147,8 @@
       "testUrl": "http://158.69.1.160:3084",
       "apiUrl": "http://158.69.1.160:4000",
       "prodUrl": "https://synaphive.io",
-      "prodApiUrl": "https://api.synaphive.io"
+      "prodApiUrl": "https://api.synaphive.io",
+      "engine": "claude"
     }
   ]
 }
