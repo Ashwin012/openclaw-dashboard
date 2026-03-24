@@ -196,39 +196,40 @@ function buildInstruction(task) {
   return parts.join('\n');
 }
 
-// ─── Core task processing (stream-json mode) ─────────────────────────────────
+// ─── Core task processing (claude stream-json / codex plain-text) ─────────────
 
-async function processTask(project, task) {
+function getEngineLabel(engine) {
+  return engine === 'codex' ? 'Codex' : 'Claude Code';
+}
+
+async function runEngine(project, task, engine, env, instruction) {
   const projectPath = project.path;
 
-  log(`Processing task [${task.id}] "${task.title}" in "${project.name}"`);
+  log(`  Spawning ${engine === 'codex' ? 'Codex CLI' : 'Claude Code'} for task [${task.id}]`);
 
-  updateTask(projectPath, task.id, t => {
-    t.status = 'in_progress';
-    addNote(t, 'Worker', 'Début du traitement');
-  });
-  addNotification(project.name, task.title, task.id, 'queued', 'in_progress', '🔄 Début du traitement par le worker');
-
-  const instruction = buildInstruction(task);
-
-  const env = {
-    ...process.env,
-    PATH: `${NVM_NODE_PATH}:${process.env.PATH}`,
-    HOME: '/home/openclaw',
-  };
-
-  log(`  Spawning Claude Code (stream-json) for task [${task.id}]`);
-
-  const proc = spawn('claude', [
-    '--input-format', 'stream-json',
-    '--output-format', 'stream-json',
-    '--verbose',
-    '--permission-mode', 'bypassPermissions',
-  ], {
-    cwd: projectPath,
-    env,
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  let proc;
+  if (engine === 'codex') {
+    proc = spawn('codex', [
+      'exec',
+      instruction,
+      '--full-auto',
+    ], {
+      cwd: projectPath,
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  } else {
+    proc = spawn('claude', [
+      '--input-format', 'stream-json',
+      '--output-format', 'stream-json',
+      '--verbose',
+      '--permission-mode', 'bypassPermissions',
+    ], {
+      cwd: projectPath,
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  }
 
   // ── State ──
   let resultText = '';
@@ -254,110 +255,131 @@ async function processTask(project, task) {
     taskTitle: task.title,
     warned: new Set(),
     stoppedManually: false,
+    engine,
     getOutput: () => resultText,
     getCurrentQuestion: () => currentQuestion,
   };
 
-  // ── Send instruction as first message ──
-  const userMsg = JSON.stringify({
-    type: 'user',
-    message: { role: 'user', content: instruction },
-  });
-  log(`  Sending instruction (${instruction.length} chars)`);
-  proc.stdin.write(userMsg + '\n');
+  if (engine === 'codex') {
+    // ── Codex: plain text stdout ──
+    proc.stdout.on('data', chunk => {
+      resultText += chunk.toString();
+    });
 
-  // ── Parse NDJSON from stdout ──
-  let stdoutBuf = '';
+    proc.stderr.on('data', chunk => { stderrBuf += chunk.toString(); });
 
-  proc.stdout.on('data', chunk => {
-    stdoutBuf += chunk.toString();
-    // Process complete lines
-    let newlineIdx;
-    while ((newlineIdx = stdoutBuf.indexOf('\n')) !== -1) {
-      const line = stdoutBuf.slice(0, newlineIdx).trim();
-      stdoutBuf = stdoutBuf.slice(newlineIdx + 1);
-      if (!line) continue;
+    proc.on('close', (code) => {
+      exitCode = code;
+      log(`  Codex process exited (code=${code}) for task [${task.id}]`);
+      resolveCompletion();
+    });
 
-      let event;
-      try { event = JSON.parse(line); } catch { continue; }
-      allEvents.push(event);
+    proc.on('error', err => {
+      logError(`Codex process error for task [${task.id}]`, err);
+      resolveCompletion();
+    });
+  } else {
+    // ── Claude Code: send instruction as first message ──
+    const userMsg = JSON.stringify({
+      type: 'user',
+      message: { role: 'user', content: instruction },
+    });
+    log(`  Sending instruction (${instruction.length} chars)`);
+    proc.stdin.write(userMsg + '\n');
 
-      switch (event.type) {
-        case 'system':
-          log(`  [stream] system init (session=${event.session_id}, model=${event.model})`);
-          break;
+    // ── Parse NDJSON from stdout ──
+    let stdoutBuf = '';
 
-        case 'assistant': {
-          // Claude's response — extract text content
-          const msg = event.message;
-          if (msg && msg.content) {
-            for (const block of msg.content) {
-              if (block.type === 'text') {
-                resultText += (resultText ? '\n' : '') + block.text;
-              }
-              // Detect if Claude is asking a question via tool use
-              if (block.type === 'tool_use' && block.name === 'AskUserQuestion') {
-                const question = block.input?.question || block.input?.text || JSON.stringify(block.input);
-                log(`  [stream] Question detected: "${question}"`);
-                currentQuestion = {
-                  taskId: task.id,
-                  projectId: project.id,
-                  question,
-                  timestamp: new Date().toISOString(),
-                  answered: false,
-                  toolUseId: block.id,
-                };
-                questionStartTime = Date.now();
-                questionWarnEmitted = false;
-                writePendingQuestion(currentQuestion);
-                updateTask(projectPath, task.id, t => {
-                  addNote(t, 'Worker', `🤔 Claude Code pose une question: ${question}`);
-                });
-                addNotification(project.name, task.title, task.id, 'in_progress', 'in_progress', `❓ Question: ${question}`);
+    proc.stdout.on('data', chunk => {
+      stdoutBuf += chunk.toString();
+      // Process complete lines
+      let newlineIdx;
+      while ((newlineIdx = stdoutBuf.indexOf('\n')) !== -1) {
+        const line = stdoutBuf.slice(0, newlineIdx).trim();
+        stdoutBuf = stdoutBuf.slice(newlineIdx + 1);
+        if (!line) continue;
 
-                // Start polling for answer
-                pollForAnswer(task.id, proc, currentQuestion.toolUseId);
+        let event;
+        try { event = JSON.parse(line); } catch { continue; }
+        allEvents.push(event);
+
+        switch (event.type) {
+          case 'system':
+            log(`  [stream] system init (session=${event.session_id}, model=${event.model})`);
+            break;
+
+          case 'assistant': {
+            // Claude's response — extract text content
+            const msg = event.message;
+            if (msg && msg.content) {
+              for (const block of msg.content) {
+                if (block.type === 'text') {
+                  resultText += (resultText ? '\n' : '') + block.text;
+                }
+                // Detect if Claude is asking a question via tool use
+                if (block.type === 'tool_use' && block.name === 'AskUserQuestion') {
+                  const question = block.input?.question || block.input?.text || JSON.stringify(block.input);
+                  log(`  [stream] Question detected: "${question}"`);
+                  currentQuestion = {
+                    taskId: task.id,
+                    projectId: project.id,
+                    question,
+                    timestamp: new Date().toISOString(),
+                    answered: false,
+                    toolUseId: block.id,
+                  };
+                  questionStartTime = Date.now();
+                  questionWarnEmitted = false;
+                  writePendingQuestion(currentQuestion);
+                  updateTask(projectPath, task.id, t => {
+                    addNote(t, 'Worker', `🤔 Claude Code pose une question: ${question}`);
+                  });
+                  addNotification(project.name, task.title, task.id, 'in_progress', 'in_progress', `❓ Question: ${question}`);
+
+                  // Start polling for answer
+                  pollForAnswer(task.id, proc, currentQuestion.toolUseId);
+                }
               }
             }
+            break;
           }
-          break;
+
+          case 'result':
+            // Final result — task complete
+            resultJson = event;
+            if (event.result) {
+              resultText = event.result; // Use the clean result text
+            }
+            log(`  [stream] Result received (${event.subtype}, ${event.duration_ms}ms, $${event.total_cost_usd?.toFixed(4) || '?'}) — closing stdin`);
+            // Close stdin so Claude Code process exits cleanly
+            try { proc.stdin.end(); } catch(e) {}
+            // Safety: force kill after 5s if process hasn't exited
+            setTimeout(() => { try { proc.kill('SIGTERM'); } catch {} }, 5000);
+            break;
+
+          case 'rate_limit_event':
+            // Ignore
+            break;
+
+          default:
+            log(`  [stream] Event: ${event.type}${event.subtype ? '/' + event.subtype : ''}`);
         }
-
-        case 'result':
-          // Final result — task complete
-          resultJson = event;
-          if (event.result) {
-            resultText = event.result; // Use the clean result text
-          }
-          log(`  [stream] Result received (${event.subtype}, ${event.duration_ms}ms, $${event.total_cost_usd?.toFixed(4) || '?'}) — closing stdin`);
-          // Close stdin so Claude Code process exits cleanly
-          try { proc.stdin.end(); } catch(e) {}
-          // Safety: force kill after 5s if process hasn't exited
-          setTimeout(() => { try { proc.kill('SIGTERM'); } catch {} }, 5000);
-          break;
-
-        case 'rate_limit_event':
-          // Ignore
-          break;
-
-        default:
-          log(`  [stream] Event: ${event.type}${event.subtype ? '/' + event.subtype : ''}`);
       }
-    }
-  });
+    });
 
-  proc.stderr.on('data', chunk => { stderrBuf += chunk.toString(); });
+    proc.stderr.on('data', chunk => { stderrBuf += chunk.toString(); });
 
-  proc.on('close', (code) => {
-    exitCode = code;
-    log(`  Process exited (code=${code}) for task [${task.id}]`);
-    resolveCompletion();
-  });
+    proc.on('close', (code) => {
+      exitCode = code;
+      log(`  Process exited (code=${code}) for task [${task.id}]`);
+      resolveCompletion();
+    });
 
-  proc.on('error', err => {
-    logError(`Process error for task [${task.id}]`, err);
-    resolveCompletion();
-  });
+    proc.on('error', err => {
+      logError(`Process error for task [${task.id}]`, err);
+      resolveCompletion();
+    });
+  }
 
   // ── Wait for completion ──
   await completionPromise;
@@ -372,12 +394,59 @@ async function processTask(project, task) {
 
   log(`  Task finished (exitCode=${exitCode})`);
 
-  if (cp && cp.stoppedManually) {
+  return {
+    exitCode,
+    resultText,
+    resultJson,
+    stderrBuf,
+    stoppedManually: Boolean(cp && cp.stoppedManually),
+  };
+}
+
+async function processTask(project, task) {
+  const projectPath = project.path;
+
+  log(`Processing task [${task.id}] "${task.title}" in "${project.name}"`);
+
+  updateTask(projectPath, task.id, t => {
+    t.status = 'in_progress';
+    addNote(t, 'Worker', 'Début du traitement');
+  });
+  addNotification(project.name, task.title, task.id, task.status, 'in_progress', '🔄 Début du traitement par le worker');
+
+  const instruction = buildInstruction(task);
+
+  const env = {
+    ...process.env,
+    PATH: `${NVM_NODE_PATH}:${process.env.PATH}`,
+    HOME: '/home/openclaw',
+  };
+
+  const engine = task.engine || project.engine || 'claude';
+  let run = await runEngine(project, task, engine, env, instruction);
+  let finalEngine = engine;
+
+  if (run.exitCode !== 0 && !run.stoppedManually) {
+    const altEngine = engine === 'codex' ? 'claude' : 'codex';
+    const engineLabel = getEngineLabel(engine);
+    const altEngineLabel = getEngineLabel(altEngine);
+
+    updateTask(projectPath, task.id, t => {
+      addNote(t, 'Worker', `⚠️ ${engineLabel} échoué (exit=${run.exitCode}), fallback sur ${altEngineLabel}`);
+    });
+
+    run = await runEngine(project, task, altEngine, env, instruction);
+    finalEngine = altEngine;
+  }
+
+  const { exitCode, resultText, resultJson, stderrBuf, stoppedManually } = run;
+
+  if (stoppedManually) {
     updateTask(projectPath, task.id, t => {
       addNote(t, 'Worker', `Stoppée manuellement`);
       t.status = 'review';
     });
-    addNotification(cp.projectName, cp.taskTitle, task.id, 'in_progress', 'review', '⏹ Tâche stoppée manuellement');
+    addNotification(project.name, task.title, task.id, 'in_progress', 'review', '⏹ Tâche stoppée manuellement');
     return;
   }
 
@@ -396,14 +465,15 @@ async function processTask(project, task) {
   }
 
   // Build summary note
+  const engineLabel = getEngineLabel(finalEngine);
   let summaryNote = '';
   if (resultJson) {
     const r = resultJson;
-    summaryNote += `✅ Claude Code terminé (${Math.round((r.duration_ms || 0) / 1000)}s, ${r.num_turns || 1} tour(s), $${r.total_cost_usd?.toFixed(4) || '?'})\n\n`;
+    summaryNote += `✅ ${engineLabel} terminé (${Math.round((r.duration_ms || 0) / 1000)}s, ${r.num_turns || 1} tour(s), $${r.total_cost_usd?.toFixed(4) || '?'})\n\n`;
   } else if (failed) {
-    summaryNote += `❌ Claude Code échoué (exit=${exitCode})\n\n`;
+    summaryNote += `❌ ${engineLabel} échoué (exit=${exitCode})\n\n`;
   } else {
-    summaryNote += `Claude Code terminé:\n\n`;
+    summaryNote += `${engineLabel} terminé:\n\n`;
   }
   summaryNote += output;
   if (stderrBuf.trim()) {
@@ -422,7 +492,7 @@ async function processTask(project, task) {
   const notifMsg = failed
     ? '❌ Erreur pendant le traitement — en review'
     : '🔍 Traitement terminé — en attente de review';
-  addNotification(cp.projectName, cp.taskTitle, task.id, 'in_progress', 'review', notifMsg);
+  addNotification(project.name, task.title, task.id, 'in_progress', 'review', notifMsg);
   log(`Task [${task.id}] → review${failed ? ' (with error)' : ''}`);
 
   if (shuttingDown) process.exit(0);
@@ -517,7 +587,7 @@ async function pollOnce() {
     if (shuttingDown) break;
 
     const data = readTasks(project.path);
-    const queued = data.tasks.filter(t => t.status === 'queued');
+    const queued = data.tasks.filter(t => t.status === 'queued' || t.status === 'pending');
     if (queued.length === 0) continue;
 
     log(`Project "${project.name}": ${queued.length} queued task(s)`);
@@ -552,7 +622,7 @@ async function pollOnce() {
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 async function main() {
-  log('Task worker started (stream-json mode)');
+  log('Task worker started (multi-engine: claude stream-json / codex plain-text)');
   log(`Poll interval: ${POLL_INTERVAL_MS / 1000}s | Quality gate timeout: ${QUALITY_GATE_TIMEOUT_MS / 60000}m`);
   log(`Projects: ${loadConfig().projects.map(p => p.name).join(', ')}`);
   log(`HTTP server on port ${WORKER_PORT}`);
