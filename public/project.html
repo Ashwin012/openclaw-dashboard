@@ -919,14 +919,14 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       const filtered = getFilteredTasks();
       const columns = [
         { id: 'todo', label: 'Todo' },
-        { id: 'queued', label: '⏳ Queued' },
+        { id: 'queued', label: '⏳ Queued/Pending' },
         { id: 'in_progress', label: 'In Progress' },
         { id: 'review', label: '🔍 Review' },
         { id: 'done', label: 'Done' },
         { id: 'blocked', label: 'Blocked' }
       ];
       board.innerHTML = columns.map(col => {
-        const colTasks = filtered.filter(t => t.status === col.id);
+        const colTasks = filtered.filter(t => col.id === 'queued' ? (t.status === 'queued' || t.status === 'pending') : t.status === col.id);
         return `
           <div class="kanban-col">
             <div class="kanban-col-header">
@@ -951,7 +951,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       const tagsHtml = task.tags && task.tags.length
         ? task.tags.slice(0, 2).map(tag => `<span class="task-tag">${escapeHtml(tag)}</span>`).join('')
         : '';
-      const isQueued = task.status === 'queued';
+      const isQueued = task.status === 'queued' || task.status === 'pending';
       const isReview = task.status === 'review';
       const isInProgress = task.status === 'in_progress';
 
@@ -971,7 +971,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
           onclick="toggleTaskExpand('${task.id}', event)">
           <div class="task-card-top">
             <span class="priority-badge prio-${task.priority}">${task.priority}</span>
-            ${isQueued ? '<span style="font-size:11px;color:var(--purple);margin-left:4px">En attente</span>' : ''}
+            ${isQueued ? `<span style="font-size:11px;color:var(--purple);margin-left:4px">${task.status === 'pending' ? 'Pending' : 'Queued'}</span>` : ''}
             ${isReview ? '<span style="font-size:11px;color:#fab387;margin-left:4px">🔍 En review</span>' : ''}
             ${isInProgress ? '<span style="font-size:11px;color:var(--accent);margin-left:4px">⚙️ En cours</span>' : ''}
             ${durationHtml}
