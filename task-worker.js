@@ -196,6 +196,18 @@ function buildInstruction(task) {
   return parts.join('\n');
 }
 
+function buildCodexInstruction(projectPath, instruction) {
+  const claudeMdPath = path.join(projectPath, 'CLAUDE.md');
+  if (!fs.existsSync(claudeMdPath)) return instruction;
+
+  return [
+    'Before doing anything else, read `./CLAUDE.md` at the repository root. It is the single source of truth for project instructions, architecture context, and working rules.',
+    'Follow `CLAUDE.md` throughout the task. If anything conflicts with later assumptions, `CLAUDE.md` wins.',
+    '',
+    instruction,
+  ].join('\n');
+}
+
 // ─── Core task processing (claude stream-json / codex plain-text) ─────────────
 
 function getEngineLabel(engine) {
@@ -209,10 +221,11 @@ async function runEngine(project, task, engine, env, instruction) {
 
   let proc;
   if (engine === 'codex') {
+    const codexInstruction = buildCodexInstruction(projectPath, instruction);
     proc = spawn('codex', [
       'exec',
-      instruction,
-      '--full-auto',
+      codexInstruction,
+      '--dangerously-bypass-approvals-and-sandbox',
     ], {
       cwd: projectPath,
       env,
