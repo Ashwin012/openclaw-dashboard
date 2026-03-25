@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { spawn } = require('child_process');
+const { readJSON, writeJSON } = require('./lib/json-store');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -15,8 +16,8 @@ const NVM_NODE_PATH = '/home/openclaw/.nvm/versions/node/v20.20.1/bin';
 const NVM_SOURCE = 'source /home/openclaw/.nvm/nvm.sh';
 const WORKER_PORT = 8091;
 const DASHBOARD_DIR = path.join(__dirname, '.dashboard');
-const PENDING_QUESTIONS_PATH = path.join(DASHBOARD_DIR, 'pending-questions.json');
-const PENDING_ANSWERS_PATH = path.join(DASHBOARD_DIR, 'pending-answers.json');
+const NOTIFICATIONS_PATH = path.join(DASHBOARD_DIR, 'notifications.json');
+const DEFAULT_MAX_CONCURRENCY = 2;
 
 const WARNING_THRESHOLDS_MIN = [30, 60, 120];
 const QUESTION_POLL_MS = 2_000;
@@ -39,69 +40,151 @@ let shuttingDown = false;
 process.on('SIGTERM', () => {
   log('SIGTERM received — shutting down');
   shuttingDown = true;
-  if (currentProcess) {
-    try { currentProcess.proc.kill('SIGTERM'); } catch {}
-  }
+  stopAllActiveRuns();
 });
 
 process.on('SIGINT', () => {
   log('SIGINT received — shutting down');
   shuttingDown = true;
-  if (currentProcess) {
-    try { currentProcess.proc.kill('SIGTERM'); } catch {}
-  }
+  stopAllActiveRuns();
 });
 
-// ─── Current process tracking ─────────────────────────────────────────────────
+// ─── Active run tracking ──────────────────────────────────────────────────────
 
-let currentProcess = null;
+const activeRuns = new Map();
+const activeProjects = new Map();
 
-// ─── Pending question/answer helpers ──────────────────────────────────────────
-
-function ensureDashboardDir() {
-  if (!fs.existsSync(DASHBOARD_DIR)) fs.mkdirSync(DASHBOARD_DIR, { recursive: true });
+function getActiveRunCount() {
+  return activeRuns.size;
 }
 
-function writePendingQuestion(data) {
-  ensureDashboardDir();
-  const tmp = `${PENDING_QUESTIONS_PATH}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
-  fs.renameSync(tmp, PENDING_QUESTIONS_PATH);
+function getActiveRunsList() {
+  return Array.from(activeRuns.values())
+    .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 }
 
-function clearPendingQuestion() {
-  try { if (fs.existsSync(PENDING_QUESTIONS_PATH)) fs.unlinkSync(PENDING_QUESTIONS_PATH); } catch {}
+function hasProjectActiveRun(projectId) {
+  return activeProjects.has(projectId);
 }
 
-function readPendingAnswer(taskId) {
-  if (!fs.existsSync(PENDING_ANSWERS_PATH)) return null;
-  try {
-    const data = JSON.parse(fs.readFileSync(PENDING_ANSWERS_PATH, 'utf8'));
-    if (data.taskId === taskId && data.answer) return data.answer;
-  } catch {}
-  return null;
+function createReservedRun(project, task) {
+  const runState = {
+    taskId: task.id,
+    taskTitle: task.title,
+    projectId: project.id,
+    projectName: project.name,
+    projectPath: project.path,
+    engine: task.engine || project.engine || 'claude',
+    startTime: new Date(),
+    warned: new Set(),
+    stoppedManually: false,
+    proc: null,
+    pid: null,
+    resultText: '',
+    currentQuestion: null,
+    questionStartTime: 0,
+    questionWarnEmitted: false,
+    pendingAnswer: null,
+    answerDeliveredAt: null,
+  };
+
+  activeRuns.set(task.id, runState);
+  activeProjects.set(project.id, task.id);
+  return runState;
 }
 
-function clearPendingAnswer() {
-  try { if (fs.existsSync(PENDING_ANSWERS_PATH)) fs.unlinkSync(PENDING_ANSWERS_PATH); } catch {}
+function releaseRun(taskId) {
+  const runState = activeRuns.get(taskId);
+  if (!runState) return null;
+  activeRuns.delete(taskId);
+  if (activeProjects.get(runState.projectId) === taskId) {
+    activeProjects.delete(runState.projectId);
+  }
+  return runState;
+}
+
+function stopAllActiveRuns() {
+  for (const runState of activeRuns.values()) {
+    runState.stoppedManually = true;
+    try { runState.proc && runState.proc.kill('SIGTERM'); } catch {}
+  }
+}
+
+function getRunByProject(projectId) {
+  const taskId = activeProjects.get(projectId);
+  return taskId ? activeRuns.get(taskId) || null : null;
+}
+
+function describeRun(runState) {
+  const durationMin = Math.floor((Date.now() - runState.startTime.getTime()) / 60_000);
+  return {
+    id: runState.taskId,
+    title: runState.taskTitle,
+    project: runState.projectName,
+    projectId: runState.projectId,
+    startedAt: runState.startTime.toISOString(),
+    durationMin,
+    pid: runState.pid,
+    engine: runState.engine,
+    pendingQuestion: runState.currentQuestion,
+  };
+}
+
+function getLegacyStatusFields(runs) {
+  if (runs.length !== 1) {
+    return { task: null, pendingQuestion: null };
+  }
+  return {
+    task: describeRun(runs[0]),
+    pendingQuestion: runs[0].currentQuestion,
+  };
+}
+
+function resolveTargetRun(query) {
+  const taskId = typeof query.taskId === 'string' && query.taskId.trim() ? query.taskId.trim() : null;
+  const projectId = typeof query.project === 'string' && query.project.trim() ? query.project.trim() : null;
+
+  if (taskId) {
+    const runState = activeRuns.get(taskId);
+    if (!runState) {
+      return { error: `Active task not found for taskId=${taskId}`, statusCode: 404 };
+    }
+    if (projectId && runState.projectId !== projectId) {
+      return { error: 'taskId and project do not match the same active run', statusCode: 400 };
+    }
+    return { runState };
+  }
+
+  if (projectId) {
+    const runState = getRunByProject(projectId);
+    if (!runState) {
+      return { error: `No active task for project=${projectId}`, statusCode: 404 };
+    }
+    return { runState };
+  }
+
+  const runs = getActiveRunsList();
+  if (runs.length === 0) {
+    return { runState: null };
+  }
+  if (runs.length === 1) {
+    return { runState: runs[0] };
+  }
+
+  return {
+    error: 'Multiple tasks are active; specify taskId or project',
+    statusCode: 400,
+  };
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
-const NOTIFICATIONS_PATH = path.join(DASHBOARD_DIR, 'notifications.json');
-
 function addNotification(projectName, taskTitle, taskId, fromStatus, toStatus, message) {
   try {
-    ensureDashboardDir();
-    let data = { pending: [] };
-    if (fs.existsSync(NOTIFICATIONS_PATH)) {
-      try { data = JSON.parse(fs.readFileSync(NOTIFICATIONS_PATH, 'utf8')); } catch { data = { pending: [] }; }
-    }
+    const data = readJSON(NOTIFICATIONS_PATH, { pending: [] }) || { pending: [] };
     if (!Array.isArray(data.pending)) data.pending = [];
     data.pending.push({ projectName, taskTitle, taskId, fromStatus, toStatus, message, timestamp: new Date().toISOString() });
-    const tmp = `${NOTIFICATIONS_PATH}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
-    fs.renameSync(tmp, NOTIFICATIONS_PATH);
+    writeJSON(NOTIFICATIONS_PATH, data);
   } catch (err) {
     logError('Failed to write notification', err);
   }
@@ -114,30 +197,21 @@ function getTasksPath(projectPath) {
 }
 
 function readTasks(projectPath) {
-  const p = getTasksPath(projectPath);
-  if (!fs.existsSync(p)) return { tasks: [] };
-  try {
-    const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
-    if (Array.isArray(raw)) return { tasks: raw };
-    if (raw && Array.isArray(raw.tasks)) return raw;
-    return { tasks: [] };
-  } catch (err) {
-    logError(`Failed to parse tasks.json at ${p}`, err);
-    return { tasks: [] };
-  }
+  const raw = readJSON(getTasksPath(projectPath), { tasks: [] }) || { tasks: [] };
+  if (Array.isArray(raw)) return { tasks: raw };
+  if (raw && Array.isArray(raw.tasks)) return raw;
+  return { tasks: [] };
 }
 
 function writeTasks(projectPath, data) {
   const p = getTasksPath(projectPath);
-  const dir = path.dirname(p);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const toWrite = Array.isArray(data) ? { tasks: data } : data;
-  const tmp = `${p}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(toWrite, null, 2), 'utf8');
-  fs.renameSync(tmp, p);
+  writeJSON(p, toWrite);
 }
 
-function now() { return new Date().toISOString(); }
+function now() {
+  return new Date().toISOString();
+}
 
 function addNote(task, author, text) {
   if (!Array.isArray(task.notes)) task.notes = [];
@@ -147,10 +221,14 @@ function addNote(task, author, text) {
 function updateTask(projectPath, taskId, mutate) {
   const data = readTasks(projectPath);
   const task = data.tasks.find(t => t.id === taskId);
-  if (!task) { logError(`Task ${taskId} not found in ${projectPath}`); return; }
+  if (!task) {
+    logError(`Task ${taskId} not found in ${projectPath}`);
+    return null;
+  }
   mutate(task);
   task.updatedAt = now();
   writeTasks(projectPath, data);
+  return task;
 }
 
 // ─── Quality gates ────────────────────────────────────────────────────────────
@@ -158,11 +236,15 @@ function updateTask(projectPath, taskId, mutate) {
 function spawnPromise(cmd, opts, timeoutMs) {
   return new Promise(resolve => {
     const proc = spawn(cmd, { ...opts, shell: '/bin/bash' });
-    let stdout = '', stderr = '';
+    let stdout = '';
+    let stderr = '';
     proc.stdout && proc.stdout.on('data', d => { stdout += d.toString(); });
     proc.stderr && proc.stderr.on('data', d => { stderr += d.toString(); });
     let timedOut = false;
-    const timer = setTimeout(() => { timedOut = true; proc.kill('SIGTERM'); }, timeoutMs);
+    const timer = setTimeout(() => {
+      timedOut = true;
+      proc.kill('SIGTERM');
+    }, timeoutMs);
     proc.on('close', code => {
       clearTimeout(timer);
       resolve({ code: timedOut ? -1 : code, output: [stdout, stderr].filter(Boolean).join('\n').trim(), timedOut });
@@ -214,7 +296,7 @@ function getEngineLabel(engine) {
   return engine === 'codex' ? 'Codex' : 'Claude Code';
 }
 
-async function runEngine(project, task, engine, env, instruction) {
+async function runEngine(project, task, engine, env, instruction, runState) {
   const projectPath = project.path;
 
   log(`  Spawning ${engine === 'codex' ? 'Codex CLI' : 'Claude Code'} for task [${task.id}]`);
@@ -244,44 +326,33 @@ async function runEngine(project, task, engine, env, instruction) {
     });
   }
 
-  // ── State ──
   let resultText = '';
   let resultJson = null;
-  let currentQuestion = null;
-  let questionStartTime = 0;
-  let questionWarnEmitted = false;
   let exitCode = null;
   let stderrBuf = '';
-  let allEvents = []; // keep all events for debugging
+
+  runState.proc = proc;
+  runState.pid = proc.pid;
+  runState.engine = engine;
+  runState.resultText = '';
+  runState.currentQuestion = null;
+  runState.questionStartTime = 0;
+  runState.questionWarnEmitted = false;
+  runState.pendingAnswer = null;
+  runState.answerDeliveredAt = null;
 
   let resolveCompletion;
   const completionPromise = new Promise(res => { resolveCompletion = res; });
 
-  currentProcess = {
-    proc,
-    pid: proc.pid,
-    startTime: new Date(),
-    taskId: task.id,
-    projectId: project.id,
-    projectPath,
-    projectName: project.name,
-    taskTitle: task.title,
-    warned: new Set(),
-    stoppedManually: false,
-    engine,
-    getOutput: () => resultText,
-    getCurrentQuestion: () => currentQuestion,
-  };
-
   if (engine === 'codex') {
-    // ── Codex: plain text stdout ──
     proc.stdout.on('data', chunk => {
       resultText += chunk.toString();
+      runState.resultText = resultText;
     });
 
     proc.stderr.on('data', chunk => { stderrBuf += chunk.toString(); });
 
-    proc.on('close', (code) => {
+    proc.on('close', code => {
       exitCode = code;
       log(`  Codex process exited (code=${code}) for task [${task.id}]`);
       resolveCompletion();
@@ -292,7 +363,6 @@ async function runEngine(project, task, engine, env, instruction) {
       resolveCompletion();
     });
   } else {
-    // ── Claude Code: send instruction as first message ──
     const userMsg = JSON.stringify({
       type: 'user',
       message: { role: 'user', content: instruction },
@@ -300,12 +370,10 @@ async function runEngine(project, task, engine, env, instruction) {
     log(`  Sending instruction (${instruction.length} chars)`);
     proc.stdin.write(userMsg + '\n');
 
-    // ── Parse NDJSON from stdout ──
     let stdoutBuf = '';
 
     proc.stdout.on('data', chunk => {
       stdoutBuf += chunk.toString();
-      // Process complete lines
       let newlineIdx;
       while ((newlineIdx = stdoutBuf.indexOf('\n')) !== -1) {
         const line = stdoutBuf.slice(0, newlineIdx).trim();
@@ -313,8 +381,11 @@ async function runEngine(project, task, engine, env, instruction) {
         if (!line) continue;
 
         let event;
-        try { event = JSON.parse(line); } catch { continue; }
-        allEvents.push(event);
+        try {
+          event = JSON.parse(line);
+        } catch {
+          continue;
+        }
 
         switch (event.type) {
           case 'system':
@@ -322,18 +393,17 @@ async function runEngine(project, task, engine, env, instruction) {
             break;
 
           case 'assistant': {
-            // Claude's response — extract text content
             const msg = event.message;
             if (msg && msg.content) {
               for (const block of msg.content) {
                 if (block.type === 'text') {
                   resultText += (resultText ? '\n' : '') + block.text;
+                  runState.resultText = resultText;
                 }
-                // Detect if Claude is asking a question via tool use
                 if (block.type === 'tool_use' && block.name === 'AskUserQuestion') {
                   const question = block.input?.question || block.input?.text || JSON.stringify(block.input);
                   log(`  [stream] Question detected: "${question}"`);
-                  currentQuestion = {
+                  runState.currentQuestion = {
                     taskId: task.id,
                     projectId: project.id,
                     question,
@@ -341,16 +411,13 @@ async function runEngine(project, task, engine, env, instruction) {
                     answered: false,
                     toolUseId: block.id,
                   };
-                  questionStartTime = Date.now();
-                  questionWarnEmitted = false;
-                  writePendingQuestion(currentQuestion);
+                  runState.questionStartTime = Date.now();
+                  runState.questionWarnEmitted = false;
                   updateTask(projectPath, task.id, t => {
                     addNote(t, 'Worker', `🤔 Claude Code pose une question: ${question}`);
                   });
                   addNotification(project.name, task.title, task.id, 'in_progress', 'in_progress', `❓ Question: ${question}`);
-
-                  // Start polling for answer
-                  pollForAnswer(task.id, proc, currentQuestion.toolUseId);
+                  pollForAnswer(runState, proc, block.id);
                 }
               }
             }
@@ -358,20 +425,17 @@ async function runEngine(project, task, engine, env, instruction) {
           }
 
           case 'result':
-            // Final result — task complete
             resultJson = event;
             if (event.result) {
-              resultText = event.result; // Use the clean result text
+              resultText = event.result;
+              runState.resultText = resultText;
             }
             log(`  [stream] Result received (${event.subtype}, ${event.duration_ms}ms, $${event.total_cost_usd?.toFixed(4) || '?'}) — closing stdin`);
-            // Close stdin so Claude Code process exits cleanly
-            try { proc.stdin.end(); } catch(e) {}
-            // Safety: force kill after 5s if process hasn't exited
+            try { proc.stdin.end(); } catch {}
             setTimeout(() => { try { proc.kill('SIGTERM'); } catch {} }, 5000);
             break;
 
           case 'rate_limit_event':
-            // Ignore
             break;
 
           default:
@@ -382,7 +446,7 @@ async function runEngine(project, task, engine, env, instruction) {
 
     proc.stderr.on('data', chunk => { stderrBuf += chunk.toString(); });
 
-    proc.on('close', (code) => {
+    proc.on('close', code => {
       exitCode = code;
       log(`  Process exited (code=${code}) for task [${task.id}]`);
       resolveCompletion();
@@ -394,16 +458,18 @@ async function runEngine(project, task, engine, env, instruction) {
     });
   }
 
-  // ── Wait for completion ──
   await completionPromise;
 
-  clearPendingQuestion();
-  clearPendingAnswer();
+  const stoppedManually = Boolean(runState.stoppedManually);
+  runState.currentQuestion = null;
+  runState.pendingAnswer = null;
+  runState.answerDeliveredAt = null;
 
-  const cp = currentProcess;
-  currentProcess = null;
-
-  if (shuttingDown) { process.exit(0); return; }
+  if (shuttingDown) {
+    releaseRun(task.id);
+    process.exit(0);
+    return null;
+  }
 
   log(`  Task finished (exitCode=${exitCode})`);
 
@@ -412,11 +478,11 @@ async function runEngine(project, task, engine, env, instruction) {
     resultText,
     resultJson,
     stderrBuf,
-    stoppedManually: Boolean(cp && cp.stoppedManually),
+    stoppedManually,
   };
 }
 
-async function processTask(project, task) {
+async function processTask(project, task, runState) {
   const projectPath = project.path;
 
   log(`Processing task [${task.id}] "${task.title}" in "${project.name}"`);
@@ -436,146 +502,159 @@ async function processTask(project, task) {
   };
 
   const engine = task.engine || project.engine || 'claude';
-  let run = await runEngine(project, task, engine, env, instruction);
   let finalEngine = engine;
 
-  if (run.exitCode !== 0 && !run.stoppedManually) {
-    const altEngine = engine === 'codex' ? 'claude' : 'codex';
-    const engineLabel = getEngineLabel(engine);
-    const altEngineLabel = getEngineLabel(altEngine);
+  try {
+    let run = await runEngine(project, task, engine, env, instruction, runState);
+    if (!run) return;
 
-    updateTask(projectPath, task.id, t => {
-      addNote(t, 'Worker', `⚠️ ${engineLabel} échoué (exit=${run.exitCode}), fallback sur ${altEngineLabel}`);
-    });
+    if (run.exitCode !== 0 && !run.stoppedManually) {
+      const altEngine = engine === 'codex' ? 'claude' : 'codex';
+      const engineLabel = getEngineLabel(engine);
+      const altEngineLabel = getEngineLabel(altEngine);
 
-    run = await runEngine(project, task, altEngine, env, instruction);
-    finalEngine = altEngine;
-  }
+      updateTask(projectPath, task.id, t => {
+        addNote(t, 'Worker', `⚠️ ${engineLabel} échoué (exit=${run.exitCode}), fallback sur ${altEngineLabel}`);
+      });
 
-  const { exitCode, resultText, resultJson, stderrBuf, stoppedManually } = run;
-
-  if (stoppedManually) {
-    updateTask(projectPath, task.id, t => {
-      addNote(t, 'Worker', `Stoppée manuellement`);
-      t.status = 'review';
-    });
-    addNotification(project.name, task.title, task.id, 'in_progress', 'review', '⏹ Tâche stoppée manuellement');
-    return;
-  }
-
-  // Truncate result if needed
-  let output = resultText || '(No output)';
-  if (output.length > MAX_OUTPUT_CHARS) {
-    output = `[${output.length} chars total, showing last ${MAX_OUTPUT_CHARS}]\n...` + output.slice(-MAX_OUTPUT_CHARS);
-  }
-
-  const failed = exitCode !== 0 && !resultJson;
-
-  // Quality gates
-  let qualityResults = [];
-  if (!failed) {
-    try { qualityResults = await runQualityGates(projectPath); } catch (err) { logError('Quality gates error', err); }
-  }
-
-  // Build summary note
-  const engineLabel = getEngineLabel(finalEngine);
-  let summaryNote = '';
-  if (resultJson) {
-    const r = resultJson;
-    summaryNote += `✅ ${engineLabel} terminé (${Math.round((r.duration_ms || 0) / 1000)}s, ${r.num_turns || 1} tour(s), $${r.total_cost_usd?.toFixed(4) || '?'})\n\n`;
-  } else if (failed) {
-    summaryNote += `❌ ${engineLabel} échoué (exit=${exitCode})\n\n`;
-  } else {
-    summaryNote += `${engineLabel} terminé:\n\n`;
-  }
-  summaryNote += output;
-  if (stderrBuf.trim()) {
-    summaryNote += `\n\nStderr: ${stderrBuf.trim().slice(0, 500)}`;
-  }
-
-  updateTask(projectPath, task.id, t => {
-    addNote(t, 'Worker', summaryNote);
-    for (const qg of qualityResults) {
-      addNote(t, 'Worker', `Quality gate "${qg.gate}": ${qg.passed ? 'PASSED' : 'FAILED'}\n${qg.output}`);
+      run = await runEngine(project, task, altEngine, env, instruction, runState);
+      if (!run) return;
+      finalEngine = altEngine;
     }
-    t.status = 'review';
-    if (failed) t.error = true;
-  });
 
-  const notifMsg = failed
-    ? '❌ Erreur pendant le traitement — en review'
-    : '🔍 Traitement terminé — en attente de review';
-  addNotification(project.name, task.title, task.id, 'in_progress', 'review', notifMsg);
-  log(`Task [${task.id}] → review${failed ? ' (with error)' : ''}`);
+    const { exitCode, resultText, resultJson, stderrBuf, stoppedManually } = run;
 
-  if (shuttingDown) process.exit(0);
+    if (stoppedManually) {
+      updateTask(projectPath, task.id, t => {
+        addNote(t, 'Worker', 'Stoppée manuellement');
+        t.status = 'review';
+      });
+      addNotification(project.name, task.title, task.id, 'in_progress', 'review', '⏹ Tâche stoppée manuellement');
+      return;
+    }
+
+    let output = resultText || '(No output)';
+    if (output.length > MAX_OUTPUT_CHARS) {
+      output = `[${output.length} chars total, showing last ${MAX_OUTPUT_CHARS}]\n...` + output.slice(-MAX_OUTPUT_CHARS);
+    }
+
+    const failed = exitCode !== 0 && !resultJson;
+
+    let qualityResults = [];
+    if (!failed) {
+      try {
+        qualityResults = await runQualityGates(projectPath);
+      } catch (err) {
+        logError('Quality gates error', err);
+      }
+    }
+
+    const engineLabel = getEngineLabel(finalEngine);
+    let summaryNote = '';
+    if (resultJson) {
+      const r = resultJson;
+      summaryNote += `✅ ${engineLabel} terminé (${Math.round((r.duration_ms || 0) / 1000)}s, ${r.num_turns || 1} tour(s), $${r.total_cost_usd?.toFixed(4) || '?'})\n\n`;
+    } else if (failed) {
+      summaryNote += `❌ ${engineLabel} échoué (exit=${exitCode})\n\n`;
+    } else {
+      summaryNote += `${engineLabel} terminé:\n\n`;
+    }
+    summaryNote += output;
+    if (stderrBuf.trim()) {
+      summaryNote += `\n\nStderr: ${stderrBuf.trim().slice(0, 500)}`;
+    }
+
+    updateTask(projectPath, task.id, t => {
+      addNote(t, 'Worker', summaryNote);
+      for (const qg of qualityResults) {
+        addNote(t, 'Worker', `Quality gate "${qg.gate}": ${qg.passed ? 'PASSED' : 'FAILED'}\n${qg.output}`);
+      }
+      t.status = 'review';
+      if (failed) t.error = true;
+    });
+
+    const notifMsg = failed
+      ? '❌ Erreur pendant le traitement — en review'
+      : '🔍 Traitement terminé — en attente de review';
+    addNotification(project.name, task.title, task.id, 'in_progress', 'review', notifMsg);
+    log(`Task [${task.id}] → review${failed ? ' (with error)' : ''}`);
+  } finally {
+    releaseRun(task.id);
+    if (shuttingDown && getActiveRunCount() === 0) {
+      process.exit(0);
+    }
+  }
 }
 
 // ─── Poll for answer to a question ────────────────────────────────────────────
 
-function pollForAnswer(taskId, proc, toolUseId) {
+function pollForAnswer(runState, proc, toolUseId) {
   const interval = setInterval(() => {
-    // Check if process is still running
-    if (!currentProcess || currentProcess.taskId !== taskId) {
+    const currentRun = activeRuns.get(runState.taskId);
+    if (!currentRun || currentRun.proc !== proc) {
       clearInterval(interval);
       return;
     }
 
-    // 30-min warning
-    if (!currentProcess.questionWarnEmitted && Date.now() - currentProcess.questionStartTime >= QUESTION_WARN_MS) {
-      currentProcess.questionWarnEmitted = true;
-      updateTask(currentProcess.projectPath, taskId, t => {
+    if (!currentRun.questionWarnEmitted && currentRun.questionStartTime && Date.now() - currentRun.questionStartTime >= QUESTION_WARN_MS) {
+      currentRun.questionWarnEmitted = true;
+      updateTask(currentRun.projectPath, currentRun.taskId, t => {
         addNote(t, 'Worker', '⏰ Question sans réponse depuis 30min');
       });
     }
 
-    // Check for answer
-    const answer = readPendingAnswer(taskId);
-    if (answer) {
-      log(`  Answer received for task [${taskId}]: "${answer}"`);
-      clearPendingAnswer();
-      clearPendingQuestion();
+    if (!currentRun.pendingAnswer) return;
 
-      // Send answer back to Claude Code via stdin as a tool_result
-      const response = JSON.stringify({
-        type: 'user',
-        message: {
-          role: 'user',
-          content: [
-            {
-              type: 'tool_result',
-              tool_use_id: toolUseId,
-              content: answer,
-            },
-          ],
-        },
-      });
-      try {
-        proc.stdin.write(response + '\n');
-        log(`  Answer sent to Claude Code`);
-      } catch (err) {
-        logError('Failed to write answer to stdin', err);
+    const answer = currentRun.pendingAnswer;
+    log(`  Answer received for task [${currentRun.taskId}]: "${answer}"`);
+
+    const response = JSON.stringify({
+      type: 'user',
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: toolUseId,
+            content: answer,
+          },
+        ],
+      },
+    });
+
+    try {
+      proc.stdin.write(response + '\n');
+      log('  Answer sent to Claude Code');
+      currentRun.answerDeliveredAt = Date.now();
+      currentRun.pendingAnswer = null;
+      if (currentRun.currentQuestion) {
+        currentRun.currentQuestion = { ...currentRun.currentQuestion, answered: true };
       }
-
-      currentProcess.getCurrentQuestion = () => null;
-      clearInterval(interval);
+      currentRun.currentQuestion = null;
+    } catch (err) {
+      logError('Failed to write answer to stdin', err);
     }
+
+    clearInterval(interval);
   }, QUESTION_POLL_MS);
 }
 
 // ─── Warning check ────────────────────────────────────────────────────────────
 
 function checkRunningWarnings() {
-  if (!currentProcess) return;
-  const elapsedMin = Math.floor((Date.now() - currentProcess.startTime.getTime()) / 60_000);
-  for (const threshold of WARNING_THRESHOLDS_MIN) {
-    if (elapsedMin >= threshold && !currentProcess.warned.has(threshold)) {
-      currentProcess.warned.add(threshold);
-      const msg = `⚠️ Tâche en cours depuis ${elapsedMin} minutes`;
-      log(`  ${msg} (task [${currentProcess.taskId}])`);
-      try {
-        updateTask(currentProcess.projectPath, currentProcess.taskId, t => { addNote(t, 'Worker', msg); });
-      } catch (err) { logError('Failed to write warning note', err); }
+  for (const runState of activeRuns.values()) {
+    const elapsedMin = Math.floor((Date.now() - runState.startTime.getTime()) / 60_000);
+    for (const threshold of WARNING_THRESHOLDS_MIN) {
+      if (elapsedMin >= threshold && !runState.warned.has(threshold)) {
+        runState.warned.add(threshold);
+        const msg = `⚠️ Tâche en cours depuis ${elapsedMin} minutes`;
+        log(`  ${msg} (task [${runState.taskId}])`);
+        try {
+          updateTask(runState.projectPath, runState.taskId, t => { addNote(t, 'Worker', msg); });
+        } catch (err) {
+          logError('Failed to write warning note', err);
+        }
+      }
     }
   }
 }
@@ -583,67 +662,125 @@ function checkRunningWarnings() {
 // ─── Config loader ────────────────────────────────────────────────────────────
 
 function loadConfig() {
-  try { return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); }
-  catch (err) { logError('Failed to read config.json', err); return { projects: [] }; }
+  try {
+    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+  } catch (err) {
+    logError('Failed to read config.json', err);
+    return { projects: [] };
+  }
+}
+
+function getMaxConcurrency(config) {
+  const envValue = Number.parseInt(process.env.TASK_WORKER_MAX_CONCURRENCY || '', 10);
+  if (Number.isInteger(envValue) && envValue > 0) return envValue;
+
+  const configValue = Number.parseInt(String(config?.worker?.maxConcurrency ?? ''), 10);
+  if (Number.isInteger(configValue) && configValue > 0) return configValue;
+
+  return DEFAULT_MAX_CONCURRENCY;
 }
 
 // ─── Poll loop ────────────────────────────────────────────────────────────────
 
-const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
+const PRIORITY_ORDER = {
+  critical: -1,
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
+function getTaskPriorityRank(task) {
+  return PRIORITY_ORDER[task.priority] ?? 99;
+}
+
+function getTaskCreatedTime(task) {
+  const raw = task.createdAt || task.created;
+  const ts = raw ? Date.parse(raw) : NaN;
+  return Number.isFinite(ts) ? ts : Number.MAX_SAFE_INTEGER;
+}
+
+function compareTaskOrder(a, b) {
+  const pa = getTaskPriorityRank(a);
+  const pb = getTaskPriorityRank(b);
+  if (pa !== pb) return pa - pb;
+
+  const ta = getTaskCreatedTime(a);
+  const tb = getTaskCreatedTime(b);
+  if (ta !== tb) return ta - tb;
+
+  return String(a.id).localeCompare(String(b.id));
+}
+
+function getNextQueuedTask(project) {
+  if (hasProjectActiveRun(project.id)) return null;
+
+  const data = readTasks(project.path);
+  const queued = data.tasks.filter(t => {
+    if (t.status !== 'queued' && t.status !== 'pending') return false;
+    return !activeRuns.has(t.id);
+  });
+  if (queued.length === 0) return null;
+
+  queued.sort(compareTaskOrder);
+  return queued[0];
+}
 
 async function pollOnce() {
-  if (currentProcess) { checkRunningWarnings(); return; }
+  checkRunningWarnings();
 
   const config = loadConfig();
+  const maxConcurrency = getMaxConcurrency(config);
+  const availableSlots = Math.max(0, maxConcurrency - getActiveRunCount());
+  if (availableSlots === 0) return;
+
+  const scheduled = [];
 
   for (const project of config.projects) {
-    if (shuttingDown) break;
+    if (shuttingDown || scheduled.length >= availableSlots) break;
 
-    const data = readTasks(project.path);
-    const queued = data.tasks.filter(t => t.status === 'queued' || t.status === 'pending');
-    if (queued.length === 0) continue;
+    const task = getNextQueuedTask(project);
+    if (!task) continue;
 
-    log(`Project "${project.name}": ${queued.length} queued task(s)`);
+    log(`Project "${project.name}": scheduling task [${task.id}] "${task.title}"`);
+    const runState = createReservedRun(project, task);
 
-    queued.sort((a, b) => {
-      const pa = PRIORITY_ORDER[a.priority] ?? 99;
-      const pb = PRIORITY_ORDER[b.priority] ?? 99;
-      if (pa !== pb) return pa - pb;
-      return new Date(a.createdAt) - new Date(b.createdAt);
-    });
-
-    const task = queued[0];
-
-    processTask(project, task).catch(err => {
+    processTask(project, task, runState).catch(err => {
       logError(`Unexpected error in processTask [${task.id}]`, err);
-      if (currentProcess && currentProcess.taskId === task.id) {
-        try {
-          updateTask(project.path, task.id, t => {
-            addNote(t, 'Worker', `Erreur inattendue: ${err.message || err}`);
-            t.status = 'review';
-            t.error = true;
-          });
-        } catch {}
-        currentProcess = null;
-      }
+      try {
+        updateTask(project.path, task.id, t => {
+          addNote(t, 'Worker', `Erreur inattendue: ${err.message || err}`);
+          t.status = 'review';
+          t.error = true;
+        });
+      } catch {}
+      releaseRun(task.id);
     });
 
-    return;
+    scheduled.push(task.id);
   }
 }
 
-function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 async function main() {
+  const config = loadConfig();
   log('Task worker started (multi-engine: claude stream-json / codex plain-text)');
   log(`Poll interval: ${POLL_INTERVAL_MS / 1000}s | Quality gate timeout: ${QUALITY_GATE_TIMEOUT_MS / 60000}m`);
-  log(`Projects: ${loadConfig().projects.map(p => p.name).join(', ')}`);
+  log(`Max concurrency: ${getMaxConcurrency(config)}`);
+  log(`Projects: ${config.projects.map(p => p.name).join(', ')}`);
   log(`HTTP server on port ${WORKER_PORT}`);
 
   startHttpServer();
+  await pollOnce();
 
   while (!shuttingDown) {
-    try { await pollOnce(); } catch (err) { logError('Unexpected error in poll loop', err); }
+    try {
+      await pollOnce();
+    } catch (err) {
+      logError('Unexpected error in poll loop', err);
+    }
     if (!shuttingDown) await sleep(POLL_INTERVAL_MS);
   }
 
@@ -657,94 +794,104 @@ function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => { try { resolve(JSON.parse(body)); } catch { resolve({}); } });
+    req.on('end', () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch {
+        resolve({});
+      }
+    });
     req.on('error', reject);
   });
+}
+
+function sendJson(res, statusCode, payload) {
+  res.writeHead(statusCode);
+  res.end(JSON.stringify(payload));
 }
 
 function startHttpServer() {
   const server = http.createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
 
-    if (req.method === 'GET' && req.url === '/health') {
-      res.writeHead(200);
-      return res.end(JSON.stringify({ ok: true }));
+    const requestUrl = new URL(req.url, `http://127.0.0.1:${WORKER_PORT}`);
+
+    if (req.method === 'GET' && requestUrl.pathname === '/health') {
+      return sendJson(res, 200, { ok: true });
     }
 
-    if (req.method === 'GET' && req.url === '/status') {
-      if (!currentProcess) {
-        res.writeHead(200);
-        return res.end(JSON.stringify({ running: false, task: null, pendingQuestion: null }));
+    if (req.method === 'GET' && requestUrl.pathname === '/status') {
+      const runs = getActiveRunsList();
+      const legacy = getLegacyStatusFields(runs);
+      return sendJson(res, 200, {
+        running: runs.length > 0,
+        count: runs.length,
+        maxConcurrency: getMaxConcurrency(loadConfig()),
+        tasks: runs.map(describeRun),
+        ...legacy,
+      });
+    }
+
+    if (req.method === 'POST' && requestUrl.pathname === '/stop') {
+      const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
+      if (resolved.error) {
+        if (resolved.statusCode === 404 && getActiveRunCount() === 0) {
+          return sendJson(res, 200, { ok: true, message: 'No task running' });
+        }
+        return sendJson(res, resolved.statusCode, { error: resolved.error });
       }
-      const durationMin = Math.floor((Date.now() - currentProcess.startTime.getTime()) / 60_000);
-      res.writeHead(200);
-      return res.end(JSON.stringify({
-        running: true,
-        task: {
-          id: currentProcess.taskId,
-          title: currentProcess.taskTitle,
-          project: currentProcess.projectName,
-          projectId: currentProcess.projectId,
-          startedAt: currentProcess.startTime.toISOString(),
-          durationMin,
-          pid: currentProcess.pid,
-        },
-        pendingQuestion: currentProcess.getCurrentQuestion(),
-      }));
-    }
-
-    if (req.method === 'POST' && req.url === '/stop') {
-      if (!currentProcess) {
-        res.writeHead(200);
-        return res.end(JSON.stringify({ ok: true, message: 'No task running' }));
+      if (!resolved.runState) {
+        return sendJson(res, 200, { ok: true, message: 'No task running' });
       }
-      log(`Manual stop requested for task [${currentProcess.taskId}]`);
-      currentProcess.stoppedManually = true;
-      try { currentProcess.proc.kill('SIGTERM'); } catch {}
-      res.writeHead(200);
-      return res.end(JSON.stringify({ ok: true, message: 'Stop signal sent' }));
+      log(`Manual stop requested for task [${resolved.runState.taskId}]`);
+      resolved.runState.stoppedManually = true;
+      try { resolved.runState.proc && resolved.runState.proc.kill('SIGTERM'); } catch {}
+      return sendJson(res, 200, { ok: true, message: 'Stop signal sent', taskId: resolved.runState.taskId, projectId: resolved.runState.projectId });
     }
 
-    if (req.method === 'GET' && req.url === '/question') {
-      const question = currentProcess ? currentProcess.getCurrentQuestion() : null;
-      res.writeHead(200);
-      return res.end(JSON.stringify({ question }));
+    if (req.method === 'GET' && requestUrl.pathname === '/question') {
+      const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
+      if (resolved.error) {
+        return sendJson(res, resolved.statusCode, { error: resolved.error });
+      }
+      return sendJson(res, 200, { question: resolved.runState ? resolved.runState.currentQuestion : null });
     }
 
-    if (req.method === 'POST' && req.url === '/answer') {
+    if (req.method === 'POST' && requestUrl.pathname === '/answer') {
       const body = await readBody(req);
       if (!body.answer || typeof body.answer !== 'string') {
-        res.writeHead(400);
-        return res.end(JSON.stringify({ error: 'Missing answer field' }));
+        return sendJson(res, 400, { error: 'Missing answer field' });
       }
-      if (!currentProcess) {
-        res.writeHead(400);
-        return res.end(JSON.stringify({ error: 'No active task' }));
+
+      const targetQuery = {
+        taskId: body.taskId || requestUrl.searchParams.get('taskId') || '',
+        project: body.project || requestUrl.searchParams.get('project') || '',
+      };
+      const resolved = resolveTargetRun(targetQuery);
+      if (resolved.error) {
+        return sendJson(res, resolved.statusCode, { error: resolved.error });
       }
-      const answerData = { taskId: currentProcess.taskId, answer: body.answer, timestamp: new Date().toISOString() };
-      try {
-        ensureDashboardDir();
-        const tmp = `${PENDING_ANSWERS_PATH}.${process.pid}.tmp`;
-        fs.writeFileSync(tmp, JSON.stringify(answerData, null, 2), 'utf8');
-        fs.renameSync(tmp, PENDING_ANSWERS_PATH);
-        log(`Answer written for task [${currentProcess.taskId}]`);
-        res.writeHead(200);
-        return res.end(JSON.stringify({ ok: true }));
-      } catch (err) {
-        logError('Failed to write answer', err);
-        res.writeHead(500);
-        return res.end(JSON.stringify({ error: 'Failed to write answer' }));
+      if (!resolved.runState) {
+        return sendJson(res, 400, { error: 'No active task' });
       }
+      if (!resolved.runState.currentQuestion) {
+        return sendJson(res, 400, { error: 'Active task is not waiting for a question response' });
+      }
+
+      resolved.runState.pendingAnswer = body.answer;
+      return sendJson(res, 200, { ok: true, taskId: resolved.runState.taskId, projectId: resolved.runState.projectId });
     }
 
-    if (req.method === 'GET' && req.url === '/output') {
-      const output = currentProcess ? currentProcess.getOutput() : '';
-      res.writeHead(200);
-      return res.end(JSON.stringify({ output: output.slice(-2000), totalChars: output.length }));
+    if (req.method === 'GET' && requestUrl.pathname === '/output') {
+      const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
+      if (resolved.error) {
+        return sendJson(res, resolved.statusCode, { error: resolved.error });
+      }
+      const output = resolved.runState ? resolved.runState.resultText || '' : '';
+      return sendJson(res, 200, { output: output.slice(-2000), totalChars: output.length });
     }
 
-    res.writeHead(404);
-    res.end(JSON.stringify({ error: 'Not found' }));
+    return sendJson(res, 404, { error: 'Not found' });
   });
 
   server.listen(WORKER_PORT, '127.0.0.1', () => {

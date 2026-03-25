@@ -491,7 +491,11 @@
       document.getElementById('tasksPane').style.display = tab === 'tasks' ? '' : 'none';
       if (tab === 'history' && historyCache === null) loadHistory();
       if (tab === 'unpushed' && unpushedCache === null) loadUnpushed();
-      if (tab === 'tasks') { if (tasksCache === null) loadTasks(); else renderKanban(); }
+      if (tab === 'tasks') {
+        renderWorkerPanel();
+        if (tasksCache === null) loadTasks();
+        else renderKanban();
+      }
     }
 
     async function loadHistory() {
@@ -715,6 +719,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
             </div>
             <button class="btn btn-new-task" onclick="showNewTaskModal()">+ New Task</button>
           </div>
+          <div id="workerStatusPanel" style="margin-bottom:14px"></div>
           <div class="kanban-board" id="kanbanBoard">
             <div class="loading"><div class="spinner"></div> Loading tasks...</div>
           </div>
@@ -722,7 +727,11 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
 
       if (activeTab === 'history' && historyCache === null) loadHistory();
       if (activeTab === 'unpushed' && unpushedCache === null) loadUnpushed();
-      if (activeTab === 'tasks') { if (tasksCache === null) loadTasks(); else { updateTasksBadge(); renderKanban(); } }
+      if (activeTab === 'tasks') {
+        renderWorkerPanel();
+        if (tasksCache === null) loadTasks();
+        else { updateTasksBadge(); renderKanban(); }
+      }
     }
 
     function setView(view) {
@@ -829,23 +838,71 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
 
     // ===== Worker status =====
 
-    let workerStatus = null; // { running, task } or null
+    let workerStatus = null; // { running, tasks[], count } or null
 
     async function pollWorkerStatus() {
       try {
         const res = await fetch('/api/worker/status');
-        if (res.ok) workerStatus = await res.json();
+        if (res.ok) {
+          workerStatus = await res.json();
+        } else {
+          workerStatus = null;
+        }
       } catch { workerStatus = null; }
+      renderWorkerPanel();
     }
 
-    async function stopWorker() {
+    function getWorkerRuns() {
+      return Array.isArray(workerStatus?.tasks) ? workerStatus.tasks : [];
+    }
+
+    function getActiveRunForTask(taskId) {
+      return getWorkerRuns().find(run => run.id === taskId) || null;
+    }
+
+    function renderWorkerPanel() {
+      const panel = document.getElementById('workerStatusPanel');
+      if (!panel) return;
+
+      const runs = getWorkerRuns();
+      if (!runs.length) {
+        panel.innerHTML = `
+          <div style="padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card);font-size:12px;color:var(--text-muted)">
+            Aucun worker actif.
+          </div>`;
+        return;
+      }
+
+      panel.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">Workers actifs</div>
+            <div style="font-size:12px;color:var(--text-muted)">${runs.length} / ${workerStatus.maxConcurrency || '—'} slot(s) utilisés</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${runs.map(run => `
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:${run.projectId === projectId ? 'var(--bg-hover)' : 'var(--bg-surface)'}">
+                <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+                  <div style="font-size:13px;color:var(--text);font-weight:600">${escapeHtml(run.title)}</div>
+                  <div style="font-size:12px;color:var(--text-muted)">
+                    ${escapeHtml(run.project)} · ${run.durationMin} min${run.pendingQuestion ? ' · question en attente' : ''}
+                  </div>
+                </div>
+                <button class="btn-edit-task" onclick="stopWorker('${run.id}')" style="background:#3b0808;border-color:var(--red);color:var(--red)">&#9209; Stopper</button>
+              </div>`).join('')}
+          </div>
+        </div>`;
+    }
+
+    async function stopWorker(taskId) {
       if (!confirm('Stopper la tâche en cours ?')) return;
       try {
-        const res = await fetch('/api/worker/stop', { method: 'POST' });
+        const query = taskId ? `?taskId=${encodeURIComponent(taskId)}` : '';
+        const res = await fetch(`/api/worker/stop${query}`, { method: 'POST' });
         const data = await res.json();
         if (res.ok) {
           showToast('Signal d\'arrêt envoyé');
-          workerStatus = null;
+          await pollWorkerStatus();
           setTimeout(() => loadTasks(), 2000);
         } else {
           showToast(data.error || 'Erreur', 'error');
@@ -955,10 +1012,10 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       const isReview = task.status === 'review';
       const isInProgress = task.status === 'in_progress';
 
-      // Duration from worker status if this task is the one running
+      const activeRun = isInProgress ? getActiveRunForTask(task.id) : null;
       let durationHtml = '';
-      if (isInProgress && workerStatus && workerStatus.running && workerStatus.task && workerStatus.task.id === task.id) {
-        const dur = workerStatus.task.durationMin;
+      if (activeRun) {
+        const dur = activeRun.durationMin;
         durationHtml = `<span style="font-size:11px;color:var(--accent);margin-left:4px">En cours depuis ${dur} min</span>`;
       }
 
@@ -1034,7 +1091,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
              </div>`
           : task.status === 'in_progress'
           ? `<div class="task-detail-actions">
-               <button class="btn-edit-task" onclick="event.stopPropagation(); stopWorker()" style="background:#3b0808;border-color:var(--red);color:var(--red)">&#9209; Stopper</button>
+               <button class="btn-edit-task" onclick="event.stopPropagation(); stopWorker('${taskId}')" style="background:#3b0808;border-color:var(--red);color:var(--red)">&#9209; Stopper</button>
              </div>`
           : task.status === 'review'
           ? `<div class="task-detail-actions">
@@ -1449,7 +1506,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
     initCommon(() => {
       loadProject();
       pollWorkerStatus();
-      setInterval(async () => {
+      createSmartInterval(async () => {
         await pollWorkerStatus();
         if (tasksCache && document.getElementById('kanbanBoard')) renderKanban();
       }, 15_000);

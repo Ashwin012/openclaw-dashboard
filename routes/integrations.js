@@ -179,33 +179,68 @@ module.exports = function createIntegrationRoutes({ requireAuth }) {
 
   const WORKER_URL = 'http://127.0.0.1:8091';
 
-  function proxyWorkerRequest(method, workerPath, res) {
-    const req = http.request(`${WORKER_URL}${workerPath}`, { method }, workerRes => {
+  function proxyWorkerRequest(req, res, workerPath) {
+    const workerReq = http.request(`${WORKER_URL}${workerPath}`, {
+      method: req.method,
+      headers: req.method === 'POST' ? { 'Content-Type': 'application/json' } : undefined,
+    }, workerRes => {
       let body = '';
       workerRes.on('data', chunk => { body += chunk; });
       workerRes.on('end', () => {
         res.status(workerRes.statusCode).set('Content-Type', 'application/json').send(body);
       });
     });
-    req.on('error', err => {
+    workerReq.on('error', err => {
       // Worker not running
       if (workerPath.startsWith('/status')) {
-        res.json({ running: false, tasks: {}, count: 0 });
+        res.json({ running: false, tasks: [], count: 0, maxConcurrency: null, task: null, pendingQuestion: null });
       } else {
         res.status(503).json({ error: 'Worker not available', detail: err.message });
       }
     });
-    req.end();
+    if (req.method === 'POST') {
+      const body = req.body && Object.keys(req.body).length ? JSON.stringify(req.body) : '';
+      if (body) workerReq.write(body);
+      workerReq.end();
+      return;
+    }
+    workerReq.end();
   }
 
   router.get('/api/worker/status', requireAuth, (req, res) => {
-    proxyWorkerRequest('GET', '/status', res);
+    proxyWorkerRequest(req, res, '/status');
   });
 
   router.post('/api/worker/stop', requireAuth, (req, res) => {
-    const project = req.query.project;
-    const workerPath = project ? `/stop?project=${encodeURIComponent(project)}` : '/stop';
-    proxyWorkerRequest('POST', workerPath, res);
+    const params = new URLSearchParams();
+    if (req.query.project) params.set('project', req.query.project);
+    if (req.query.taskId) params.set('taskId', req.query.taskId);
+    const workerPath = params.toString() ? `/stop?${params.toString()}` : '/stop';
+    proxyWorkerRequest(req, res, workerPath);
+  });
+
+  router.get('/api/worker/question', requireAuth, (req, res) => {
+    const params = new URLSearchParams();
+    if (req.query.project) params.set('project', req.query.project);
+    if (req.query.taskId) params.set('taskId', req.query.taskId);
+    const workerPath = params.toString() ? `/question?${params.toString()}` : '/question';
+    proxyWorkerRequest(req, res, workerPath);
+  });
+
+  router.post('/api/worker/answer', requireAuth, (req, res) => {
+    const params = new URLSearchParams();
+    if (req.query.project) params.set('project', req.query.project);
+    if (req.query.taskId) params.set('taskId', req.query.taskId);
+    const workerPath = params.toString() ? `/answer?${params.toString()}` : '/answer';
+    proxyWorkerRequest(req, res, workerPath);
+  });
+
+  router.get('/api/worker/output', requireAuth, (req, res) => {
+    const params = new URLSearchParams();
+    if (req.query.project) params.set('project', req.query.project);
+    if (req.query.taskId) params.set('taskId', req.query.taskId);
+    const workerPath = params.toString() ? `/output?${params.toString()}` : '/output';
+    proxyWorkerRequest(req, res, workerPath);
   });
 
   // ===== Notifications (no auth — called by cron agent) =====
