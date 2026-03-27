@@ -299,27 +299,38 @@ function getEngineLabel(engine) {
 async function runEngine(project, task, engine, env, instruction, runState) {
   const projectPath = project.path;
 
+  // Resolve model & fallback-model (task-level overrides project-level)
+  const model = task.model || project.model || null;
+  const fallbackModel = task.fallbackModel || project.fallbackModel || null;
+  if (model) log(`  Using model: ${model}`);
+  if (fallbackModel) log(`  Using fallback-model: ${fallbackModel}`);
+
   log(`  Spawning ${engine === 'codex' ? 'Codex CLI' : 'Claude Code'} for task [${task.id}]`);
 
   let proc;
   if (engine === 'codex') {
     const codexInstruction = buildCodexInstruction(projectPath, instruction);
-    proc = spawn('codex', [
+    const codexArgs = [
       'exec',
       codexInstruction,
       '--dangerously-bypass-approvals-and-sandbox',
-    ], {
+    ];
+    if (model) codexArgs.push('--model', model);
+    proc = spawn('codex', codexArgs, {
       cwd: projectPath,
       env,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
   } else {
-    proc = spawn('claude', [
+    const claudeArgs = [
       '--input-format', 'stream-json',
       '--output-format', 'stream-json',
       '--verbose',
       '--permission-mode', 'bypassPermissions',
-    ], {
+    ];
+    if (model) claudeArgs.push('--model', model);
+    if (fallbackModel) claudeArgs.push('--fallback-model', fallbackModel);
+    proc = spawn('claude', claudeArgs, {
       cwd: projectPath,
       env,
       stdio: ['pipe', 'pipe', 'pipe'],
