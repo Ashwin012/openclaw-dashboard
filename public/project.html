@@ -286,6 +286,40 @@
     </div>
   </div>
 
+  <!-- Task Detail Modal -->
+  <div class="modal-overlay" id="taskDetailModal" style="display:none" onclick="if(event.target===this)closeTaskDetailModal()">
+    <div class="modal-box" style="max-width:580px">
+      <div class="modal-header">
+        <div style="flex:1;min-width:0">
+          <h3 id="tdm-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></h3>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px" id="tdm-badges"></div>
+        </div>
+        <button class="modal-close-btn" onclick="closeTaskDetailModal()" style="margin-left:12px;flex-shrink:0">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div id="tdm-desc" style="display:none">
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Description</div>
+          <div id="tdm-desc-text" style="font-size:13px;line-height:1.6;white-space:pre-wrap;color:var(--text);background:var(--bg);padding:10px 12px;border-radius:6px;border:1px solid var(--border)"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Commentaires</div>
+          <div id="tdm-notes" class="notes-timeline" style="max-height:200px;overflow-y:auto"></div>
+          <div class="add-note-form" style="margin-top:10px">
+            <textarea id="tdm-note-text" placeholder="Ajouter un commentaire..." rows="2" style="resize:vertical"></textarea>
+            <button class="btn-submit" onclick="submitDetailNote()">Ajouter</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);display:flex;gap:16px;flex-wrap:wrap" id="tdm-dates"></div>
+      </div>
+      <div class="modal-footer">
+        <div id="tdm-actions-left"></div>
+        <div style="display:flex;gap:8px" id="tdm-actions-right">
+          <button class="btn-cancel" onclick="closeTaskDetailModal()">Fermer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Task Modal -->
   <div class="modal-overlay" id="taskModal" style="display:none" onclick="if(event.target===this)closeTaskModal()">
     <div class="modal-box">
@@ -375,6 +409,7 @@
     let draggedTaskId = null;
     let editingTaskId = null;
     let expandedTaskId = null;
+    let openDetailTaskId = null;
     let currentEngine = 'claude';
 
     function getStatusClass(status) {
@@ -972,7 +1007,6 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
     function renderKanban() {
       const board = document.getElementById('kanbanBoard');
       if (!board) return;
-      expandedTaskId = null;
       const filtered = getFilteredTasks();
       const columns = [
         { id: 'todo', label: 'Todo' },
@@ -1000,6 +1034,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
             </div>
           </div>`;
       }).join('');
+      if (openDetailTaskId) refreshTaskDetailModal();
     }
 
     function renderTaskCard(task) {
@@ -1025,7 +1060,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
           draggable="true"
           ondragstart="handleDragStart(event, '${task.id}')"
           ondragend="handleDragEnd(event)"
-          onclick="toggleTaskExpand('${task.id}', event)">
+          onclick="if(!draggedTaskId)openTaskDetailModal('${task.id}')">
           <div class="task-card-top">
             <span class="priority-badge prio-${task.priority}">${task.priority}</span>
             ${isQueued ? `<span style="font-size:11px;color:var(--purple);margin-left:4px">${task.status === 'pending' ? 'Pending' : 'Queued'}</span>` : ''}
@@ -1044,88 +1079,150 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         </div>`;
     }
 
-    function toggleTaskExpand(taskId, event) {
-      if (draggedTaskId) return;
+    function openTaskDetailModal(taskId) {
       const task = tasksCache?.find(t => t.id === taskId);
       if (!task) return;
-      const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
-      if (!card) return;
+      openDetailTaskId = taskId;
+      refreshTaskDetailModal();
+      document.getElementById('taskDetailModal').style.display = 'flex';
+      document.getElementById('tdm-note-text').value = '';
+    }
 
-      const isExpanded = expandedTaskId === taskId;
+    function refreshTaskDetailModal() {
+      if (!openDetailTaskId) return;
+      const task = tasksCache?.find(t => t.id === openDetailTaskId);
+      if (!task) return;
 
-      // Collapse any currently expanded card
-      if (expandedTaskId) {
-        const oldCard = document.querySelector(`.task-card[data-task-id="${expandedTaskId}"]`);
-        if (oldCard) {
-          const oldDetail = oldCard.querySelector('.task-card-detail');
-          if (oldDetail) oldDetail.remove();
-          oldCard.classList.remove('expanded');
-        }
-        expandedTaskId = null;
+      document.getElementById('tdm-title').textContent = task.title;
+
+      const statusColors = { todo: '#6e7681', queued: '#bc8cff', in_progress: '#58a6ff', review: '#fab387', done: '#3fb950', blocked: '#f85149' };
+      const statusLabels = { todo: 'Todo', queued: 'Queued', in_progress: 'In Progress', review: 'Review', done: 'Done', blocked: 'Blocked' };
+      const sc = statusColors[task.status] || '#6e7681';
+      const prioBadge = `<span class="priority-badge prio-${task.priority}">${task.priority}</span>`;
+      const statusBadge = `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${sc}22;color:${sc};border:1px solid ${sc}44">${statusLabels[task.status] || task.status}</span>`;
+      const assigneeBadge = `<span style="font-size:11px;color:var(--text-muted)">&#128100; ${escapeHtml(task.assignee || 'unassigned')}</span>`;
+      const tagsBadges = (task.tags || []).map(tag => `<span class="task-tag">${escapeHtml(tag)}</span>`).join('');
+      document.getElementById('tdm-badges').innerHTML = prioBadge + statusBadge + assigneeBadge + tagsBadges;
+
+      const descEl = document.getElementById('tdm-desc');
+      if (task.description) {
+        document.getElementById('tdm-desc-text').textContent = task.description;
+        descEl.style.display = '';
+      } else {
+        descEl.style.display = 'none';
       }
 
-      if (!isExpanded) {
-        expandedTaskId = taskId;
-        card.classList.add('expanded');
+      const notes = task.notes || [];
+      const tdmNotes = document.getElementById('tdm-notes');
+      if (notes.length === 0) {
+        tdmNotes.innerHTML = '<div class="notes-empty">Aucun commentaire</div>';
+      } else {
+        tdmNotes.innerHTML = notes.map(note => `
+          <div class="note-item">
+            <div class="note-meta">
+              <span class="note-author">${escapeHtml(note.author)}</span>
+              <span class="note-time">${formatDateTime(note.timestamp)}</span>
+            </div>
+            <div class="note-text">${escapeHtml(note.text)}</div>
+          </div>`).join('');
+        tdmNotes.scrollTop = tdmNotes.scrollHeight;
+      }
 
-        const notes = task.notes || [];
-        const notesHtml = notes.length === 0
-          ? '<div class="no-comments">Aucun commentaire</div>'
-          : notes.map(note => `
-            <div class="task-comment-bubble">
-              <div class="task-comment-header">
-                <span class="task-comment-author">${escapeHtml(note.author)}</span>
-                <span class="task-comment-time">${timeAgoFr(note.timestamp)}</span>
-              </div>
-              <div class="task-comment-text">${escapeHtml(note.text)}</div>
-            </div>`).join('');
+      document.getElementById('tdm-dates').innerHTML = `
+        <span>Créé : ${formatDateTime(task.createdAt)}</span>
+        <span>Mis à jour : ${formatDateTime(task.updatedAt)}</span>
+        ${task.completedAt ? `<span>Terminé : ${formatDateTime(task.completedAt)}</span>` : ''}
+      `;
 
-        const editBtn = task.status === 'todo'
-          ? `<div class="task-detail-actions">
-               <button class="btn-edit-task" onclick="event.stopPropagation(); openTaskModal('${taskId}')">&#9999;&#65039; Éditer</button>
-               <button class="btn-dispatch-task" id="dispatch-${taskId}" onclick="event.stopPropagation(); dispatchTask('${taskId}')">&#129302; Traiter maintenant</button>
-             </div>`
-          : task.status === 'queued'
-          ? `<div class="task-detail-actions">
-               <span style="font-size:12px;color:var(--purple)">⏳ En file d'attente — sera traitée au prochain cycle agent</span>
-             </div>`
-          : task.status === 'in_progress'
-          ? `<div class="task-detail-actions">
-               <button class="btn-edit-task" onclick="event.stopPropagation(); stopWorker('${taskId}')" style="background:#3b0808;border-color:var(--red);color:var(--red)">&#9209; Stopper</button>
-             </div>`
-          : task.status === 'review'
-          ? `<div class="task-detail-actions">
-               <button class="btn-dispatch-task" onclick="event.stopPropagation(); updateTaskStatus('${taskId}', 'done')" style="background:#0d4429;border-color:var(--green);color:var(--green)">&#9989; Valider</button>
-               <button class="btn-edit-task" onclick="event.stopPropagation(); updateTaskStatus('${taskId}', 'queued')" style="border-color:var(--purple);color:var(--purple)">&#128260; Renvoyer</button>
-             </div>`
-          : '';
+      const left = document.getElementById('tdm-actions-left');
+      const right = document.getElementById('tdm-actions-right');
+      const id = task.id;
 
-        const detail = document.createElement('div');
-        detail.className = 'task-card-detail';
-        const descHtml = (() => {
-          if (!task.description) return '';
-          const MAX = 300;
-          const desc = task.description;
-          if (desc.length <= MAX) {
-            return `<div class="task-detail-desc task-desc-truncated">${escapeHtml(desc)}</div>`;
-          }
-          return `<div class="task-detail-desc task-desc-truncated">${escapeHtml(desc.slice(0, MAX))}<button class="task-voir-plus" onclick="event.stopPropagation(); openDescModal('${taskId}')">… Voir plus</button></div>`;
-        })();
-        detail.innerHTML = `
-          ${descHtml}
-          <div class="task-detail-dates">
-            <span>Créé : ${formatDateTime(task.createdAt)}</span>
-            <span>Mis à jour : ${formatDateTime(task.updatedAt)}</span>
-            ${task.completedAt ? `<span>Terminé : ${formatDateTime(task.completedAt)}</span>` : ''}
-          </div>
-          <div class="task-detail-notes-section">
-            <div class="task-detail-notes-label">Commentaires</div>
-            ${notesHtml}
-          </div>
-          ${editBtn}
+      if (task.status === 'todo') {
+        left.innerHTML = `<button class="btn btn-reject" onclick="deleteTaskFromDetail()">&#128465; Supprimer</button>`;
+        right.innerHTML = `
+          <button class="btn-cancel" onclick="closeTaskDetailModal()">Fermer</button>
+          <button class="btn-submit" onclick="closeTaskDetailModal(); openTaskModal('${id}')">&#9999;&#65039; Éditer</button>
+          <button class="btn-submit" style="background:#1a0e2e;border-color:var(--purple);color:var(--purple)" onclick="closeTaskDetailModal(); dispatchTask('${id}')">&#129302; Traiter</button>
         `;
-        card.appendChild(detail);
+      } else if (task.status === 'in_progress') {
+        left.innerHTML = '';
+        right.innerHTML = `
+          <button class="btn-cancel" onclick="closeTaskDetailModal()">Fermer</button>
+          <button class="btn-submit" style="background:#3b0808;border-color:var(--red);color:var(--red)" onclick="closeTaskDetailModal(); stopWorker('${id}')">&#9209; Stopper</button>
+        `;
+      } else if (task.status === 'review') {
+        left.innerHTML = '';
+        right.innerHTML = `
+          <button class="btn-cancel" onclick="closeTaskDetailModal()">Fermer</button>
+          <button class="btn-submit" style="border-color:var(--purple);color:var(--purple)" onclick="detailRequeue()">&#128260; Renvoyer</button>
+          <button class="btn-submit" style="background:#0d4429;border-color:var(--green);color:var(--green)" onclick="detailValidate()">&#9989; Valider</button>
+        `;
+      } else {
+        left.innerHTML = '';
+        right.innerHTML = `<button class="btn-cancel" onclick="closeTaskDetailModal()">Fermer</button>`;
       }
+    }
+
+    function closeTaskDetailModal() {
+      document.getElementById('taskDetailModal').style.display = 'none';
+      openDetailTaskId = null;
+    }
+
+    async function submitDetailNote() {
+      if (!openDetailTaskId) return;
+      const text = document.getElementById('tdm-note-text').value.trim();
+      if (!text) { showToast('Note vide', 'error'); return; }
+      try {
+        const res = await fetch(`/api/projects/${projectId}/tasks/${openDetailTaskId}/notes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ author: 'admin', text })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const task = tasksCache?.find(t => t.id === openDetailTaskId);
+          if (task) {
+            if (!task.notes) task.notes = [];
+            task.notes.push(data);
+          }
+          document.getElementById('tdm-note-text').value = '';
+          refreshTaskDetailModal();
+          renderKanban();
+          showToast('Note ajoutée');
+        } else {
+          showToast(data.error || 'Erreur', 'error');
+        }
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function deleteTaskFromDetail() {
+      if (!openDetailTaskId || !confirm('Supprimer cette tâche ? Cette action est irréversible.')) return;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/tasks/${openDetailTaskId}`, { method: 'DELETE' });
+        if (res.ok) {
+          tasksCache = tasksCache.filter(t => t.id !== openDetailTaskId);
+          updateTasksBadge();
+          closeTaskDetailModal();
+          renderKanban();
+          showToast('Tâche supprimée');
+        } else {
+          const d = await res.json();
+          showToast(d.error || 'Suppression échouée', 'error');
+        }
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function detailValidate() {
+      if (!openDetailTaskId) return;
+      await updateTaskStatus(openDetailTaskId, 'done');
+      closeTaskDetailModal();
+    }
+
+    async function detailRequeue() {
+      if (!openDetailTaskId) return;
+      await updateTaskStatus(openDetailTaskId, 'queued');
+      closeTaskDetailModal();
     }
 
     function applyTaskFilters() {
@@ -1349,6 +1446,8 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       if (e.key === 'Escape') {
         if (document.getElementById('descModal')?.classList.contains('open')) {
           closeDescModal();
+        } else if (document.getElementById('taskDetailModal')?.style.display === 'flex') {
+          closeTaskDetailModal();
         } else if (document.getElementById('taskModal')?.style.display === 'flex') {
           closeTaskModal();
         }

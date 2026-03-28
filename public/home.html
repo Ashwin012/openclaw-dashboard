@@ -1283,6 +1283,44 @@
     </div>
   </div>
 
+  <!-- Modal: Task Detail -->
+  <div class="modal-overlay" id="personalTaskDetailModal" onclick="if(event.target===this)closePersonalTaskModal()">
+    <div class="modal" style="width:520px;max-width:95vw">
+      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:14px">
+        <div style="flex:1;min-width:0">
+          <h3 id="ptdm-title" style="margin-bottom:8px;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></h3>
+          <div id="ptdm-meta" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>
+        </div>
+        <button class="btn-cancel" onclick="closePersonalTaskModal()" style="padding:4px 8px;flex-shrink:0;margin-top:-2px">✕</button>
+      </div>
+      <div id="ptdm-desc" style="margin-bottom:14px;display:none">
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:6px">Description</div>
+        <div id="ptdm-desc-text" style="font-size:13px;white-space:pre-wrap;background:var(--bg);padding:10px;border-radius:6px;border:1px solid var(--border);line-height:1.5"></div>
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:6px">Notes</div>
+        <div id="ptdm-notes" style="margin-bottom:8px;max-height:150px;overflow-y:auto"></div>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="ptdm-note-input" placeholder="Ajouter une note..." style="flex:1;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;font-family:inherit;outline:none">
+          <button class="btn-primary-sm" onclick="addNoteFromModal()">→</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;display:flex;gap:12px;flex-wrap:wrap" id="ptdm-dates"></div>
+      <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--border)">
+        <select id="ptdm-status" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">
+          <option value="todo">Todo</option>
+          <option value="in_progress">En cours</option>
+          <option value="waiting">En attente</option>
+          <option value="done">Terminé</option>
+        </select>
+        <div style="display:flex;gap:8px">
+          <button class="btn-cancel" onclick="deletePersonalTaskFromModal()" style="color:var(--red);border-color:var(--red)">🗑 Supprimer</button>
+          <button class="btn-cancel" onclick="closePersonalTaskModal()">Fermer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: New News -->
   <div class="modal-overlay" id="newsModal">
     <div class="modal">
@@ -1334,6 +1372,7 @@
     let projects = [];
     let taskFilter = 'all';
     let newsFilter = 'all';
+    let openPersonalTaskId = null;
 
     // ===== Helpers =====
     const CAT_ICONS = { research: '🔍', action: '🎯', reminder: '⏰', veille: '📡' };
@@ -1391,6 +1430,7 @@
       const res = await fetch('/api/personal/tasks', { credentials: 'include' });
       tasks = res.ok ? await res.json() : [];
       renderTasks();
+      refreshPersonalTaskModal();
     }
 
     async function loadNews() {
@@ -1438,42 +1478,18 @@
         return;
       }
       list.innerHTML = filtered.map(t => `
-        <div class="task-item" data-id="${t.id}">
+        <div class="task-item" data-id="${t.id}" style="cursor:pointer">
           <div class="task-row">
             <div class="priority-dot ${t.priority}"></div>
             <span class="cat-icon">${CAT_ICONS[t.category] || '📌'}</span>
             <span class="task-title">${escHtml(t.title)}</span>
             <span class="status-badge status-${t.status}">${statusLabel(t.status)}</span>
           </div>
-          <div class="task-detail">
-            ${t.description ? `<div class="task-desc">${escHtml(t.description)}</div>` : ''}
-            ${t.notes && t.notes.length ? `<div class="task-notes">${t.notes.map(n => `
-              <div class="note-item">
-                <span class="note-author">${escHtml(n.author)}</span>
-                <span class="note-time"> · ${timeAgo(n.timestamp)}</span>
-                <div>${escHtml(n.text)}</div>
-              </div>`).join('')}</div>` : ''}
-            <div class="add-note-row">
-              <input type="text" placeholder="Ajouter une note..." class="note-input" data-id="${t.id}">
-              <button class="btn-sm primary" onclick="addNote('${t.id}', this)">→</button>
-            </div>
-            <div class="task-actions">
-              <select onchange="changeStatus('${t.id}', this.value)">
-                <option value="todo" ${t.status==='todo'?'selected':''}>Todo</option>
-                <option value="in_progress" ${t.status==='in_progress'?'selected':''}>En cours</option>
-                <option value="waiting" ${t.status==='waiting'?'selected':''}>En attente</option>
-                <option value="done" ${t.status==='done'?'selected':''}>Terminé</option>
-              </select>
-              <button class="btn-sm" onclick="deleteTask('${t.id}')">🗑 Supprimer</button>
-            </div>
-          </div>
         </div>
       `).join('');
 
       list.querySelectorAll('.task-item').forEach(el => {
-        el.querySelector('.task-row').addEventListener('click', () => {
-          el.classList.toggle('expanded');
-        });
+        el.addEventListener('click', () => openPersonalTaskModal(el.dataset.id));
       });
     }
 
@@ -1507,6 +1523,98 @@
       });
       await loadTasks();
     }
+
+    // Personal task detail modal
+    function openPersonalTaskModal(id) {
+      openPersonalTaskId = id;
+      refreshPersonalTaskModal();
+      document.getElementById('personalTaskDetailModal').classList.add('open');
+      document.getElementById('ptdm-note-input').value = '';
+    }
+
+    function closePersonalTaskModal() {
+      document.getElementById('personalTaskDetailModal').classList.remove('open');
+      openPersonalTaskId = null;
+    }
+
+    function refreshPersonalTaskModal() {
+      if (!openPersonalTaskId) return;
+      const t = tasks.find(task => task.id === openPersonalTaskId);
+      if (!t) return;
+
+      document.getElementById('ptdm-title').textContent = t.title;
+
+      const catLabels = { action: '🎯 Action', research: '🔍 Recherche', reminder: '⏰ Rappel', veille: '📡 Veille' };
+      const prioColors = { critical: 'var(--red)', high: 'var(--yellow)', medium: 'var(--accent)', low: 'var(--text-muted)' };
+      const pc = prioColors[t.priority] || 'var(--text-muted)';
+      document.getElementById('ptdm-meta').innerHTML = `
+        <span style="font-size:11px;color:${pc};font-weight:600;text-transform:uppercase">${escHtml(t.priority)}</span>
+        <span class="status-badge status-${t.status}">${statusLabel(t.status)}</span>
+        <span style="font-size:12px;color:var(--text-muted)">${catLabels[t.category] || escHtml(t.category)}</span>
+      `;
+
+      const descEl = document.getElementById('ptdm-desc');
+      if (t.description) {
+        document.getElementById('ptdm-desc-text').textContent = t.description;
+        descEl.style.display = '';
+      } else {
+        descEl.style.display = 'none';
+      }
+
+      const notes = t.notes || [];
+      const notesEl = document.getElementById('ptdm-notes');
+      if (notes.length === 0) {
+        notesEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted)">Aucune note</div>';
+      } else {
+        notesEl.innerHTML = notes.map(n => `
+          <div class="note-item">
+            <span class="note-author">${escHtml(n.author)}</span>
+            <span class="note-time"> · ${timeAgo(n.timestamp)}</span>
+            <div style="font-size:12px;margin-top:3px">${escHtml(n.text)}</div>
+          </div>`).join('');
+      }
+
+      document.getElementById('ptdm-dates').innerHTML = `
+        <span>Créé : ${timeAgo(t.createdAt)}</span>
+        ${t.updatedAt ? `<span>Mis à jour : ${timeAgo(t.updatedAt)}</span>` : ''}
+        ${t.completedAt ? `<span style="color:var(--green)">Terminé : ${timeAgo(t.completedAt)}</span>` : ''}
+      `;
+
+      document.getElementById('ptdm-status').value = t.status;
+    }
+
+    async function addNoteFromModal() {
+      if (!openPersonalTaskId) return;
+      const input = document.getElementById('ptdm-note-input');
+      const text = input.value.trim();
+      if (!text) return;
+      await fetch(`/api/personal/tasks/${openPersonalTaskId}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ author: 'Ashwin', text })
+      });
+      input.value = '';
+      await loadTasks();
+    }
+
+    async function deletePersonalTaskFromModal() {
+      if (!openPersonalTaskId || !confirm('Supprimer cette tâche ?')) return;
+      const id = openPersonalTaskId;
+      closePersonalTaskModal();
+      await fetch(`/api/personal/tasks/${id}`, { method: 'DELETE', credentials: 'include' });
+      await loadTasks();
+      updateStats();
+    }
+
+    document.getElementById('ptdm-status').addEventListener('change', async function() {
+      if (!openPersonalTaskId) return;
+      await changeStatus(openPersonalTaskId, this.value);
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && openPersonalTaskId) closePersonalTaskModal();
+    });
 
     // Task filters
     document.getElementById('taskFilters').addEventListener('click', e => {
