@@ -112,7 +112,7 @@
       "prodUrl": "https://royal-heights.mu",
       "githubUrl": "https://github.com/Infozen/royal-heights-website",
       "testUrl": "http://158.69.1.160:8085",
-      "engine": "codex"
+      "engine": "claude"
     },
     {
       "id": "synapcoin",
