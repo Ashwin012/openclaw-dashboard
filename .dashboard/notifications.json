@@ -1,13 +1,1 @@
-{
-  "pending": [
-    {
-      "projectName": "SynapCoin",
-      "taskTitle": "Fix GitHub Actions AEO Checks - ajouter npm install",
-      "taskId": "CI-001-aeo-checks-npm-install",
-      "fromStatus": "in_progress",
-      "toStatus": "review",
-      "message": "🔍 Traitement terminé — en attente de review",
-      "timestamp": "2026-03-28T18:09:05.761Z"
-    }
-  ]
-}
+{pending:[]}
