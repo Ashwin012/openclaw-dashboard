@@ -22,7 +22,7 @@ const DEFAULT_ENGINE_MODELS = {
   claude: 'claude-sonnet-4-6',
   codex: 'gpt-5.4',
 };
-const SUPPORTED_CODEX_MODELS = new Set(['default', 'gpt-5.4']);
+const SUPPORTED_CODEX_MODELS = new Set(['default', 'gpt-5.4', 'gpt-5.3-codex']);
 const CLAUDE_MODEL_ALIASES = {
   sonnet: 'claude-sonnet-4-6',
   'sonnet-4-6': 'claude-sonnet-4-6',
