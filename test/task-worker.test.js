@@ -1,12 +1,19 @@
 'use strict';
 
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  acquireFileLock,
+  buildTaskSummaryNote,
   classifyRunOutcome,
   normalizeModelForEngine,
+  releaseFileLock,
   resolveEngineConfig,
+  setWorkerFinalNote,
   shouldAttemptEngineFallback,
   summarizeStderr,
   summarizeTextOutput,
@@ -157,4 +164,94 @@ test('summarizes stderr without dumping the full buffer', () => {
 
   assert.match(summary, /^Error: command failed \| at runTask/);
   assert.match(summary, /1 ligne\(s\) stderr masquée\(s\)/);
+});
+
+test('acquireFileLock blocks when a live owner already holds the lock', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'task-worker-lock-live-'));
+  const lockPath = path.join(tempDir, 'worker.lock');
+
+  fs.writeFileSync(lockPath, JSON.stringify({
+    pid: process.pid,
+    instanceId: 'other-live-owner',
+    acquiredAt: new Date().toISOString(),
+  }), 'utf8');
+
+  const lock = acquireFileLock(lockPath, { instanceId: 'current-process' });
+  assert.equal(lock.acquired, false);
+  assert.equal(lock.reason, 'locked');
+  assert.equal(lock.existing.instanceId, 'other-live-owner');
+});
+
+test('acquireFileLock replaces stale lock files from dead processes', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'task-worker-lock-stale-'));
+  const lockPath = path.join(tempDir, 'worker.lock');
+
+  fs.writeFileSync(lockPath, JSON.stringify({
+    pid: 999999,
+    instanceId: 'stale-owner',
+    acquiredAt: new Date().toISOString(),
+  }), 'utf8');
+
+  const lock = acquireFileLock(lockPath, { instanceId: 'fresh-owner' });
+  assert.equal(lock.path, lockPath);
+  assert.equal(lock.instanceId, 'fresh-owner');
+  assert.equal(lock.replacedStaleLock, true);
+
+  const stored = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+  assert.equal(stored.instanceId, 'fresh-owner');
+
+  releaseFileLock(lock);
+  assert.equal(fs.existsSync(lockPath), false);
+});
+
+
+test('buildTaskSummaryNote hard-limits the final worker note to 1000 chars', () => {
+  const summary = buildTaskSummaryNote({
+    engineLabel: 'Codex',
+    failed: false,
+    classification: { type: 'success', structuredError: null },
+    run: {
+      exitCode: 0,
+      resultJson: { duration_ms: 42000, num_turns: 4, total_cost_usd: 0.1234 },
+      resultText: `
+        INFO streaming raw logs should not dominate the note
+        Updated src/task-worker.js to replace worker notes instead of stacking them.
+        Added protection so only one final worker comment is stored.
+        Added truncation at 1000 chars and stripped raw stderr dumps.
+        Added tests for buildTaskSummaryNote and setWorkerFinalNote.
+        ${'Verbose raw output line '.repeat(120)}
+      `,
+      stderrBuf: `Traceback line 1
+Traceback line 2
+Traceback line 3
+${'stderr '.repeat(80)}`,
+    },
+    qualityResults: [
+      { gate: 'gitCheck-docker.sh', passed: true, output: 'working tree clean enough for review' },
+      { gate: 'npm test', passed: true, output: 'all task-worker tests passed' },
+    ],
+  });
+
+  assert.ok(summary.startsWith('✅ Codex terminé'));
+  assert.ok(summary.length <= 1000);
+  assert.match(summary, /Added protection so only one final worker comment is stored\./);
+  assert.match(summary, /Added tests for buildTaskSummaryNote and setWorkerFinalNote\./);
+  assert.doesNotMatch(summary, /INFO streaming raw logs should not dominate the note/);
+  assert.doesNotMatch(summary, /Verbose raw output line Verbose raw output line/);
+});
+
+test('setWorkerFinalNote replaces previous worker notes instead of stacking them', () => {
+  const task = {
+    notes: [
+      { author: 'Worker', text: 'old worker note', timestamp: '2026-03-30T00:00:00Z' },
+      { author: 'Ashwin', text: 'human note', timestamp: '2026-03-30T00:01:00Z' },
+      { author: 'worker', text: 'another worker note', timestamp: '2026-03-30T00:02:00Z' },
+    ],
+  };
+
+  setWorkerFinalNote(task, 'Final worker summary');
+
+  assert.equal(task.notes.length, 2);
+  assert.deepEqual(task.notes.map(note => note.author), ['Ashwin', 'Worker']);
+  assert.equal(task.notes[1].text, 'Final worker summary');
 });

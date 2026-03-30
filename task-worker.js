@@ -11,13 +11,15 @@ const { readJSON, writeJSON } = require('./lib/json-store');
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const POLL_INTERVAL_MS = 30_000;
 const QUALITY_GATE_TIMEOUT_MS = 10 * 60 * 1000;
-const MAX_SUMMARY_CHARS = 1_200;
+const MAX_SUMMARY_CHARS = 1_000;
 const MAX_SUMMARY_LINES = 6;
 const MAX_STDERR_SUMMARY_CHARS = 280;
 const NVM_NODE_PATH = '/home/openclaw/.nvm/versions/node/v20.20.1/bin';
 const NVM_SOURCE = 'source /home/openclaw/.nvm/nvm.sh';
 const WORKER_PORT = 8091;
 const DASHBOARD_DIR = path.join(__dirname, '.dashboard');
+const WORKER_LOCKS_DIR = path.join(DASHBOARD_DIR, 'worker-locks');
+const WORKER_INSTANCE_LOCK_PATH = path.join(WORKER_LOCKS_DIR, 'task-worker.lock');
 const NOTIFICATIONS_PATH = path.join(DASHBOARD_DIR, 'notifications.json');
 const DEFAULT_MAX_CONCURRENCY = 2;
 const DEFAULT_ENGINE_MODELS = {
@@ -59,6 +61,7 @@ function logError(msg, err) {
 // ─── Graceful shutdown ────────────────────────────────────────────────────────
 
 let shuttingDown = false;
+let workerInstanceLock = null;
 
 process.on('SIGTERM', () => {
   log('SIGTERM received — shutting down');
@@ -72,10 +75,170 @@ process.on('SIGINT', () => {
   stopAllActiveRuns();
 });
 
+process.on('exit', () => {
+  releaseWorkerInstanceLock();
+});
+
 // ─── Active run tracking ──────────────────────────────────────────────────────
 
 const activeRuns = new Map();
 const activeProjects = new Map();
+
+function ensureDir(dirPath) {
+  if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function isProcessAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    if (err && err.code === 'EPERM') return true;
+    return false;
+  }
+}
+
+function readLockFile(lockPath) {
+  try {
+    return JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function releaseFileLock(lockHandle) {
+  if (!lockHandle || !lockHandle.path) return;
+  try {
+    const current = readLockFile(lockHandle.path);
+    if (!current || current.instanceId !== lockHandle.instanceId) return;
+    fs.unlinkSync(lockHandle.path);
+  } catch (err) {
+    if (err && err.code !== 'ENOENT') {
+      logError(`Failed to release lock ${lockHandle.path}`, err);
+    }
+  }
+}
+
+function acquireFileLock(lockPath, metadata) {
+  ensureDir(path.dirname(lockPath));
+  const payload = {
+    ...metadata,
+    pid: process.pid,
+    acquiredAt: new Date().toISOString(),
+  };
+  const serialized = JSON.stringify(payload, null, 2);
+
+  try {
+    const fd = fs.openSync(lockPath, 'wx');
+    try {
+      fs.writeFileSync(fd, serialized, 'utf8');
+    } finally {
+      fs.closeSync(fd);
+    }
+    return {
+      path: lockPath,
+      pid: payload.pid,
+      instanceId: payload.instanceId || null,
+      metadata: payload,
+    };
+  } catch (err) {
+    if (!err || err.code !== 'EEXIST') throw err;
+  }
+
+  const existing = readLockFile(lockPath);
+  if (existing && isProcessAlive(existing.pid)) {
+    return {
+      acquired: false,
+      reason: 'locked',
+      existing,
+    };
+  }
+
+  try {
+    fs.unlinkSync(lockPath);
+  } catch (err) {
+    if (err && err.code !== 'ENOENT') {
+      return {
+        acquired: false,
+        reason: 'stale_lock_unlink_failed',
+        existing,
+        error: err,
+      };
+    }
+  }
+
+  try {
+    const fd = fs.openSync(lockPath, 'wx');
+    try {
+      fs.writeFileSync(fd, serialized, 'utf8');
+    } finally {
+      fs.closeSync(fd);
+    }
+    return {
+      path: lockPath,
+      pid: payload.pid,
+      instanceId: payload.instanceId || null,
+      metadata: payload,
+      replacedStaleLock: Boolean(existing),
+    };
+  } catch (err) {
+    if (err && err.code === 'EEXIST') {
+      return {
+        acquired: false,
+        reason: 'raced',
+        existing: readLockFile(lockPath),
+      };
+    }
+    throw err;
+  }
+}
+
+function getProjectLockPath(projectId) {
+  return path.join(WORKER_LOCKS_DIR, `project-${projectId}.lock`);
+}
+
+function acquireWorkerInstanceLock() {
+  const lock = acquireFileLock(WORKER_INSTANCE_LOCK_PATH, {
+    instanceId: `worker-${process.pid}-${Date.now()}`,
+    scope: 'worker-instance',
+    port: WORKER_PORT,
+  });
+
+  if (!lock || lock.acquired === false) {
+    return lock || { acquired: false, reason: 'unknown' };
+  }
+
+  if (lock.replacedStaleLock) {
+    log(`Recovered stale worker instance lock at ${WORKER_INSTANCE_LOCK_PATH}`);
+  }
+
+  workerInstanceLock = lock;
+  return lock;
+}
+
+function releaseWorkerInstanceLock() {
+  if (!workerInstanceLock) return;
+  releaseFileLock(workerInstanceLock);
+  workerInstanceLock = null;
+}
+
+function acquireProjectExecutionLock(project, task) {
+  const lock = acquireFileLock(getProjectLockPath(project.id), {
+    instanceId: `project-${project.id}-task-${task.id}-pid-${process.pid}`,
+    scope: 'project-execution',
+    projectId: project.id,
+    projectName: project.name,
+    taskId: task.id,
+    taskTitle: task.title,
+  });
+
+  if (!lock || lock.acquired === false) {
+    return lock || { acquired: false, reason: 'unknown' };
+  }
+
+  return lock;
+}
 
 function getActiveRunCount() {
   return activeRuns.size;
@@ -109,6 +272,7 @@ function createReservedRun(project, task) {
     questionWarnEmitted: false,
     pendingAnswer: null,
     answerDeliveredAt: null,
+    projectLock: null,
   };
 
   activeRuns.set(task.id, runState);
@@ -239,6 +403,25 @@ function now() {
 function addNote(task, author, text) {
   if (!Array.isArray(task.notes)) task.notes = [];
   task.notes.push({ author, text, timestamp: now() });
+}
+
+function isWorkerNote(note) {
+  return note && typeof note.author === 'string' && note.author.trim().toLowerCase() === 'worker';
+}
+
+function removeWorkerNotes(task) {
+  if (!Array.isArray(task.notes)) {
+    task.notes = [];
+    return;
+  }
+  task.notes = task.notes.filter(note => !isWorkerNote(note));
+}
+
+function setWorkerFinalNote(task, text) {
+  removeWorkerNotes(task);
+  const finalText = clampText(text, MAX_SUMMARY_CHARS);
+  if (!finalText) return;
+  addNote(task, 'Worker', finalText);
 }
 
 function updateTask(projectPath, taskId, mutate) {
@@ -563,15 +746,19 @@ function shouldAttemptEngineFallback(engine, classification, hasAlreadyRerouted)
   return engine === 'claude' && classification.type === 'rate_limit';
 }
 
-function formatStructuredError(structuredError) {
+function clampText(text, maxChars = MAX_SUMMARY_CHARS) {
+  const normalized = String(text || '').replace(/\r/g, '').trim();
+  if (!normalized) return '';
+  if (normalized.length <= maxChars) return normalized;
+  return normalized.slice(0, Math.max(maxChars - 1, 0)).trimEnd() + '…';
+}
+
+function formatStructuredError(structuredError, options = {}) {
   if (!structuredError) return '';
   const label = structuredError.type.replace(/_/g, ' ');
-  let text = `Structured error (${label})`;
-  if (structuredError.message) text += `: ${structuredError.message}`;
-  if (structuredError.raw) {
-    text += `\n${JSON.stringify(structuredError.raw, null, 2)}`;
-  }
-  return text;
+  const message = structuredError.message ? clampText(structuredError.message, 160) : '';
+  const base = message ? `${label}: ${message}` : label;
+  return clampText(base, options.maxChars || 220);
 }
 
 function stripAnsi(text) {
@@ -606,8 +793,10 @@ function scoreSummaryLine(line) {
 
 function summarizeTextOutput(text, options = {}) {
   const fallback = options.fallback || '(No output)';
+  const maxChars = options.maxChars || 650;
+  const maxLines = options.maxLines || MAX_SUMMARY_LINES;
   const lines = normalizeOutputLines(text);
-  if (!lines.length) return fallback;
+  if (!lines.length) return clampText(fallback, maxChars);
 
   const uniqueLines = [];
   const seen = new Set();
@@ -629,28 +818,24 @@ function summarizeTextOutput(text, options = {}) {
   const pool = preferred.length ? preferred : ranked;
 
   const selectedIndexes = pool
-    .slice(0, MAX_SUMMARY_LINES)
+    .slice(0, maxLines)
     .map(item => item.index)
     .sort((a, b) => a - b);
 
   const selected = selectedIndexes.length
     ? selectedIndexes.map(index => uniqueLines[index])
-    : uniqueLines.slice(-Math.min(MAX_SUMMARY_LINES, uniqueLines.length));
+    : uniqueLines.slice(-Math.min(maxLines, uniqueLines.length));
 
   let summary = selected.map(line => `- ${line}`).join('\n');
-  if (summary.length > MAX_SUMMARY_CHARS) {
-    summary = summary.slice(0, MAX_SUMMARY_CHARS - 1).trimEnd() + '…';
-  }
-
   const hiddenCount = Math.max(uniqueLines.length - selected.length, 0);
   if (hiddenCount > 0) {
     summary += `\n- ${hiddenCount} autre(s) ligne(s) masquée(s)`;
   }
 
-  return summary;
+  return clampText(summary, maxChars);
 }
 
-function summarizeStderr(text) {
+function summarizeStderr(text, options = {}) {
   const lines = normalizeOutputLines(text);
   if (!lines.length) return '';
   let summary = lines.slice(0, 2).join(' | ');
@@ -660,7 +845,55 @@ function summarizeStderr(text) {
   if (lines.length > 2) {
     summary += ` | ${lines.length - 2} ligne(s) stderr masquée(s)`;
   }
-  return summary;
+  return clampText(summary, options.maxChars || MAX_STDERR_SUMMARY_CHARS);
+}
+
+function summarizeQualityGates(qualityResults) {
+  if (!Array.isArray(qualityResults) || qualityResults.length === 0) return '';
+  const items = qualityResults.map(result => {
+    const status = result.passed ? 'PASS' : 'FAIL';
+    if (!result.output) return `${result.gate} ${status}`;
+    const compact = summarizeTextOutput(result.output, { fallback: '', maxChars: 110, maxLines: 2 })
+      .replace(/^-\s*/gm, '')
+      .replace(/\n+/g, ' | ')
+      .trim();
+    return compact ? `${result.gate} ${status}: ${compact}` : `${result.gate} ${status}`;
+  });
+  return clampText(`Checks: ${items.join(' ; ')}`, 220);
+}
+
+function buildTaskSummaryNote({ engineLabel, failed, classification, run, qualityResults }) {
+  const parts = [];
+  if (run.resultJson && !failed) {
+    const r = run.resultJson;
+    parts.push(`✅ ${engineLabel} terminé (${Math.round((r.duration_ms || 0) / 1000)}s, ${r.num_turns || 1} tour(s), $${r.total_cost_usd?.toFixed(4) || '?'})`);
+  } else if (failed) {
+    parts.push(`❌ ${engineLabel} échoué (${classification.type}, exit=${run.exitCode})`);
+  } else {
+    parts.push(`✅ ${engineLabel} terminé`);
+  }
+
+  parts.push(summarizeTextOutput(run.resultText, {
+    fallback: failed ? 'Aucun résumé exploitable généré.' : 'Aucun résumé généré.',
+    maxChars: 620,
+  }));
+
+  const structuredErrorText = formatStructuredError(classification.structuredError, { maxChars: 180 });
+  if (structuredErrorText) {
+    parts.push(`Erreur: ${structuredErrorText}`);
+  }
+
+  const stderrSummary = summarizeStderr(run.stderrBuf, { maxChars: 170 });
+  if (stderrSummary) {
+    parts.push(`Stderr: ${stderrSummary}`);
+  }
+
+  const qualitySummary = summarizeQualityGates(qualityResults);
+  if (qualitySummary) {
+    parts.push(qualitySummary);
+  }
+
+  return clampText(parts.filter(Boolean).join('\n\n'), MAX_SUMMARY_CHARS);
 }
 
 async function runEngine(project, task, engine, env, instruction, runState, options = {}) {
@@ -806,9 +1039,6 @@ async function runEngine(project, task, engine, env, instruction, runState, opti
                   };
                   runState.questionStartTime = Date.now();
                   runState.questionWarnEmitted = false;
-                  updateTask(projectPath, task.id, t => {
-                    addNote(t, 'Worker', `🤔 Claude Code pose une question: ${question}`);
-                  });
                   addNotification(project.name, task.title, task.id, 'in_progress', 'in_progress', `❓ Question: ${question}`);
                   pollForAnswer(runState, proc, block.id);
                 }
@@ -890,7 +1120,8 @@ async function processTask(project, task, runState) {
 
   updateTask(projectPath, task.id, t => {
     t.status = 'in_progress';
-    addNote(t, 'Worker', 'Début du traitement');
+    t.error = false;
+    removeWorkerNotes(t);
   });
   addNotification(project.name, task.title, task.id, task.status, 'in_progress', '🔄 Début du traitement par le worker');
 
@@ -919,10 +1150,7 @@ async function processTask(project, task, runState) {
       const fallbackAction = `fallback_to_${altEngine}_due_to_${run.engine}_${classification.type}`;
 
       log(`  ${fallbackAction}`);
-      updateTask(projectPath, task.id, t => {
-        addNote(t, 'Worker', `⚠️ ${fallbackAction}
-${engineLabel} échoué (${reasonLabel}, exit=${run.exitCode}), fallback sur ${altEngineLabel}`);
-      });
+      addNotification(project.name, task.title, task.id, 'in_progress', 'in_progress', `⚠️ ${engineLabel} échoué (${reasonLabel}) — fallback sur ${altEngineLabel}`);
 
       run = await runEngine(project, task, altEngine, env, instruction, runState, { allowReroute: false });
       if (!run) return;
@@ -938,7 +1166,7 @@ ${engineLabel} échoué (${reasonLabel}, exit=${run.exitCode}), fallback sur ${a
 
     if (stoppedManually) {
       updateTask(projectPath, task.id, t => {
-        addNote(t, 'Worker', 'Stoppée manuellement');
+        setWorkerFinalNote(t, '⏹ Tâche stoppée manuellement.');
         t.status = 'review';
       });
       addNotification(project.name, task.title, task.id, 'in_progress', 'review', '⏹ Tâche stoppée manuellement');
@@ -957,34 +1185,16 @@ ${engineLabel} échoué (${reasonLabel}, exit=${run.exitCode}), fallback sur ${a
     }
 
     const engineLabel = getEngineLabel(finalEngine);
-    let summaryNote = '';
-    if (resultJson) {
-      const r = resultJson;
-      if (!failed) {
-        summaryNote += `✅ ${engineLabel} terminé (${Math.round((r.duration_ms || 0) / 1000)}s, ${r.num_turns || 1} tour(s), $${r.total_cost_usd?.toFixed(4) || '?'})\n\n`;
-      } else {
-        summaryNote += `❌ ${engineLabel} échoué (${classification.type}, exit=${exitCode})\n\n`;
-      }
-    } else if (failed) {
-      summaryNote += `❌ ${engineLabel} échoué (${classification.type}, exit=${exitCode})\n\n`;
-    } else {
-      summaryNote += `${engineLabel} terminé:\n\n`;
-    }
-    summaryNote += summarizeTextOutput(resultText, { fallback: '(No output)' });
-    const structuredErrorText = formatStructuredError(classification.structuredError);
-    if (structuredErrorText) {
-      summaryNote += `\n\n${structuredErrorText}`;
-    }
-    const stderrSummary = summarizeStderr(stderrBuf);
-    if (stderrSummary) {
-      summaryNote += `\n\nStderr: ${stderrSummary}`;
-    }
+    const summaryNote = buildTaskSummaryNote({
+      engineLabel,
+      failed,
+      classification,
+      run: { exitCode, resultText, resultJson, stderrBuf },
+      qualityResults,
+    });
 
     updateTask(projectPath, task.id, t => {
-      addNote(t, 'Worker', summaryNote);
-      for (const qg of qualityResults) {
-        addNote(t, 'Worker', `Quality gate "${qg.gate}": ${qg.passed ? 'PASSED' : 'FAILED'}\n${qg.output}`);
-      }
+      setWorkerFinalNote(t, summaryNote);
       t.status = 'review';
       if (failed) t.error = true;
     });
@@ -995,6 +1205,10 @@ ${engineLabel} échoué (${reasonLabel}, exit=${run.exitCode}), fallback sur ${a
     addNotification(project.name, task.title, task.id, 'in_progress', 'review', notifMsg);
     log(`Task [${task.id}] → review${failed ? ' (with error)' : ''}`);
   } finally {
+    if (runState.projectLock) {
+      releaseFileLock(runState.projectLock);
+      runState.projectLock = null;
+    }
     releaseRun(task.id);
     if (shuttingDown && getActiveRunCount() === 0) {
       process.exit(0);
@@ -1014,9 +1228,7 @@ function pollForAnswer(runState, proc, toolUseId) {
 
     if (!currentRun.questionWarnEmitted && currentRun.questionStartTime && Date.now() - currentRun.questionStartTime >= QUESTION_WARN_MS) {
       currentRun.questionWarnEmitted = true;
-      updateTask(currentRun.projectPath, currentRun.taskId, t => {
-        addNote(t, 'Worker', '⏰ Question sans réponse depuis 30min');
-      });
+      addNotification(currentRun.projectName, currentRun.taskTitle, currentRun.taskId, 'in_progress', 'in_progress', '⏰ Question sans réponse depuis 30min');
     }
 
     if (!currentRun.pendingAnswer) return;
@@ -1065,11 +1277,7 @@ function checkRunningWarnings() {
         runState.warned.add(threshold);
         const msg = `⚠️ Tâche en cours depuis ${elapsedMin} minutes`;
         log(`  ${msg} (task [${runState.taskId}])`);
-        try {
-          updateTask(runState.projectPath, runState.taskId, t => { addNote(t, 'Worker', msg); });
-        } catch (err) {
-          logError('Failed to write warning note', err);
-        }
+        addNotification(runState.projectName, runState.taskTitle, runState.taskId, 'in_progress', 'in_progress', msg);
       }
     }
   }
@@ -1157,18 +1365,32 @@ async function pollOnce() {
     const task = getNextQueuedTask(project);
     if (!task) continue;
 
+    const projectLock = acquireProjectExecutionLock(project, task);
+    if (!projectLock || projectLock.acquired === false) {
+      const holder = projectLock && projectLock.existing
+        ? `held by pid=${projectLock.existing.pid} task=${projectLock.existing.taskId || '?'}`
+        : `reason=${projectLock?.reason || 'unknown'}`;
+      log(`Project "${project.name}": skipping task [${task.id}] because project execution lock is ${holder}`);
+      continue;
+    }
+
     log(`Project "${project.name}": scheduling task [${task.id}] "${task.title}"`);
     const runState = createReservedRun(project, task);
+    runState.projectLock = projectLock;
 
     processTask(project, task, runState).catch(err => {
       logError(`Unexpected error in processTask [${task.id}]`, err);
       try {
         updateTask(project.path, task.id, t => {
-          addNote(t, 'Worker', `Erreur inattendue: ${err.message || err}`);
+          setWorkerFinalNote(t, `❌ Worker error inattendue: ${err.message || err}`);
           t.status = 'review';
           t.error = true;
         });
       } catch {}
+      if (runState.projectLock) {
+        releaseFileLock(runState.projectLock);
+        runState.projectLock = null;
+      }
       releaseRun(task.id);
     });
 
@@ -1182,13 +1404,30 @@ function sleep(ms) {
 
 async function main() {
   const config = loadConfig();
+  const instanceLock = acquireWorkerInstanceLock();
+  if (!instanceLock || instanceLock.acquired === false) {
+    const owner = instanceLock && instanceLock.existing
+      ? `pid=${instanceLock.existing.pid}, acquiredAt=${instanceLock.existing.acquiredAt || 'unknown'}`
+      : `reason=${instanceLock?.reason || 'unknown'}`;
+    log(`Another task worker instance already owns the execution lock (${owner}) — exiting without polling`);
+    process.exit(1);
+    return;
+  }
+
   log('Task worker started (multi-engine: claude stream-json / codex plain-text)');
   log(`Poll interval: ${POLL_INTERVAL_MS / 1000}s | Quality gate timeout: ${QUALITY_GATE_TIMEOUT_MS / 60000}m`);
   log(`Max concurrency: ${getMaxConcurrency(config)}`);
   log(`Projects: ${config.projects.map(p => p.name).join(', ')}`);
   log(`HTTP server on port ${WORKER_PORT}`);
 
-  startHttpServer();
+  try {
+    await startHttpServer();
+  } catch (err) {
+    logError('Failed to start worker HTTP server; aborting worker startup', err);
+    releaseWorkerInstanceLock();
+    process.exit(1);
+    return;
+  }
   await pollOnce();
 
   while (!shuttingDown) {
@@ -1227,94 +1466,109 @@ function sendJson(res, statusCode, payload) {
 }
 
 function startHttpServer() {
-  const server = http.createServer(async (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
+  return new Promise((resolve, reject) => {
+    const server = http.createServer(async (req, res) => {
+      res.setHeader('Content-Type', 'application/json');
 
-    const requestUrl = new URL(req.url, `http://127.0.0.1:${WORKER_PORT}`);
+      const requestUrl = new URL(req.url, `http://127.0.0.1:${WORKER_PORT}`);
 
-    if (req.method === 'GET' && requestUrl.pathname === '/health') {
-      return sendJson(res, 200, { ok: true });
-    }
+      if (req.method === 'GET' && requestUrl.pathname === '/health') {
+        return sendJson(res, 200, { ok: true });
+      }
 
-    if (req.method === 'GET' && requestUrl.pathname === '/status') {
-      const runs = getActiveRunsList();
-      const legacy = getLegacyStatusFields(runs);
-      return sendJson(res, 200, {
-        running: runs.length > 0,
-        count: runs.length,
-        maxConcurrency: getMaxConcurrency(loadConfig()),
-        tasks: runs.map(describeRun),
-        ...legacy,
-      });
-    }
+      if (req.method === 'GET' && requestUrl.pathname === '/status') {
+        const runs = getActiveRunsList();
+        const legacy = getLegacyStatusFields(runs);
+        return sendJson(res, 200, {
+          running: runs.length > 0,
+          count: runs.length,
+          maxConcurrency: getMaxConcurrency(loadConfig()),
+          tasks: runs.map(describeRun),
+          ...legacy,
+        });
+      }
 
-    if (req.method === 'POST' && requestUrl.pathname === '/stop') {
-      const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
-      if (resolved.error) {
-        if (resolved.statusCode === 404 && getActiveRunCount() === 0) {
+      if (req.method === 'POST' && requestUrl.pathname === '/stop') {
+        const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
+        if (resolved.error) {
+          if (resolved.statusCode === 404 && getActiveRunCount() === 0) {
+            return sendJson(res, 200, { ok: true, message: 'No task running' });
+          }
+          return sendJson(res, resolved.statusCode, { error: resolved.error });
+        }
+        if (!resolved.runState) {
           return sendJson(res, 200, { ok: true, message: 'No task running' });
         }
-        return sendJson(res, resolved.statusCode, { error: resolved.error });
-      }
-      if (!resolved.runState) {
-        return sendJson(res, 200, { ok: true, message: 'No task running' });
-      }
-      log(`Manual stop requested for task [${resolved.runState.taskId}]`);
-      resolved.runState.stoppedManually = true;
-      try { resolved.runState.proc && resolved.runState.proc.kill('SIGTERM'); } catch {}
-      return sendJson(res, 200, { ok: true, message: 'Stop signal sent', taskId: resolved.runState.taskId, projectId: resolved.runState.projectId });
-    }
-
-    if (req.method === 'GET' && requestUrl.pathname === '/question') {
-      const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
-      if (resolved.error) {
-        return sendJson(res, resolved.statusCode, { error: resolved.error });
-      }
-      return sendJson(res, 200, { question: resolved.runState ? resolved.runState.currentQuestion : null });
-    }
-
-    if (req.method === 'POST' && requestUrl.pathname === '/answer') {
-      const body = await readBody(req);
-      if (!body.answer || typeof body.answer !== 'string') {
-        return sendJson(res, 400, { error: 'Missing answer field' });
+        log(`Manual stop requested for task [${resolved.runState.taskId}]`);
+        resolved.runState.stoppedManually = true;
+        try { resolved.runState.proc && resolved.runState.proc.kill('SIGTERM'); } catch {}
+        return sendJson(res, 200, { ok: true, message: 'Stop signal sent', taskId: resolved.runState.taskId, projectId: resolved.runState.projectId });
       }
 
-      const targetQuery = {
-        taskId: body.taskId || requestUrl.searchParams.get('taskId') || '',
-        project: body.project || requestUrl.searchParams.get('project') || '',
-      };
-      const resolved = resolveTargetRun(targetQuery);
-      if (resolved.error) {
-        return sendJson(res, resolved.statusCode, { error: resolved.error });
-      }
-      if (!resolved.runState) {
-        return sendJson(res, 400, { error: 'No active task' });
-      }
-      if (!resolved.runState.currentQuestion) {
-        return sendJson(res, 400, { error: 'Active task is not waiting for a question response' });
+      if (req.method === 'GET' && requestUrl.pathname === '/question') {
+        const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
+        if (resolved.error) {
+          return sendJson(res, resolved.statusCode, { error: resolved.error });
+        }
+        return sendJson(res, 200, { question: resolved.runState ? resolved.runState.currentQuestion : null });
       }
 
-      resolved.runState.pendingAnswer = body.answer;
-      return sendJson(res, 200, { ok: true, taskId: resolved.runState.taskId, projectId: resolved.runState.projectId });
-    }
+      if (req.method === 'POST' && requestUrl.pathname === '/answer') {
+        const body = await readBody(req);
+        if (!body.answer || typeof body.answer !== 'string') {
+          return sendJson(res, 400, { error: 'Missing answer field' });
+        }
 
-    if (req.method === 'GET' && requestUrl.pathname === '/output') {
-      const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
-      if (resolved.error) {
-        return sendJson(res, resolved.statusCode, { error: resolved.error });
+        const targetQuery = {
+          taskId: body.taskId || requestUrl.searchParams.get('taskId') || '',
+          project: body.project || requestUrl.searchParams.get('project') || '',
+        };
+        const resolved = resolveTargetRun(targetQuery);
+        if (resolved.error) {
+          return sendJson(res, resolved.statusCode, { error: resolved.error });
+        }
+        if (!resolved.runState) {
+          return sendJson(res, 400, { error: 'No active task' });
+        }
+        if (!resolved.runState.currentQuestion) {
+          return sendJson(res, 400, { error: 'Active task is not waiting for a question response' });
+        }
+
+        resolved.runState.pendingAnswer = body.answer;
+        return sendJson(res, 200, { ok: true, taskId: resolved.runState.taskId, projectId: resolved.runState.projectId });
       }
-      const output = resolved.runState ? resolved.runState.resultText || '' : '';
-      return sendJson(res, 200, { output: output.slice(-2000), totalChars: output.length });
-    }
 
-    return sendJson(res, 404, { error: 'Not found' });
+      if (req.method === 'GET' && requestUrl.pathname === '/output') {
+        const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
+        if (resolved.error) {
+          return sendJson(res, resolved.statusCode, { error: resolved.error });
+        }
+        const output = resolved.runState ? resolved.runState.resultText || '' : '';
+        return sendJson(res, 200, { output: output.slice(-2000), totalChars: output.length });
+      }
+
+      return sendJson(res, 404, { error: 'Not found' });
+    });
+
+    let settled = false;
+    const handleStartupError = err => {
+      if (settled) {
+        logError('Worker HTTP server error', err);
+        return;
+      }
+      settled = true;
+      reject(err);
+    };
+
+    server.once('error', handleStartupError);
+    server.listen(WORKER_PORT, '127.0.0.1', () => {
+      settled = true;
+      server.off('error', handleStartupError);
+      server.on('error', err => { logError('Worker HTTP server error', err); });
+      log(`Worker HTTP server listening on 127.0.0.1:${WORKER_PORT}`);
+      resolve(server);
+    });
   });
-
-  server.listen(WORKER_PORT, '127.0.0.1', () => {
-    log(`Worker HTTP server listening on 127.0.0.1:${WORKER_PORT}`);
-  });
-
-  server.on('error', err => { logError('Worker HTTP server error', err); });
 }
 
 if (require.main === module) {
@@ -1324,6 +1578,8 @@ if (require.main === module) {
 module.exports = {
   DEFAULT_ENGINE_MODELS,
   SUPPORTED_CODEX_MODELS,
+  acquireFileLock,
+  releaseFileLock,
   inferModelProvider,
   isModelCompatibleWithEngine,
   normalizeModelForEngine,
@@ -1335,4 +1591,6 @@ module.exports = {
   formatStructuredError,
   summarizeTextOutput,
   summarizeStderr,
+  buildTaskSummaryNote,
+  setWorkerFinalNote,
 };
