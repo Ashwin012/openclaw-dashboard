@@ -8,6 +8,8 @@ const {
   normalizeModelForEngine,
   resolveEngineConfig,
   shouldAttemptEngineFallback,
+  summarizeStderr,
+  summarizeTextOutput,
 } = require('../task-worker');
 
 test('classifies Claude structured rate limit errors and allows Claude -> Codex fallback', () => {
@@ -127,4 +129,32 @@ test('flags Codex invalid model stderr as invalid_model without fallback', () =>
   assert.equal(classification.status, 'failed');
   assert.equal(classification.type, 'invalid_model');
   assert.equal(shouldAttemptEngineFallback('claude', classification, false), false);
+});
+
+test('summarizes long agent output into a short bullet list', () => {
+  const summary = summarizeTextOutput(`
+    INFO starting worker
+    Updated /tmp/project/task-worker.js to replace raw output notes with summaries.
+    Added tests in test/task-worker.test.js for output summarization.
+    node --test passed successfully.
+    DEBUG internal timing 123ms
+    Final result: task ready for review.
+  `);
+
+  assert.match(summary, /Updated .*task-worker\.js/);
+  assert.match(summary, /Added tests .*task-worker\.test\.js/);
+  assert.match(summary, /Final result: task ready for review\./);
+  assert.doesNotMatch(summary, /^- INFO starting worker$/m);
+  assert.match(summary, /autre\(s\) ligne\(s\) masquée\(s\)/);
+});
+
+test('summarizes stderr without dumping the full buffer', () => {
+  const summary = summarizeStderr(`
+    Error: command failed
+    at runTask (/tmp/project/task-worker.js:10:2)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+  `);
+
+  assert.match(summary, /^Error: command failed \| at runTask/);
+  assert.match(summary, /1 ligne\(s\) stderr masquée\(s\)/);
 });

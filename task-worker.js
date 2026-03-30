@@ -11,7 +11,9 @@ const { readJSON, writeJSON } = require('./lib/json-store');
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const POLL_INTERVAL_MS = 30_000;
 const QUALITY_GATE_TIMEOUT_MS = 10 * 60 * 1000;
-const MAX_OUTPUT_CHARS = 5_000;
+const MAX_SUMMARY_CHARS = 1_200;
+const MAX_SUMMARY_LINES = 6;
+const MAX_STDERR_SUMMARY_CHARS = 280;
 const NVM_NODE_PATH = '/home/openclaw/.nvm/versions/node/v20.20.1/bin';
 const NVM_SOURCE = 'source /home/openclaw/.nvm/nvm.sh';
 const WORKER_PORT = 8091;
@@ -572,6 +574,95 @@ function formatStructuredError(structuredError) {
   return text;
 }
 
+function stripAnsi(text) {
+  return String(text || '').replace(/\x1B\[[0-9;]*[A-Za-z]/g, '');
+}
+
+function normalizeOutputLines(text) {
+  return stripAnsi(text)
+    .split(/\r?\n/)
+    .map(line => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
+
+function isLikelyNoiseLine(line) {
+  return /^(\[[^\]]+\]\s*)?(INFO|DEBUG|TRACE|stdout|stderr)\b/i.test(line)
+    || /^(thinking|commentary|analysis)\b[: ]/i.test(line)
+    || /^```/.test(line);
+}
+
+function scoreSummaryLine(line) {
+  let score = 0;
+  if (line.length <= 220) score += 2;
+  if (/[.!?]$/.test(line)) score += 1;
+  if (/\b(created?|updated?|fixed?|implemented?|added?|removed?|renamed?|refactored?|tested?|passed?|failed?|error|warning|summary|résumé)\b/i.test(line)) score += 4;
+  if (/^[-*•]\s+/.test(line)) score += 2;
+  if (/[/\\][\w.-]+/.test(line)) score += 1;
+  if (/[{}[\];]/.test(line)) score -= 2;
+  if (line.length > 280) score -= 3;
+  if (isLikelyNoiseLine(line)) score -= 4;
+  return score;
+}
+
+function summarizeTextOutput(text, options = {}) {
+  const fallback = options.fallback || '(No output)';
+  const lines = normalizeOutputLines(text);
+  if (!lines.length) return fallback;
+
+  const uniqueLines = [];
+  const seen = new Set();
+  for (const line of lines) {
+    const key = line.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueLines.push(line);
+  }
+
+  const ranked = uniqueLines
+    .map((line, index) => ({ line, index, score: scoreSummaryLine(line) }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.index - b.index;
+    });
+
+  const preferred = ranked.filter(item => item.score > 0);
+  const pool = preferred.length ? preferred : ranked;
+
+  const selectedIndexes = pool
+    .slice(0, MAX_SUMMARY_LINES)
+    .map(item => item.index)
+    .sort((a, b) => a - b);
+
+  const selected = selectedIndexes.length
+    ? selectedIndexes.map(index => uniqueLines[index])
+    : uniqueLines.slice(-Math.min(MAX_SUMMARY_LINES, uniqueLines.length));
+
+  let summary = selected.map(line => `- ${line}`).join('\n');
+  if (summary.length > MAX_SUMMARY_CHARS) {
+    summary = summary.slice(0, MAX_SUMMARY_CHARS - 1).trimEnd() + '…';
+  }
+
+  const hiddenCount = Math.max(uniqueLines.length - selected.length, 0);
+  if (hiddenCount > 0) {
+    summary += `\n- ${hiddenCount} autre(s) ligne(s) masquée(s)`;
+  }
+
+  return summary;
+}
+
+function summarizeStderr(text) {
+  const lines = normalizeOutputLines(text);
+  if (!lines.length) return '';
+  let summary = lines.slice(0, 2).join(' | ');
+  if (summary.length > MAX_STDERR_SUMMARY_CHARS) {
+    summary = summary.slice(0, MAX_STDERR_SUMMARY_CHARS - 1).trimEnd() + '…';
+  }
+  if (lines.length > 2) {
+    summary += ` | ${lines.length - 2} ligne(s) stderr masquée(s)`;
+  }
+  return summary;
+}
+
 async function runEngine(project, task, engine, env, instruction, runState, options = {}) {
   const projectPath = project.path;
   const resolved = resolveEngineConfig(project, task, engine, options);
@@ -854,11 +945,6 @@ ${engineLabel} échoué (${reasonLabel}, exit=${run.exitCode}), fallback sur ${a
       return;
     }
 
-    let output = resultText || '(No output)';
-    if (output.length > MAX_OUTPUT_CHARS) {
-      output = `[${output.length} chars total, showing last ${MAX_OUTPUT_CHARS}]\n...` + output.slice(-MAX_OUTPUT_CHARS);
-    }
-
     const failed = classification.status === 'failed';
 
     let qualityResults = [];
@@ -884,13 +970,14 @@ ${engineLabel} échoué (${reasonLabel}, exit=${run.exitCode}), fallback sur ${a
     } else {
       summaryNote += `${engineLabel} terminé:\n\n`;
     }
-    summaryNote += output;
+    summaryNote += summarizeTextOutput(resultText, { fallback: '(No output)' });
     const structuredErrorText = formatStructuredError(classification.structuredError);
     if (structuredErrorText) {
       summaryNote += `\n\n${structuredErrorText}`;
     }
-    if (stderrBuf.trim()) {
-      summaryNote += `\n\nStderr: ${stderrBuf.trim().slice(0, 500)}`;
+    const stderrSummary = summarizeStderr(stderrBuf);
+    if (stderrSummary) {
+      summaryNote += `\n\nStderr: ${stderrSummary}`;
     }
 
     updateTask(projectPath, task.id, t => {
@@ -1246,4 +1333,6 @@ module.exports = {
   classifyRunOutcome,
   shouldAttemptEngineFallback,
   formatStructuredError,
+  summarizeTextOutput,
+  summarizeStderr,
 };
