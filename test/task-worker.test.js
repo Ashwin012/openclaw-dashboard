@@ -162,6 +162,28 @@ test('summarizes long agent output into a short bullet list', () => {
   assert.match(summary, /autre\(s\) ligne\(s\) masquée\(s\)/);
 });
 
+test('summarizeTextOutput drops codex metadata noise lines', () => {
+  const summary = summarizeTextOutput(`
+    OpenAI Codex v0.116.0 (research preview)
+    --------
+    workdir: /home/openclaw/projects/synaphive
+    model: gpt-5.4
+    provider: openai
+    approval: never
+    sandbox: danger-full-access
+    Updated task-worker.js so board comments stay concise.
+    Added regression coverage for visible worker notes.
+    tokens used 12345
+  `);
+
+  assert.match(summary, /Updated task-worker\.js so board comments stay concise\./);
+  assert.match(summary, /Added regression coverage for visible worker notes\./);
+  assert.doesNotMatch(summary, /workdir:/i);
+  assert.doesNotMatch(summary, /provider:/i);
+  assert.doesNotMatch(summary, /OpenAI Codex v/i);
+  assert.doesNotMatch(summary, /tokens used/i);
+});
+
 test('summarizes stderr without dumping the full buffer', () => {
   const summary = summarizeStderr(`
     Error: command failed
@@ -245,6 +267,47 @@ ${'stderr '.repeat(80)}`,
   assert.match(summary, /Added tests for buildTaskSummaryNote and setWorkerFinalNote\./);
   assert.doesNotMatch(summary, /INFO streaming raw logs should not dominate the note/);
   assert.doesNotMatch(summary, /Verbose raw output line Verbose raw output line/);
+  assert.doesNotMatch(summary, /Stderr:/);
+  assert.doesNotMatch(summary, /Erreur:/);
+});
+
+test('buildTaskSummaryNote never appends raw structured error or stderr metadata to the visible note', () => {
+  const summary = buildTaskSummaryNote({
+    engineLabel: 'Codex',
+    failed: true,
+    classification: {
+      type: 'auth_issue',
+      structuredError: {
+        type: 'auth_issue',
+        message: 'OpenAI Codex v0.116.0 | workdir: /home/openclaw/projects/synaphive | provider: openai',
+      },
+    },
+    run: {
+      exitCode: 1,
+      resultJson: null,
+      resultText: `
+        OpenAI Codex v0.116.0 (research preview)
+        --------
+        workdir: /home/openclaw/projects/synaphive
+        provider: openai
+        model: gpt-5.4
+        Authentication failed before the patch could be applied.
+      `,
+      stderrBuf: `OpenAI Codex v0.116.0 (research preview)
+--------
+workdir: /home/openclaw/projects/synaphive
+provider: openai`,
+    },
+    qualityResults: [],
+  });
+
+  assert.ok(summary.startsWith('❌ Codex échoué (auth_issue, exit=1)'));
+  assert.match(summary, /Authentication failed before the patch could be applied\./);
+  assert.doesNotMatch(summary, /Stderr:/);
+  assert.doesNotMatch(summary, /Erreur:/);
+  assert.doesNotMatch(summary, /workdir:/i);
+  assert.doesNotMatch(summary, /provider:/i);
+  assert.doesNotMatch(summary, /OpenAI Codex v/i);
 });
 
 test('setWorkerFinalNote replaces previous worker notes instead of stacking them', () => {

@@ -777,7 +777,12 @@ function normalizeOutputLines(text) {
 function isLikelyNoiseLine(line) {
   return /^(\[[^\]]+\]\s*)?(INFO|DEBUG|TRACE|stdout|stderr)\b/i.test(line)
     || /^(thinking|commentary|analysis)\b[: ]/i.test(line)
-    || /^```/.test(line);
+    || /^```/.test(line)
+    || /^(OpenAI Codex v|Claude Code v|Anthropic Claude|--------)/i.test(line)
+    || /^(workdir|provider|model|approval|sandbox|cwd|directory|command|exit code|exit status|duration_ms|num_turns|total_cost_usd)\s*:/i.test(line)
+    || /^(exec|apply_patch|file update|tokens used)\b/i.test(line)
+    || /^(diff --git|index [0-9a-f]+\.\.[0-9a-f]+|@@ )/i.test(line)
+    || /^[-+]{3}\s/.test(line);
 }
 
 function scoreSummaryLine(line) {
@@ -877,18 +882,8 @@ function buildTaskSummaryNote({ engineLabel, failed, classification, run, qualit
 
   parts.push(summarizeTextOutput(run.resultText, {
     fallback: failed ? 'Aucun résumé exploitable généré.' : 'Aucun résumé généré.',
-    maxChars: 620,
+    maxChars: failed ? 700 : 620,
   }));
-
-  const structuredErrorText = formatStructuredError(classification.structuredError, { maxChars: 180 });
-  if (structuredErrorText) {
-    parts.push(`Erreur: ${structuredErrorText}`);
-  }
-
-  const stderrSummary = summarizeStderr(run.stderrBuf, { maxChars: 170 });
-  if (stderrSummary) {
-    parts.push(`Stderr: ${stderrSummary}`);
-  }
 
   const qualitySummary = summarizeQualityGates(qualityResults);
   if (qualitySummary) {
