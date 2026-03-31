@@ -111,11 +111,18 @@ test('reroutes OpenAI model away from Claude and keeps supported Codex model', (
   assert.equal(resolved.fallbackModelSource, 'omitted');
 });
 
-test('maps unsupported Codex aliases to safe supported model', () => {
+test('keeps supported Codex gpt-5.3-codex alias', () => {
   const normalized = normalizeModelForEngine('openai-codex/gpt-5.3-codex', 'codex');
-  assert.equal(normalized.model, 'gpt-5.4');
-  assert.equal(normalized.source, 'safe-default');
-  assert.equal(normalized.reason, 'unsupported_codex_model');
+  assert.equal(normalized.model, 'gpt-5.3-codex');
+  assert.equal(normalized.source, 'normalized-alias');
+  assert.equal(normalized.reason, 'alias_normalized');
+});
+
+test('keeps supported Codex direct gpt-5.3-codex model untouched', () => {
+  const normalized = normalizeModelForEngine('gpt-5.3-codex', 'codex');
+  assert.equal(normalized.model, 'gpt-5.3-codex');
+  assert.equal(normalized.source, 'configured');
+  assert.equal(normalized.reason, null);
 });
 
 test('keeps supported Codex direct model untouched', () => {

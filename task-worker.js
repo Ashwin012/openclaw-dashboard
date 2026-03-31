@@ -42,6 +42,8 @@ const CODEX_MODEL_ALIASES = {
   default: 'default',
   'gpt-5.4': 'gpt-5.4',
   'openai-codex/gpt-5.4': 'gpt-5.4',
+  'gpt-5.3-codex': 'gpt-5.3-codex',
+  'openai-codex/gpt-5.3-codex': 'gpt-5.3-codex',
 };
 
 const WARNING_THRESHOLDS_MIN = [30, 60, 120];
