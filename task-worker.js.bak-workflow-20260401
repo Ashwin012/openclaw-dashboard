@@ -426,46 +426,6 @@ function setWorkerFinalNote(task, text) {
   addNote(task, 'Worker', finalText);
 }
 
-
-function isAuthorNote(note, author) {
-  return note && typeof note.author === 'string' && note.author.trim().toLowerCase() === author.trim().toLowerCase();
-}
-
-function removeNotesByAuthor(task, author) {
-  if (!Array.isArray(task.notes)) {
-    task.notes = [];
-    return;
-  }
-  task.notes = task.notes.filter(note => !isAuthorNote(note, author));
-}
-
-function setAuthorFinalNote(task, author, text) {
-  removeNotesByAuthor(task, author);
-  const finalText = clampText(text, MAX_SUMMARY_CHARS);
-  if (!finalText) return;
-  addNote(task, author, finalText);
-}
-
-async function getGitHeadInfo(projectPath) {
-  const rev = await spawnPromise('git rev-parse HEAD', { cwd: projectPath }, 15000);
-  if (rev.code !== 0 || !rev.output) return null;
-  const hash = rev.output.trim().split(/\s+/)[0];
-  if (!hash) return null;
-  const msg = await spawnPromise(`git log -1 --pretty=%s ${hash}`, { cwd: projectPath }, 15000);
-  return {
-    hash,
-    shortHash: hash.slice(0, 7),
-    message: msg.code === 0 ? msg.output.trim() : '',
-  };
-}
-
-function extractCommitHash(text) {
-  if (!text || typeof text !== 'string') return null;
-  const matches = text.match(/[0-9a-f]{7,40}/gi);
-  if (!matches || !matches.length) return null;
-  return matches[matches.length - 1];
-}
-
 function updateTask(projectPath, taskId, mutate) {
   const data = readTasks(projectPath);
   const task = data.tasks.find(t => t.id === taskId);
@@ -520,41 +480,9 @@ async function runQualityGates(projectPath) {
 
 function buildInstruction(task) {
   const parts = [task.title.trim()];
-
   if (task.description && task.description.trim()) {
     parts.push('', task.description.trim());
   }
-
-  const technicalContext = [];
-  if (task.technicalAgent) technicalContext.push(`Agent technique responsable: ${task.technicalAgent}`);
-  if (task.coderAgent) technicalContext.push(`Agent codeur: ${task.coderAgent}`);
-  if (task.priority) technicalContext.push(`Priorité: ${task.priority}`);
-  if (task.engine) technicalContext.push(`Engine demandé: ${task.engine}`);
-  if (task.model) technicalContext.push(`Modèle demandé: ${task.model}`);
-  if (technicalContext.length) {
-    parts.push('', 'Contexte workflow:', ...technicalContext);
-  }
-
-  const loopEnabled = Boolean(task.optimizationLoop || task?.metadata?.optimizationLoop || task?.metadata?.optimization_loop || task?.metadata?.requiresOptimizationLoop);
-  const loopCount = Number.isInteger(task.optimizationLoopCount) ? task.optimizationLoopCount : 0;
-  const maxLoops = Number.isInteger(task.optimizationMaxLoops) && task.optimizationMaxLoops > 0 ? task.optimizationMaxLoops : 2;
-  if (loopEnabled) {
-    const loopLines = [
-      `Boucle d'optimisation active: passe ${loopCount + 1} (max ${maxLoops}).`,
-      loopCount > 0
-        ? 'Tu retravailles du code que tu as déjà produit. Repars de ton implémentation précédente, critique-la, simplifie-la, améliore la robustesse, les edge cases et le responsive/UX si pertinent, puis rends une version optimisée.'
-        : 'Cette tâche autorise une ou plusieurs boucles d’optimisation si l’agent technique le juge nécessaire après review.',
-    ];
-    parts.push('', ...loopLines);
-  }
-
-  const initPrompt = typeof task.coderPrompt === 'string' ? task.coderPrompt.trim() : '';
-  if (initPrompt) {
-    parts.push('', "Prompt d'initialisation spécifique pour le codeur:", initPrompt);
-  }
-
-  parts.push('', 'Fin de tâche attendue: fais les changements, commit si nécessaire, puis rends un feedback final compact (1000 caractères max) contenant le commit SHA si tu en as créé un. La tâche repartira ensuite en review pour validation technique.');
-
   return parts.join('\n');
 }
 
@@ -1190,13 +1118,10 @@ async function processTask(project, task, runState) {
   updateTask(projectPath, task.id, t => {
     t.status = 'in_progress';
     t.error = false;
-    t.startedAt = now();
-    t.lastWorkerRunAt = now();
     removeWorkerNotes(t);
   });
   addNotification(project.name, task.title, task.id, task.status, 'in_progress', '🔄 Début du traitement par le worker');
 
-  const startHead = await getGitHeadInfo(projectPath);
   const instruction = buildInstruction(task);
 
   const env = {
@@ -1257,7 +1182,7 @@ async function processTask(project, task, runState) {
     }
 
     const engineLabel = getEngineLabel(finalEngine);
-    let summaryNote = buildTaskSummaryNote({
+    const summaryNote = buildTaskSummaryNote({
       engineLabel,
       failed,
       classification,
@@ -1265,29 +1190,9 @@ async function processTask(project, task, runState) {
       qualityResults,
     });
 
-    const endHead = await getGitHeadInfo(projectPath);
-    const commitChanged = Boolean(endHead && (!startHead || startHead.hash !== endHead.hash));
-    const commitHash = commitChanged ? endHead.hash : (extractCommitHash(resultText) || '');
-    const commitMessage = endHead && commitHash && endHead.hash.startsWith(commitHash.slice(0, 7)) ? endHead.message : '';
-    if (commitHash) {
-      const commitLine = `Commit: ${commitHash.slice(0, 7)}${commitMessage ? ` — ${commitMessage}` : ''}`;
-      summaryNote = clampText([summaryNote, commitLine].filter(Boolean).join('\n\n'), MAX_SUMMARY_CHARS);
-    }
-
     updateTask(projectPath, task.id, t => {
       setWorkerFinalNote(t, summaryNote);
-      setAuthorFinalNote(t, 'Coder', summaryNote);
       t.status = 'review';
-      t.reviewRequestedAt = now();
-      t.lastCoderSummary = summaryNote;
-      t.lastCoderEngine = finalEngine;
-      t.lastCoderModel = run.modelUsed || '';
-      t.lastCoderCommit = commitHash || '';
-      if (commitHash) t.commitSha = commitHash;
-      if (t.optimizationLoop) {
-        const currentCount = Number.isInteger(t.optimizationLoopCount) ? t.optimizationLoopCount : 0;
-        t.optimizationLoopCount = currentCount + 1;
-      }
       if (failed) t.error = true;
     });
 

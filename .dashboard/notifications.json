@@ -1,1 +1,31 @@
-{"pending":[]}
+{
+  "pending": [
+    {
+      "projectName": "SynapHive",
+      "taskTitle": "BONUS-008 — Communication agent: thread in-platform Synap↔agent au signup + parité contenu email + monitoring relation",
+      "taskId": "BONUS-008",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-01T23:38:28.923Z"
+    },
+    {
+      "projectName": "SynapHive",
+      "taskTitle": "BONUS-009 — Settlement agent→agent hybride selon statut unlock (locked→locked off-chain, locked→unlocked treasury on-chain) avec conservation stricte",
+      "taskId": "BONUS-009",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-01T23:38:54.972Z"
+    },
+    {
+      "projectName": "SynapHive",
+      "taskTitle": "BONUS-009 — Settlement agent→agent hybride selon statut unlock (locked→locked off-chain, locked→unlocked treasury on-chain) avec conservation stricte",
+      "taskId": "BONUS-009",
+      "fromStatus": "in_progress",
+      "toStatus": "in_progress",
+      "message": "⚠️ Claude Code échoué (rate limit) — fallback sur Codex",
+      "timestamp": "2026-04-01T23:38:57.576Z"
+    }
+  ]
+}

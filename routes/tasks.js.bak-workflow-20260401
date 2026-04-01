@@ -20,36 +20,6 @@ module.exports = function createTaskRoutes({ config, requireAuth, requireAuthOrB
     writeJSON(getTasksPath(project), { tasks });
   }
 
-  function trimmedString(value, fallback = '') {
-    return typeof value === 'string' ? value.trim() : fallback;
-  }
-
-  function firstDefined(...values) {
-    for (const value of values) {
-      if (value !== undefined) return value;
-    }
-    return undefined;
-  }
-
-  function normalizedBool(...values) {
-    const value = firstDefined(...values);
-    return value === undefined ? false : Boolean(value);
-  }
-
-  function normalizedPositiveInt(values, fallback = null) {
-    for (const value of values) {
-      if (value === undefined || value === null || value === '') continue;
-      const n = Number(value);
-      if (Number.isInteger(n) && n > 0) return n;
-    }
-    return fallback;
-  }
-
-  function normalizedObject(value) {
-    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  }
-
-
   router.get('/api/projects/:id/tasks', requireAuth, (req, res) => {
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -74,7 +44,7 @@ module.exports = function createTaskRoutes({ config, requireAuth, requireAuthOrB
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
-    const { title, description, status, priority, assignee, tags, engine, model, fallbackModel, technicalAgent, coderAgent, coderPrompt, prompt, initPrompt, coderInitPrompt, optimizationLoop, optimization_loop, requiresOptimizationLoop, optimizationMaxLoops, optimization_max_loops, metadata, humanValidation, human_validation, requiresHumanValidation } = req.body;
+    const { title, description, status, priority, assignee, tags, model, fallbackModel, humanValidation, requiresHumanValidation } = req.body;
     if (!title || !title.trim()) return res.status(400).json({ error: 'Title required' });
 
     const now = new Date().toISOString();
@@ -85,30 +55,14 @@ module.exports = function createTaskRoutes({ config, requireAuth, requireAuthOrB
       status: status || 'todo',
       priority: priority || 'medium',
       assignee: assignee || 'agent',
-      engine: trimmedString(engine),
-      technicalAgent: trimmedString(technicalAgent),
-      coderAgent: trimmedString(coderAgent),
-      coderPrompt: trimmedString(firstDefined(coderPrompt, coderInitPrompt, initPrompt, prompt), ''),
       createdAt: now,
       updatedAt: now,
       completedAt: null,
-      reviewRequestedAt: null,
-      deployedAt: null,
-      commitSha: '',
-      deployedCommit: '',
-      lastCoderCommit: '',
-      lastCoderSummary: '',
-      lastCoderEngine: '',
-      lastCoderModel: '',
-      optimizationLoop: normalizedBool(optimizationLoop, optimization_loop, requiresOptimizationLoop),
-      optimizationMaxLoops: normalizedPositiveInt([optimizationMaxLoops, optimization_max_loops, metadata?.optimizationMaxLoops, metadata?.optimization_max_loops], 2),
-      optimizationLoopCount: 0,
-      humanValidation: normalizedBool(humanValidation, human_validation, requiresHumanValidation),
-      metadata: normalizedObject(metadata),
       notes: [],
       tags: Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []),
       model: typeof model === 'string' ? model.trim() : '',
-      fallbackModel: typeof fallbackModel === 'string' ? fallbackModel.trim() : ''
+      fallbackModel: typeof fallbackModel === 'string' ? fallbackModel.trim() : '',
+      humanValidation: Boolean(humanValidation ?? requiresHumanValidation ?? false)
     };
 
     const tasks = readTasks(project);
@@ -129,38 +83,15 @@ module.exports = function createTaskRoutes({ config, requireAuth, requireAuthOrB
     const task = tasks[idx];
     const updates = req.body;
 
-    const allowed = ['title', 'description', 'status', 'priority', 'assignee', 'tags', 'engine', 'technicalAgent', 'coderAgent', 'coderPrompt', 'prompt', 'initPrompt', 'coderInitPrompt', 'model', 'fallbackModel', 'commitSha', 'deployedCommit', 'reviewRequestedAt', 'deployedAt', 'lastCoderCommit', 'lastCoderSummary', 'lastCoderEngine', 'lastCoderModel', 'metadata'];
+    const allowed = ['title', 'description', 'status', 'priority', 'assignee', 'tags', 'model', 'fallbackModel', 'humanValidation', 'requiresHumanValidation'];
     for (const field of allowed) {
       if (updates[field] !== undefined) {
         if (field === 'tags' && !Array.isArray(updates[field])) {
           task[field] = updates[field] ? updates[field].split(',').map(t => t.trim()).filter(Boolean) : [];
-        } else if (['model', 'fallbackModel', 'engine', 'technicalAgent', 'coderAgent', 'commitSha', 'deployedCommit', 'reviewRequestedAt', 'deployedAt', 'lastCoderCommit', 'lastCoderSummary', 'lastCoderEngine', 'lastCoderModel'].includes(field) && typeof updates[field] === 'string') {
-          task[field] = updates[field].trim();
-        } else if (['coderPrompt', 'prompt', 'initPrompt', 'coderInitPrompt'].includes(field)) {
-          task.coderPrompt = trimmedString(updates[field], '');
-        } else if (field === 'metadata') {
-          task.metadata = normalizedObject(updates[field]);
         } else {
-          task[field] = updates[field];
+          task[field] = ['model', 'fallbackModel'].includes(field) && typeof updates[field] === 'string' ? updates[field].trim() : updates[field];
         }
       }
-    }
-
-    if (updates.humanValidation !== undefined || updates.human_validation !== undefined || updates.requiresHumanValidation !== undefined) {
-      task.humanValidation = normalizedBool(updates.humanValidation, updates.human_validation, updates.requiresHumanValidation);
-    }
-
-    if (updates.optimizationLoop !== undefined || updates.optimization_loop !== undefined || updates.requiresOptimizationLoop !== undefined) {
-      task.optimizationLoop = normalizedBool(updates.optimizationLoop, updates.optimization_loop, updates.requiresOptimizationLoop);
-    }
-
-    if (updates.optimizationMaxLoops !== undefined || updates.optimization_max_loops !== undefined) {
-      task.optimizationMaxLoops = normalizedPositiveInt([updates.optimizationMaxLoops, updates.optimization_max_loops], task.optimizationMaxLoops || 2);
-    }
-
-    if (updates.optimizationLoopCount !== undefined) {
-      const loopCount = Number(updates.optimizationLoopCount);
-      if (Number.isInteger(loopCount) && loopCount >= 0) task.optimizationLoopCount = loopCount;
     }
 
     if (updates.status === 'done' && !task.completedAt) {
