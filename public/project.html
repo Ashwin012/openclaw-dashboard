@@ -425,6 +425,7 @@
     let historyFilter = 'all';
     let unpushedCache = null;
     let tasksCache = null;
+    let tasksLoading = false;
     let taskFilters = { status: '', priority: '', assignee: '', tags: '' };
     let draggedTaskId = null;
     let editingTaskId = null;
@@ -568,8 +569,7 @@
       if (tab === 'unpushed' && unpushedCache === null) loadUnpushed();
       if (tab === 'tasks') {
         renderWorkerPanel();
-        if (tasksCache === null) loadTasks();
-        else renderKanban();
+        loadTasks({ showSpinner: tasksCache === null });
       }
     }
 
@@ -804,8 +804,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       if (activeTab === 'unpushed' && unpushedCache === null) loadUnpushed();
       if (activeTab === 'tasks') {
         renderWorkerPanel();
-        if (tasksCache === null) loadTasks();
-        else { updateTasksBadge(); renderKanban(); }
+        loadTasks({ showSpinner: tasksCache === null });
       }
     }
 
@@ -1007,18 +1006,28 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       return `il y a ${Math.floor(diff / 86400)}j`;
     }
 
-    async function loadTasks() {
+    async function loadTasks(options = {}) {
+      const { showSpinner = true } = options;
       const board = document.getElementById('kanbanBoard');
       if (!board) return;
-      board.innerHTML = '<div class="loading"><div class="spinner"></div> Loading tasks...</div>';
+      if (tasksLoading) return;
+      tasksLoading = true;
+      if (showSpinner || tasksCache === null) {
+        board.innerHTML = '<div class="loading"><div class="spinner"></div> Loading tasks...</div>';
+      }
       try {
-        const res = await fetch(`/api/projects/${projectId}/tasks`);
+        const res = await fetch(`/api/projects/${projectId}/tasks`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' }
+        });
         if (!res.ok) throw new Error('Failed to load tasks');
         tasksCache = await res.json();
         updateTasksBadge();
         renderKanban();
       } catch (err) {
         board.innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load tasks</h3><p>${escapeHtml(err.message)}</p></div>`;
+      } finally {
+        tasksLoading = false;
       }
     }
 
@@ -1652,8 +1661,22 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       pollWorkerStatus();
       createSmartInterval(async () => {
         await pollWorkerStatus();
-        if (tasksCache && document.getElementById('kanbanBoard')) renderKanban();
+        if (activeTab === 'tasks' && document.getElementById('kanbanBoard')) {
+          await loadTasks({ showSpinner: false });
+        } else if (tasksCache && document.getElementById('kanbanBoard')) {
+          renderKanban();
+        }
       }, 15_000);
+    });
+
+    window.addEventListener('focus', () => {
+      if (activeTab === 'tasks') loadTasks({ showSpinner: false });
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && activeTab === 'tasks') {
+        loadTasks({ showSpinner: false });
+      }
     });
 
     if ('serviceWorker' in navigator) {

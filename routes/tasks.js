@@ -24,6 +24,10 @@ module.exports = function createTaskRoutes({ config, requireAuth, requireAuthOrB
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
     let tasks = readTasks(project);
     const { status, priority, assignee, tags } = req.query;
     if (status) tasks = tasks.filter(t => t.status === status);
