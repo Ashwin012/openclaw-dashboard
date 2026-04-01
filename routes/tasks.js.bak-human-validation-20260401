@@ -40,7 +40,7 @@ module.exports = function createTaskRoutes({ config, requireAuth, requireAuthOrB
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
-    const { title, description, status, priority, assignee, tags, model, fallbackModel, humanValidation, requiresHumanValidation } = req.body;
+    const { title, description, status, priority, assignee, tags } = req.body;
     if (!title || !title.trim()) return res.status(400).json({ error: 'Title required' });
 
     const now = new Date().toISOString();
@@ -55,10 +55,7 @@ module.exports = function createTaskRoutes({ config, requireAuth, requireAuthOrB
       updatedAt: now,
       completedAt: null,
       notes: [],
-      tags: Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []),
-      model: typeof model === 'string' ? model.trim() : '',
-      fallbackModel: typeof fallbackModel === 'string' ? fallbackModel.trim() : '',
-      humanValidation: Boolean(humanValidation ?? requiresHumanValidation ?? false)
+      tags: Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [])
     };
 
     const tasks = readTasks(project);
@@ -79,13 +76,13 @@ module.exports = function createTaskRoutes({ config, requireAuth, requireAuthOrB
     const task = tasks[idx];
     const updates = req.body;
 
-    const allowed = ['title', 'description', 'status', 'priority', 'assignee', 'tags', 'model', 'fallbackModel', 'humanValidation', 'requiresHumanValidation'];
+    const allowed = ['title', 'description', 'status', 'priority', 'assignee', 'tags'];
     for (const field of allowed) {
       if (updates[field] !== undefined) {
         if (field === 'tags' && !Array.isArray(updates[field])) {
           task[field] = updates[field] ? updates[field].split(',').map(t => t.trim()).filter(Boolean) : [];
         } else {
-          task[field] = ['model', 'fallbackModel'].includes(field) && typeof updates[field] === 'string' ? updates[field].trim() : updates[field];
+          task[field] = updates[field];
         }
       }
     }
