@@ -1188,7 +1188,7 @@
       if (val === 'custom') customInput.focus();
     }
 
-    function onEngineSelectChange() {
+    function onEngineSelectChange(shouldRefresh = true) {
       const engine = document.getElementById('engineSelect').value;
       const modelSel = document.getElementById('modelSelect');
       const label = document.getElementById('startEngineLabel');
@@ -1209,6 +1209,9 @@
       }
       // Reset custom input display
       document.getElementById('customModelInput').style.display = 'none';
+      if (shouldRefresh) {
+        refreshSessionsForCurrentEngine();
+      }
     }
 
     // ---- Status display ----
@@ -1255,16 +1258,26 @@
       document.getElementById('sessionsSidebar').classList.toggle('collapsed', sidebarCollapsed);
     }
 
-    function storageKey(key) {
-      return `chat_${key}_${projectId}`;
+    function getSelectedEngine() {
+      return (document.getElementById('engineSelect') || {}).value || projectData?.engine || 'claude';
+    }
+
+    function storageKey(key, engine = getSelectedEngine()) {
+      return `chat_${key}_${projectId}_${engine}`;
+    }
+
+    function getFilteredSessions(sessions, engine = getSelectedEngine()) {
+      return (sessions || []).filter(s => (s.engine || 'claude') === engine);
     }
 
     async function loadSessions() {
       try {
         const res = await fetch(`/api/projects/${projectId}/chat/sessions`);
         if (!res.ok) return [];
-        const sessions = await res.json();
+        allSessionsCache = await res.json();
+        const sessions = getFilteredSessions(allSessionsCache);
         renderSessionsList(sessions);
+        filterSessions(document.getElementById('sessionSearchInput').value || '');
         return sessions;
       } catch (e) { return []; }
     }
@@ -1327,10 +1340,14 @@
         const res = await fetch(`/api/projects/${projectId}/chat/sessions/${sid}`);
         if (!res.ok) throw new Error('Session not found');
         const data = await res.json();
+        const sessionEngine = data.engine || 'claude';
+        if (sessionEngine !== getSelectedEngine()) {
+          throw new Error(`Session belongs to ${sessionEngine}, not ${getSelectedEngine()}`);
+        }
         activeSessionId = sid;
         sessionId = sid;
         sessionModel = data.model;
-        localStorage.setItem(storageKey('sessionId'), sid);
+        localStorage.setItem(storageKey('sessionId', sessionEngine), sid);
 
         // Show chat panel and render history
         showChatPanel();
@@ -1494,7 +1511,7 @@
         sessionId = data.sessionId;
         sessionModel = data.model;
         activeSessionId = sessionId;
-        localStorage.setItem(storageKey('sessionId'), sessionId);
+        localStorage.setItem(storageKey('sessionId', data.engine || engine), sessionId);
         reconnectAttempts = 0;
         showChatPanel();
         connectWebSocket();
@@ -2214,6 +2231,37 @@
       });
     }
 
+    async function refreshSessionsForCurrentEngine() {
+      const sessions = await loadSessions();
+      const storedSessionId = localStorage.getItem(storageKey('sessionId'));
+      const matchingSession = sessions.find(s => s.id === storedSessionId);
+
+      if (storedSessionId && !matchingSession) {
+        localStorage.removeItem(storageKey('sessionId'));
+      }
+
+      if (activeSessionId && !sessions.some(s => s.id === activeSessionId)) {
+        if (ws) { try { ws.close(1000, 'Switching engine'); } catch (e) {} ws = null; }
+        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+        hideReconnectBanner();
+        activeSessionId = null;
+        sessionId = null;
+        sessionModel = null;
+      }
+
+      if (matchingSession) {
+        await selectSession(matchingSession.id);
+        return;
+      }
+
+      if (sessions.length > 0) {
+        await selectSession(sessions[0].id);
+        return;
+      }
+
+      showStartPanel();
+    }
+
     // ---- Init ----
 
     // Close sidebar on mobile when clicking outside
@@ -2244,7 +2292,7 @@
           const engineSel = document.getElementById('engineSelect');
           if (engineSel) {
             engineSel.value = projEngine;
-            onEngineSelectChange();
+            onEngineSelectChange(false);
           }
           document.getElementById('startProjectName').textContent =
             `Chat with ${projEngine === 'codex' ? 'Codex' : 'Claude Code'} in ${projectData.name} (${projectData.description})`;
@@ -2253,30 +2301,7 @@
         }
       } catch (e) {}
 
-      // Load session list in sidebar (always from API, not localStorage)
-      const sessions = await loadSessions();
-
-      // Auto-reconnect stored session from localStorage
-      const storedSessionId = localStorage.getItem(storageKey('sessionId'));
-      if (storedSessionId) {
-        try {
-          const res = await fetch(`/api/projects/${projectId}/chat/sessions/${storedSessionId}`);
-          if (res.ok) {
-            await selectSession(storedSessionId);
-            return;
-          }
-        } catch (e) {}
-        // Stored session not found — clear it
-        localStorage.removeItem(storageKey('sessionId'));
-      }
-
-      // No localStorage session (e.g. after domain switch to https) — auto-load the most recent session from API
-      if (sessions && sessions.length > 0) {
-        await selectSession(sessions[0].id);
-        return;
-      }
-
-      // No sessions at all — sidebar stays open so user can see it's empty
+      await refreshSessionsForCurrentEngine();
     }
 
     // ---- Mobile keyboard fix: compute --app-height from JS ----
