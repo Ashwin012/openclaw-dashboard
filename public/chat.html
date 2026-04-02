@@ -1167,6 +1167,8 @@
     let isFullscreen = false;       // Feature 7: fullscreen mode
     let allSessionsCache = [];      // Feature 8: session search cache
     let currentEffort = 'medium';   // Thinking effort level: low, medium, high
+    let startMode = 'reuse';        // reuse existing engine session unless user explicitly asks for a new chat
+    let activeEngine = null;        // engine for the currently loaded session
 
     // Configure marked with highlight.js
     marked.setOptions({
@@ -1262,6 +1264,14 @@
       return (document.getElementById('engineSelect') || {}).value || projectData?.engine || 'claude';
     }
 
+    function getSessionStorageEngine() {
+      return activeEngine || getSelectedEngine();
+    }
+
+    function setStartMode(mode) {
+      startMode = mode === 'new' ? 'new' : 'reuse';
+    }
+
     function storageKey(key, engine = getSelectedEngine()) {
       return `chat_${key}_${projectId}_${engine}`;
     }
@@ -1347,7 +1357,10 @@
         activeSessionId = sid;
         sessionId = sid;
         sessionModel = data.model;
+        activeEngine = sessionEngine;
         localStorage.setItem(storageKey('sessionId', sessionEngine), sid);
+        document.getElementById('engineSelect').value = sessionEngine;
+        setStartMode('reuse');
 
         // Show chat panel and render history
         showChatPanel();
@@ -1359,6 +1372,7 @@
         if (!resumeRes.ok) throw new Error('Failed to resume session');
         const resumeData = await resumeRes.json();
         sessionModel = resumeData.model;
+        activeEngine = resumeData.engine || sessionEngine;
 
         reconnectAttempts = 0;
         connectWebSocket();
@@ -1374,7 +1388,8 @@
         await fetch(`/api/projects/${projectId}/chat/sessions/${sid}`, { method: 'DELETE' });
         if (sid === activeSessionId) {
           activeSessionId = null;
-          localStorage.removeItem(storageKey('sessionId'));
+          localStorage.removeItem(storageKey('sessionId', getSessionStorageEngine()));
+          activeEngine = null;
           showStartPanel();
         }
         loadSessions();
@@ -1450,9 +1465,11 @@
 
     // ---- Session lifecycle ----
     function startNewChat() {
+      setStartMode('new');
       activeSessionId = null;
       sessionId = null;
-      localStorage.removeItem(storageKey('sessionId'));
+      localStorage.removeItem(storageKey('sessionId', getSessionStorageEngine()));
+      activeEngine = null;
       // Bug 1 fix: close sidebar on mobile so start panel is visible
       if (window.innerWidth <= 768) {
         sidebarCollapsed = true;
@@ -1489,8 +1506,9 @@
 
     async function startSession() {
       const btn = document.getElementById('startBtn');
+      const forceNew = startMode === 'new';
       btn.disabled = true;
-      btn.textContent = 'Starting...';
+      btn.textContent = forceNew ? 'Creating...' : 'Opening...';
 
       const selectVal = document.getElementById('modelSelect').value;
       const model = selectVal === 'custom'
@@ -1502,25 +1520,21 @@
         const res = await fetch(`/api/projects/${projectId}/chat/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model, engine })
+          body: JSON.stringify({ model, engine, forceNew })
         });
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to start session');
 
-        sessionId = data.sessionId;
-        sessionModel = data.model;
-        activeSessionId = sessionId;
-        localStorage.setItem(storageKey('sessionId', data.engine || engine), sessionId);
-        reconnectAttempts = 0;
-        showChatPanel();
-        connectWebSocket();
+        setStartMode('reuse');
+        await selectSession(data.sessionId);
         // Refresh sidebar to show the new session
         setTimeout(loadSessions, 500);
       } catch (err) {
+        appendError(`Failed to start session: ${err.message}`);
+      } finally {
         btn.disabled = false;
         btn.textContent = '▶ Start Chat';
-        appendError(`Failed to start session: ${err.message}`);
       }
     }
 
@@ -1528,7 +1542,7 @@
       if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
       hideReconnectBanner();
       if (ws) { try { ws.close(1000, 'Stopped'); } catch (e) {} ws = null; }
-      const engine = getSelectedEngine();
+      const engine = getSessionStorageEngine();
       try {
         await fetch(`/api/projects/${projectId}/chat/stop`, {
           method: 'POST',
@@ -1540,9 +1554,10 @@
       setStatus('', 'Stopped');
       document.getElementById('stopBtn').style.display = 'none';
       disableInput();
-      localStorage.removeItem(storageKey('sessionId'));
+      localStorage.removeItem(storageKey('sessionId', engine));
       activeSessionId = null;
       sessionId = null;
+      activeEngine = null;
       loadSessions();
     }
 
@@ -1689,6 +1704,7 @@
           disableInput();
           document.getElementById('stopBtn').style.display = 'none';
           sessionId = null;
+          activeEngine = null;
           awaitingResponse = false;
           break;
 
@@ -2252,6 +2268,7 @@
         activeSessionId = null;
         sessionId = null;
         sessionModel = null;
+        activeEngine = null;
       }
 
       if (matchingSession) {

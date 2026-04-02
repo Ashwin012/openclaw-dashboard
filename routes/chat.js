@@ -11,12 +11,22 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
 
   // ===== Chat Session Persistence =====
 
+  function normalizeSessionRecord(session) {
+    if (!session || typeof session !== 'object') return session;
+    const engine = session.engine || 'claude';
+    return {
+      ...session,
+      engine,
+      engineSessionId: session.engineSessionId || session.claudeSessionId || null
+    };
+  }
+
   function getChatSessionsPath(project) {
     return path.join(project.path, '.claude', 'chat-sessions.json');
   }
 
   function readChatSessions(project) {
-    return readJSON(getChatSessionsPath(project), []);
+    return readJSON(getChatSessionsPath(project), []).map(normalizeSessionRecord);
   }
 
   function writeChatSessions(project, sessions) {
@@ -47,9 +57,35 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
 
   function upsertChatSession(project, sessionData) {
     const sessions = readChatSessions(project);
-    const idx = sessions.findIndex(s => s.id === sessionData.id);
-    if (idx >= 0) { sessions[idx] = sessionData; } else { sessions.unshift(sessionData); }
+    const normalized = normalizeSessionRecord(sessionData);
+    const idx = sessions.findIndex(s => s.id === normalized.id);
+    if (idx >= 0) { sessions[idx] = normalized; } else { sessions.unshift(normalized); }
     writeChatSessions(project, sessions);
+  }
+
+  function getLatestProjectEngineSession(project, engine) {
+    return readChatSessions(project)
+      .filter(s => (s.engine || 'claude') === engine)
+      .sort((a, b) => new Date(b.lastActivityAt || b.createdAt || 0) - new Date(a.lastActivityAt || a.createdAt || 0))[0] || null;
+  }
+
+  function buildRuntimeSession(project, persistentSession, sessionId = persistentSession.id) {
+    return {
+      projectId: project.id,
+      projectPath: project.path,
+      model: persistentSession.model,
+      engine: persistentSession.engine || 'claude',
+      engineSessionId: persistentSession.engineSessionId || persistentSession.claudeSessionId || null,
+      claudeSessionId: persistentSession.claudeSessionId || null,
+      process: null,
+      ws: null,
+      status: 'pending',
+      busy: false,
+      persistentId: sessionId,
+      currentResponseText: '',
+      cleanupTimer: null,
+      _config: config
+    };
   }
 
   function addChatMessage(project, sessionId, message) {
@@ -100,8 +136,9 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       args.push('--effort', effort);
     }
 
-    if (session.claudeSessionId) {
-      args.push('--resume', session.claudeSessionId);
+    const resumeSessionId = session.engineSessionId || session.claudeSessionId;
+    if (resumeSessionId) {
+      args.push('--resume', resumeSessionId);
     }
 
     args.push(text);
@@ -126,7 +163,8 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
           const parsed = JSON.parse(line);
           if (parsed.type === 'result' && parsed.session_id) {
             session.claudeSessionId = parsed.session_id;
-            // Save assistant response and update claudeSessionId
+            session.engineSessionId = parsed.session_id;
+            // Save assistant response and update persisted session ids
             const project = config.projects.find(p => p.id === session.projectId);
             if (project && session.persistentId) {
               if (session.currentResponseText) {
@@ -138,6 +176,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
                 session.currentResponseText = '';
               }
               updateChatSessionMeta(project, session.persistentId, {
+                engineSessionId: parsed.session_id,
                 claudeSessionId: parsed.session_id,
                 status: 'active'
               });
@@ -191,7 +230,9 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
     session.busy = true;
     session.currentResponseText = '';
 
-    const args = ['--model', session.model || 'gpt-5.4'];
+    const args = session.engineSessionId
+      ? ['exec', 'resume', '--json', '--model', session.model || 'gpt-5.4', session.engineSessionId, text]
+      : ['exec', '--json', '--model', session.model || 'gpt-5.4', text];
 
     const codexProc = require('child_process').spawn('codex', args, {
       cwd: session.projectPath,
@@ -205,10 +246,56 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
 
     codexProc.stdout.on('data', (chunk) => {
       stdoutBuf += chunk.toString();
-      // Codex outputs plain text — send as a text event
-      if (ws.readyState === WebSocket.OPEN) {
-        session.currentResponseText += chunk.toString();
-        try { ws.send(JSON.stringify({ type: 'content_block_delta', delta: { type: 'text_delta', text: chunk.toString() } })); } catch (e) {}
+      const lines = stdoutBuf.split('\n');
+      stdoutBuf = lines.pop();
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        let parsed = null;
+        try {
+          parsed = JSON.parse(trimmed);
+        } catch (e) {}
+
+        if (parsed && parsed.type === 'thread.started' && parsed.thread_id) {
+          session.engineSessionId = parsed.thread_id;
+          const project = config.projects.find(p => p.id === session.projectId);
+          if (project && session.persistentId) {
+            updateChatSessionMeta(project, session.persistentId, {
+              engineSessionId: parsed.thread_id,
+              status: 'active'
+            });
+          }
+          continue;
+        }
+
+        if (parsed && parsed.type === 'item.completed' && parsed.item && parsed.item.type === 'agent_message') {
+          const textDelta = parsed.item.text || '';
+          if (textDelta) {
+            session.currentResponseText += textDelta;
+            if (ws.readyState === WebSocket.OPEN) {
+              try { ws.send(JSON.stringify({ type: 'content_block_delta', delta: { type: 'text_delta', text: textDelta } })); } catch (e) {}
+            }
+          }
+          continue;
+        }
+
+        if (parsed && parsed.type === 'turn.completed') {
+          if (ws.readyState === WebSocket.OPEN) {
+            try {
+              ws.send(JSON.stringify({
+                type: 'result',
+                total_cost_usd: 0,
+                duration_ms: 0
+              }));
+            } catch (e) {}
+          }
+          continue;
+        }
+
+        if (!parsed && ws.readyState === WebSocket.OPEN) {
+          session.currentResponseText += trimmed;
+          try { ws.send(JSON.stringify({ type: 'content_block_delta', delta: { type: 'text_delta', text: trimmed } })); } catch (e) {}
+        }
       }
     });
 
@@ -222,7 +309,6 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       session.busy = false;
       session.process = null;
       // Save assistant response
-      const project = require('../server').getConfig ? require('../server').getConfig().projects.find(p => p.id === session.projectId) : null;
       const configRef = session._config;
       if (configRef) {
         const proj = configRef.projects.find(p => p.id === session.projectId);
@@ -235,9 +321,6 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
           session.currentResponseText = '';
         }
       }
-      if (ws.readyState === WebSocket.OPEN) {
-        try { ws.send(JSON.stringify({ type: 'result', total_cost_usd: 0, duration_ms: 0 })); } catch (e) {}
-      }
     });
 
     codexProc.on('error', (err) => {
@@ -247,12 +330,6 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
         try { ws.send(JSON.stringify({ type: 'error', error: `Failed to run codex: ${err.message}` })); } catch (e) {}
       }
     });
-
-    // Send text to codex via stdin
-    try {
-      codexProc.stdin.write(text + '\n');
-      codexProc.stdin.end();
-    } catch (e) {}
   }
 
   // ===== WebSocket Setup =====
@@ -293,21 +370,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
           const fileSessions = readChatSessions(proj);
           const fileSession = fileSessions.find(s => s.id === sessionId);
           if (fileSession) {
-            session = {
-              projectId: proj.id,
-              projectPath: proj.path,
-              model: fileSession.model,
-              engine: fileSession.engine || 'claude',
-              claudeSessionId: fileSession.claudeSessionId,
-              process: null,
-              ws: null,
-              status: 'pending',
-              busy: false,
-              persistentId: sessionId,
-              currentResponseText: '',
-              cleanupTimer: null,
-              _config: config
-            };
+            session = buildRuntimeSession(proj, fileSession, sessionId);
             chatSessions.set(sessionId, session);
           }
         }
@@ -317,21 +380,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
           const fileSessions = readChatSessions(proj);
           const fileSession = fileSessions.find(s => s.id === sessionId);
           if (fileSession) {
-            session = {
-              projectId: proj.id,
-              projectPath: proj.path,
-              model: fileSession.model,
-              engine: fileSession.engine || 'claude',
-              claudeSessionId: fileSession.claudeSessionId,
-              process: null,
-              ws: null,
-              status: 'pending',
-              busy: false,
-              persistentId: sessionId,
-              currentResponseText: '',
-              cleanupTimer: null,
-              _config: config
-            };
+            session = buildRuntimeSession(proj, fileSession, sessionId);
             chatSessions.set(sessionId, session);
             break;
           }
@@ -448,16 +497,56 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
-    const { model = 'sonnet', engine = 'claude' } = req.body;
-    cleanupInMemorySessions(req.params.id, engine, project);
+    const { model = 'sonnet', engine = 'claude', forceNew = false } = req.body;
     const modelMap = { sonnet: 'claude-sonnet-4-6', opus: 'claude-opus-4-6', haiku: 'claude-haiku-3-5' };
     const resolvedModel = modelMap[model] || model;
+    const now = new Date().toISOString();
+
+    if (!forceNew) {
+      const inMemoryEntry = [...chatSessions.entries()].find(([, sess]) => isMatchingProjectEngineSession(sess, req.params.id, engine));
+      if (inMemoryEntry) {
+        const [existingSessionId, existingSession] = inMemoryEntry;
+        if (existingSession.cleanupTimer) {
+          clearTimeout(existingSession.cleanupTimer);
+          existingSession.cleanupTimer = null;
+        }
+        existingSession.model = resolvedModel;
+        existingSession.status = 'pending';
+        if (project && existingSession.persistentId) {
+          updateChatSessionMeta(project, existingSession.persistentId, {
+            model: resolvedModel,
+            status: 'active',
+            lastActivityAt: now
+          });
+        }
+        return res.json({ sessionId: existingSessionId, model: resolvedModel, engine, reused: true });
+      }
+
+      const latestPersistentSession = getLatestProjectEngineSession(project, engine);
+      if (latestPersistentSession) {
+        updateChatSessionMeta(project, latestPersistentSession.id, {
+          model: resolvedModel,
+          status: 'active',
+          lastActivityAt: now
+        });
+        const refreshed = normalizeSessionRecord({
+          ...latestPersistentSession,
+          model: resolvedModel,
+          status: 'active',
+          lastActivityAt: now
+        });
+        chatSessions.set(latestPersistentSession.id, buildRuntimeSession(project, refreshed, latestPersistentSession.id));
+        return res.json({ sessionId: latestPersistentSession.id, model: resolvedModel, engine, reused: true });
+      }
+    }
+
+    cleanupInMemorySessions(req.params.id, engine, project);
 
     const sessionId = crypto.randomUUID();
-    const now = new Date().toISOString();
 
     const persistentSession = {
       id: sessionId,
+      engineSessionId: null,
       claudeSessionId: null,
       model: resolvedModel,
       engine: engine,
@@ -474,6 +563,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       projectPath: project.path,
       model: resolvedModel,
       engine: engine,
+      engineSessionId: null,
       claudeSessionId: null,
       process: null,
       ws: null,
@@ -485,7 +575,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       _config: config
     });
 
-    res.json({ sessionId, model: resolvedModel, engine });
+    res.json({ sessionId, model: resolvedModel, engine, reused: false });
   });
 
   router.post('/api/projects/:id/chat/stop', requireAuth, (req, res) => {
@@ -540,7 +630,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
     const sessions = readChatSessions(project);
     const session = sessions.find(s => s.id === req.params.sessionId);
     if (!session) return res.status(404).json({ error: 'Session not found' });
-    res.json(session);
+    res.json(normalizeSessionRecord(session));
   });
 
   router.delete('/api/projects/:id/chat/sessions/:sessionId', requireAuth, (req, res) => {
@@ -579,21 +669,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
 
     cleanupInMemorySessions(req.params.id, persistent.engine || 'claude', project);
 
-    chatSessions.set(sessionId, {
-      projectId: req.params.id,
-      projectPath: project.path,
-      model: persistent.model,
-      engine: persistent.engine || 'claude',
-      claudeSessionId: persistent.claudeSessionId,
-      process: null,
-      ws: null,
-      status: 'pending',
-      busy: false,
-      persistentId: sessionId,
-      currentResponseText: '',
-      cleanupTimer: null,
-      _config: config
-    });
+    chatSessions.set(sessionId, buildRuntimeSession(project, persistent, sessionId));
 
     updateChatSessionMeta(project, sessionId, { status: 'active', lastActivityAt: new Date().toISOString() });
     res.json({ sessionId, model: persistent.model, engine: persistent.engine || 'claude' });
