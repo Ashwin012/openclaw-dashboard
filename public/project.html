@@ -418,7 +418,7 @@
     let selectedRepo = params.get('repo') || '';
     let currentView = 'unified';
     let projectData = null;
-    const validTabs = ['changes', 'unpushed', 'history', 'tasks'];
+    const validTabs = ['changes', 'unpushed', 'history', 'tasks', 'agents'];
     const tabParam = params.get('tab');
     let activeTab = (tabParam && validTabs.includes(tabParam)) ? tabParam : 'changes';
     let historyCache = null;
@@ -475,6 +475,163 @@
       ];
       if (info.fallback) badges.push(`<span class="task-tag" title="Fallback du worker">↪ ${escapeHtml(info.fallback)}</span>`);
       return badges.join('');
+    }
+
+    function getTaskStatusMeta(status) {
+      const tones = {
+        todo: { label: 'Todo', color: 'var(--text-muted)', bg: 'rgba(139,148,158,0.14)' },
+        queued: { label: 'Queued', color: 'var(--purple)', bg: 'rgba(188,140,255,0.14)' },
+        pending: { label: 'Queued', color: 'var(--purple)', bg: 'rgba(188,140,255,0.14)' },
+        in_progress: { label: 'In Progress', color: 'var(--accent)', bg: 'rgba(88,166,255,0.14)' },
+        review: { label: 'Review', color: '#fab387', bg: 'rgba(250,179,135,0.14)' },
+        blocked: { label: 'Blocked', color: 'var(--red)', bg: 'rgba(248,81,73,0.14)' },
+        done: { label: 'Done', color: 'var(--green)', bg: 'rgba(63,185,80,0.14)' }
+      };
+      return tones[status] || { label: status || 'Unknown', color: 'var(--text-muted)', bg: 'rgba(139,148,158,0.14)' };
+    }
+
+    function getAgentStatusTone(kind) {
+      if (kind === 'blocked') return { bg: 'rgba(248,81,73,0.14)', color: 'var(--red)' };
+      if (kind === 'review' || kind === 'queued') return { bg: 'rgba(210,153,34,0.14)', color: 'var(--yellow)' };
+      if (kind === 'waiting_input') return { bg: 'rgba(250,179,135,0.14)', color: '#fab387' };
+      if (kind === 'in_progress') return { bg: 'rgba(88,166,255,0.14)', color: 'var(--accent)' };
+      return { bg: 'rgba(139,148,158,0.14)', color: 'var(--text-muted)' };
+    }
+
+    function normalizeAgentName(value) {
+      return typeof value === 'string' ? value.trim().toLowerCase() : '';
+    }
+
+    function getTasksForAgent(agent) {
+      if (!Array.isArray(tasksCache) || !agent) return [];
+      const target = normalizeAgentName(agent.name);
+      if (!target) return [];
+
+      return tasksCache.filter(task => {
+        if (agent.role === 'technical') return normalizeAgentName(task.technicalAgent) === target;
+        if (agent.role === 'coder') return normalizeAgentName(task.coderAgent) === target;
+        return normalizeAgentName(task.assignee) === target;
+      }).sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+    }
+
+    function renderAgentTaskRows(agentTasks) {
+      if (!agentTasks.length) {
+        return '<div style="font-size:12px;color:var(--text-muted)">No linked tasks found in the current project task list.</div>';
+      }
+
+      return `
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${agentTasks.slice(0, 4).map(task => {
+            const meta = getTaskStatusMeta(task.status);
+            return `
+              <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-surface)">
+                <div style="min-width:0;display:flex;flex-direction:column;gap:5px">
+                  <div style="font-size:13px;color:var(--text);font-weight:600">${escapeHtml(task.title)}</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                    <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;background:${meta.bg};color:${meta.color};font-size:11px;border:1px solid ${meta.color}33">${escapeHtml(meta.label)}</span>
+                    <span style="font-size:11px;color:var(--text-muted)">${escapeHtml(task.priority || 'medium')}</span>
+                    ${task.model ? `<span style="font-size:11px;color:var(--text-muted)">${escapeHtml(task.model)}</span>` : ''}
+                  </div>
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);white-space:nowrap">${escapeHtml(timeAgo(task.updatedAt || task.createdAt))}</div>
+              </div>`;
+          }).join('')}
+        </div>`;
+    }
+
+    function renderAgentsPane() {
+      const pane = document.getElementById('agentsPane');
+      if (!pane) return;
+
+      const agents = Array.isArray(projectData?.agents) ? projectData.agents : [];
+      const workerRun = projectData?.currentStatus?.worker || null;
+
+      if (!agents.length) {
+        pane.innerHTML = `
+          <div class="empty-state" style="padding:48px">
+            <div class="icon">&#129302;</div>
+            <h3>No agents yet</h3>
+            <p>No agent identity is currently attached to active project tasks.</p>
+          </div>`;
+        return;
+      }
+
+      const activeCount = agents.filter(agent => agent.active).length;
+      const waitingCount = agents.filter(agent => agent.statusKind === 'waiting_input').length;
+      const withTasksCount = agents.filter(agent => getTasksForAgent(agent).length > 0).length;
+
+      pane.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
+          <div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Identities</div>
+            <div style="font-size:26px;color:var(--text);font-weight:700;margin-top:6px">${agents.length}</div>
+          </div>
+          <div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Active</div>
+            <div style="font-size:26px;color:var(--accent);font-weight:700;margin-top:6px">${activeCount}</div>
+          </div>
+          <div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Waiting Input</div>
+            <div style="font-size:26px;color:#fab387;font-weight:700;margin-top:6px">${waitingCount}</div>
+          </div>
+          <div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Linked Tasks</div>
+            <div style="font-size:26px;color:var(--text);font-weight:700;margin-top:6px">${withTasksCount}</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          ${agents.map(agent => {
+            const tone = getAgentStatusTone(agent.statusKind);
+            const agentTasks = getTasksForAgent(agent);
+            const currentTask = agent.currentTask || agentTasks[0] || null;
+            const runInfo = agent.active ? workerRun : null;
+            return `
+              <section style="border:1px solid var(--border);border-radius:12px;background:var(--bg-card);padding:16px">
+                <div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap">
+                  <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                      <h3 style="margin:0;font-size:18px;color:var(--text)">${escapeHtml(agent.name)}</h3>
+                      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:${tone.bg};color:${tone.color};font-size:11px;font-weight:600;border:1px solid ${tone.color}33">${escapeHtml(agent.statusLabel || 'Todo')}</span>
+                      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--bg-surface);color:var(--text-muted);font-size:11px;border:1px solid var(--border)">${escapeHtml(agent.roleLabel || 'Agent')}</span>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                      ${agent.engineLabel ? `<span class="task-tag">${escapeHtml(agent.engineLabel)}</span>` : ''}
+                      ${agent.model ? `<span class="task-tag">${escapeHtml(agent.model)}</span>` : ''}
+                      <span class="task-tag">${agent.taskCount} linked task${agent.taskCount > 1 ? 's' : ''}</span>
+                      ${agent.active && runInfo?.durationMin !== null && runInfo?.durationMin !== undefined ? `<span class="task-tag">Running ${escapeHtml(String(runInfo.durationMin))} min</span>` : ''}
+                    </div>
+                  </div>
+                  <div style="font-size:12px;color:var(--text-muted);text-align:right">
+                    <div>Updated ${escapeHtml(formatDateTime(agent.updatedAt))}</div>
+                    ${agent.source ? `<div style="margin-top:4px">Source: ${escapeHtml(agent.source)}</div>` : ''}
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px">
+                  <div style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-surface)">
+                    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Current Task</div>
+                    ${currentTask ? `
+                      <div style="font-size:14px;color:var(--text);font-weight:600">${escapeHtml(currentTask.title || 'Untitled task')}</div>
+                      <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${escapeHtml(getTaskStatusMeta(currentTask.status).label)}</div>
+                    ` : '<div style="font-size:12px;color:var(--text-muted)">No current task available.</div>'}
+                  </div>
+                  <div style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-surface)">
+                    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Live State</div>
+                    ${agent.active ? `
+                      <div style="font-size:14px;color:var(--accent);font-weight:600">Worker running</div>
+                      <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${runInfo?.pendingQuestion ? escapeHtml(runInfo.pendingQuestion) : 'No question pending.'}</div>
+                    ` : `
+                      <div style="font-size:14px;color:${tone.color};font-weight:600">${escapeHtml(agent.statusLabel || 'Idle')}</div>
+                      <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Derived from current project task states.</div>
+                    `}
+                  </div>
+                </div>
+                <div style="margin-top:14px">
+                  <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Related Tasks</div>
+                  ${renderAgentTaskRows(agentTasks)}
+                </div>
+              </section>`;
+          }).join('')}
+        </div>`;
     }
 
     function getStatusClass(status) {
@@ -585,15 +742,21 @@
       document.getElementById('tab-unpushed').classList.toggle('active', tab === 'unpushed');
       document.getElementById('tab-history').classList.toggle('active', tab === 'history');
       document.getElementById('tab-tasks').classList.toggle('active', tab === 'tasks');
+      document.getElementById('tab-agents').classList.toggle('active', tab === 'agents');
       document.getElementById('changesPane').style.display = tab === 'changes' ? '' : 'none';
       document.getElementById('unpushedPane').style.display = tab === 'unpushed' ? '' : 'none';
       document.getElementById('historyPane').style.display = tab === 'history' ? '' : 'none';
       document.getElementById('tasksPane').style.display = tab === 'tasks' ? '' : 'none';
+      document.getElementById('agentsPane').style.display = tab === 'agents' ? '' : 'none';
       if (tab === 'history' && historyCache === null) loadHistory();
       if (tab === 'unpushed' && unpushedCache === null) loadUnpushed();
       if (tab === 'tasks') {
         renderWorkerPanel();
         loadTasks({ showSpinner: tasksCache === null });
+      }
+      if (tab === 'agents') {
+        renderAgentsPane();
+        loadTasks({ showSpinner: false });
       }
     }
 
@@ -736,6 +899,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
           <button class="tab-btn ${activeTab === 'unpushed' ? 'active' : ''}" id="tab-unpushed" onclick="switchTab('unpushed')">&#8593; Unpushed</button>
           <button class="tab-btn ${activeTab === 'history' ? 'active' : ''}" id="tab-history" onclick="switchTab('history')">&#128203; History</button>
           <button class="tab-btn ${activeTab === 'tasks' ? 'active' : ''}" id="tab-tasks" onclick="switchTab('tasks')">&#9776; Tasks <span class="tab-badge" id="tasksBadge" style="display:none"></span></button>
+          <button class="tab-btn ${activeTab === 'agents' ? 'active' : ''}" id="tab-agents" onclick="switchTab('agents')">&#129302; Agents <span class="tab-badge" ${data.agents?.length ? '' : 'style="display:none"'}>${data.agents?.length || ''}</span></button>
           <div style="flex:1"></div>
           <a class="tab-btn" href="/chat.html?id=${escapeHtml(data.id)}" style="text-decoration:none;color:inherit;background:var(--bg-hover);border:1px solid var(--border);padding:6px 14px;border-radius:var(--radius)">&#128172; Chat</a>
         </div>
@@ -833,6 +997,10 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
           <div class="kanban-board" id="kanbanBoard">
             <div class="loading"><div class="spinner"></div> Loading tasks...</div>
           </div>
+        </div>
+
+        <div id="agentsPane" style="${activeTab === 'agents' ? '' : 'display:none'}">
+          <div class="loading"><div class="spinner"></div> Loading agents...</div>
         </div>`;
 
       if (activeTab === 'history' && historyCache === null) loadHistory();
@@ -840,6 +1008,10 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       if (activeTab === 'tasks') {
         renderWorkerPanel();
         loadTasks({ showSpinner: tasksCache === null });
+      }
+      if (activeTab === 'agents') {
+        renderAgentsPane();
+        loadTasks({ showSpinner: false });
       }
     }
 
@@ -1059,8 +1231,13 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         tasksCache = await res.json();
         updateTasksBadge();
         renderKanban();
+        renderAgentsPane();
       } catch (err) {
         board.innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load tasks</h3><p>${escapeHtml(err.message)}</p></div>`;
+        const pane = document.getElementById('agentsPane');
+        if (pane && activeTab === 'agents') {
+          pane.innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load agents</h3><p>${escapeHtml(err.message)}</p></div>`;
+        }
       } finally {
         tasksLoading = false;
       }
@@ -1627,9 +1804,18 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         agents.innerHTML = renderProjectAgents(snapshot.agents);
       }
 
+      const agentsTabBadge = document.querySelector('#tab-agents .tab-badge');
+      if (agentsTabBadge) {
+        const count = Array.isArray(snapshot.agents) ? snapshot.agents.length : 0;
+        agentsTabBadge.textContent = count ? count : '';
+        agentsTabBadge.style.display = count ? '' : 'none';
+      }
+
       if (branchSelect && snapshot.branch) {
         branchSelect.value = snapshot.branch;
       }
+
+      renderAgentsPane();
     }
 
     async function refreshProjectStatus() {
