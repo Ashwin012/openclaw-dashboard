@@ -433,6 +433,12 @@
     let openDetailTaskId = null;
     let currentEngine = 'claude';
 
+    function getEngineLabel(engine) {
+      if (engine === 'codex') return '🟢 Codex (OpenAI)';
+      if (engine === 'ollama') return '🟠 Ollama local (via Codex)';
+      return '🟣 Claude Code';
+    }
+
     function getTaskModelInfo(task) {
       const model = (task?.model || '').trim();
       const fallback = (task?.fallbackModel || '').trim();
@@ -440,7 +446,7 @@
         model,
         fallback,
         label: model || 'auto (project)',
-        title: model ? `Modèle explicite: ${model}` : `Modèle par défaut du projet (${currentEngine || 'engine inconnu'})`,
+        title: model ? `Modèle explicite: ${model}` : `Modèle par défaut du projet (${getEngineLabel(currentEngine || 'claude')})`,
       };
     }
 
@@ -687,8 +693,9 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
             <div class="engine-selector" style="display:flex;align-items:center;gap:6px">
               <span style="font-size:11px;color:var(--text-muted)">Engine:</span>
               <select id="engineSelect" onchange="onEngineChange()" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer">
-                <option value="claude" ${data.engine !== 'codex' ? 'selected' : ''}>🟣 Claude Code</option>
+                <option value="claude" ${data.engine !== 'codex' && data.engine !== 'ollama' ? 'selected' : ''}>🟣 Claude Code</option>
                 <option value="codex" ${data.engine === 'codex' ? 'selected' : ''}>🟢 Codex (OpenAI)</option>
+                <option value="ollama" ${data.engine === 'ollama' ? 'selected' : ''}>🟠 Ollama local (via Codex)</option>
               </select>
             </div>
           </div>
@@ -1367,6 +1374,8 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       document.getElementById('taskPriority').value = task.priority;
       document.getElementById('taskStatus').value = task.status;
       document.getElementById('taskAssignee').value = task.assignee || '';
+      document.getElementById('taskModel').value = task.model || '';
+      document.getElementById('taskFallbackModel').value = task.fallbackModel || '';
       document.getElementById('taskTags').value = (task.tags || []).join(', ');
       document.getElementById('modalNotes').style.display = '';
       renderNotesTimeline(task.notes || []);
@@ -1408,6 +1417,8 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         priority: document.getElementById('taskPriority').value,
         status: document.getElementById('taskStatus').value,
         assignee: document.getElementById('taskAssignee').value.trim() || 'agent',
+        model: document.getElementById('taskModel').value.trim(),
+        fallbackModel: document.getElementById('taskFallbackModel').value.trim(),
         tags: document.getElementById('taskTags').value.split(',').map(t => t.trim()).filter(Boolean)
       };
       try {
@@ -1522,7 +1533,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         const data = await res.json();
         if (res.ok) {
           currentEngine = engine;
-          showToast(`Engine changée : ${engine === 'codex' ? '\ud83d\udfe2 Codex (OpenAI)' : '\ud83d\udfe3 Claude Code'}`);
+          showToast(`Engine changée : ${getEngineLabel(engine)}`);
         } else {
           showToast(data.error || 'Erreur changement engine', 'error');
         }

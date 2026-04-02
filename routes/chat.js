@@ -8,6 +8,9 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
 
   const wss = new WebSocket.Server({ noServer: true });
   const chatSessions = new Map(); // sessionId -> { projectId, projectPath, model, process, ws, status }
+  const VALID_ENGINES = new Set(['claude', 'codex', 'ollama']);
+  const VALID_CLAUDE_MODELS = new Set(['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-3-5']);
+  const VALID_CODEX_MODELS = new Set(['gpt-5.4', 'gpt-5.3-codex']);
 
   // ===== Chat Session Persistence =====
 
@@ -34,7 +37,29 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
   }
 
   function getRequestEngine(req, fallback = 'claude') {
-    return req.body?.engine || req.query.engine || fallback;
+    const engine = req.body?.engine || req.query.engine || fallback;
+    return VALID_ENGINES.has(engine) ? engine : fallback;
+  }
+
+  function getEngineLabel(engine) {
+    if (engine === 'codex') return 'Codex';
+    if (engine === 'ollama') return 'Ollama local (via Codex)';
+    return 'Claude Code';
+  }
+
+  function resolveChatModel(engine, model) {
+    const raw = typeof model === 'string' ? model.trim() : '';
+    if (engine === 'claude') {
+      const modelMap = { sonnet: 'claude-sonnet-4-6', opus: 'claude-opus-4-6', haiku: 'claude-haiku-3-5' };
+      const resolved = modelMap[raw] || raw || 'claude-sonnet-4-6';
+      return VALID_CLAUDE_MODELS.has(resolved) ? resolved : 'claude-sonnet-4-6';
+    }
+
+    if (engine === 'codex') {
+      return VALID_CODEX_MODELS.has(raw) ? raw : 'gpt-5.4';
+    }
+
+    return raw || 'qwen3:8b';
   }
 
   function isMatchingProjectEngineSession(sess, projectId, engine) {
@@ -230,9 +255,18 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
     session.busy = true;
     session.currentResponseText = '';
 
+    const resolvedModel = session.model || (session.engine === 'ollama' ? 'qwen3:8b' : 'gpt-5.4');
     const args = session.engineSessionId
-      ? ['exec', 'resume', '--json', '--model', session.model || 'gpt-5.4', session.engineSessionId, text]
-      : ['exec', '--json', '--model', session.model || 'gpt-5.4', text];
+      ? ['exec', 'resume', '--json', '--model', resolvedModel]
+      : ['exec', '--json', '--model', resolvedModel];
+    if (session.engine === 'ollama') {
+      args.push('--oss', '--local-provider', 'ollama');
+    }
+    if (session.engineSessionId) {
+      args.push(session.engineSessionId, text);
+    } else {
+      args.push(text);
+    }
 
     const codexProc = require('child_process').spawn('codex', args, {
       cwd: session.projectPath,
@@ -327,7 +361,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       session.busy = false;
       session.process = null;
       if (ws.readyState === WebSocket.OPEN) {
-        try { ws.send(JSON.stringify({ type: 'error', error: `Failed to run codex: ${err.message}` })); } catch (e) {}
+        try { ws.send(JSON.stringify({ type: 'error', error: `Failed to run ${session.engine === 'ollama' ? 'codex/ollama' : 'codex'}: ${err.message}` })); } catch (e) {}
       }
     });
   }
@@ -414,17 +448,15 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       try {
         const msg = JSON.parse(data.toString());
         if (msg.type === 'change_model') {
-          // Update model for next message
-          const validModels = ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-3-5'];
-          if (validModels.includes(msg.model)) {
-            session.model = msg.model;
-            // Persist model change
+          const nextModel = resolveChatModel(session.engine, msg.model);
+          if (nextModel) {
+            session.model = nextModel;
             const project = config.projects.find(p => p.id === session.projectId);
             if (project && session.persistentId) {
-              updateChatSessionMeta(project, session.persistentId, { model: msg.model });
+              updateChatSessionMeta(project, session.persistentId, { model: nextModel });
             }
             if (ws.readyState === WebSocket.OPEN) {
-              try { ws.send(JSON.stringify({ type: 'model_changed', model: msg.model })); } catch (e) {}
+              try { ws.send(JSON.stringify({ type: 'model_changed', model: nextModel })); } catch (e) {}
             }
           }
         } else if (msg.type === 'user_message') {
@@ -439,7 +471,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
               timestamp: new Date().toISOString()
             });
           }
-          if (session.engine === 'codex') {
+          if (session.engine === 'codex' || session.engine === 'ollama') {
             spawnCodexForMessage(session, msg.text, ws);
           } else {
             spawnClaudeForMessage(session, msg.text, ws);
@@ -458,7 +490,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
               timestamp: new Date().toISOString()
             });
           }
-          if (session.engine === 'codex') {
+          if (session.engine === 'codex' || session.engine === 'ollama') {
             spawnCodexForMessage(session, msg.text, ws);
           } else {
             spawnClaudeForMessage(session, msg.text, ws);
@@ -497,9 +529,11 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
-    const { model = 'sonnet', engine = 'claude', forceNew = false } = req.body;
-    const modelMap = { sonnet: 'claude-sonnet-4-6', opus: 'claude-opus-4-6', haiku: 'claude-haiku-3-5' };
-    const resolvedModel = modelMap[model] || model;
+    const requestedEngine = req.body?.engine || 'claude';
+    if (!VALID_ENGINES.has(requestedEngine)) return res.status(400).json({ error: 'Invalid engine' });
+    const { model = 'sonnet', forceNew = false } = req.body;
+    const engine = requestedEngine;
+    const resolvedModel = resolveChatModel(engine, model);
     const now = new Date().toISOString();
 
     if (!forceNew) {

@@ -360,6 +360,7 @@
     }
     .engine-badge.engine-claude { color: #cba6f7; }
     .engine-badge.engine-codex { color: #a6e3a1; }
+    .engine-badge.engine-ollama { color: #fab387; }
     .dev-card-name { font-weight: 600; font-size: 14px; }
     .dev-card-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
     .dev-card-stats { display: flex; gap: 12px; font-size: 12px; color: var(--text-subtle); }
@@ -1776,7 +1777,7 @@
             <div class="dev-card-header">
               <div class="status-dot ${dotClass}"></div>
               <div class="dev-card-name">${escHtml(p.name)}</div>
-              <span class="engine-badge engine-${p.engine === 'codex' ? 'codex' : 'claude'}">${p.engine === 'codex' ? '\ud83d\udfe2 Codex' : '\ud83d\udfe3 Claude'}</span>
+              <span class="engine-badge engine-${p.engine === 'codex' ? 'codex' : p.engine === 'ollama' ? 'ollama' : 'claude'}">${p.engine === 'codex' ? '\ud83d\udfe2 Codex' : p.engine === 'ollama' ? '\ud83d\udfe0 Ollama' : '\ud83d\udfe3 Claude'}</span>
             </div>
             <div class="dev-card-desc">${escHtml(p.description || '')}</div>
             <div class="dev-card-stats">

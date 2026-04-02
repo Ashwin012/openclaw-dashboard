@@ -25,6 +25,7 @@ const DEFAULT_MAX_CONCURRENCY = 2;
 const DEFAULT_ENGINE_MODELS = {
   claude: 'claude-sonnet-4-6',
   codex: 'gpt-5.4',
+  ollama: 'qwen3:8b',
 };
 const SUPPORTED_CODEX_MODELS = new Set(['default', 'gpt-5.4', 'gpt-5.3-codex']);
 const CLAUDE_MODEL_ALIASES = {
@@ -44,6 +45,10 @@ const CODEX_MODEL_ALIASES = {
   'openai-codex/gpt-5.4': 'gpt-5.4',
   'gpt-5.3-codex': 'gpt-5.3-codex',
   'openai-codex/gpt-5.3-codex': 'gpt-5.3-codex',
+};
+const OLLAMA_MODEL_ALIASES = {
+  qwen3: 'qwen3:8b',
+  'qwen3:8b': 'qwen3:8b',
 };
 
 const WARNING_THRESHOLDS_MIN = [30, 60, 120];
@@ -573,7 +578,9 @@ function buildCodexInstruction(projectPath, instruction) {
 // ─── Core task processing (claude stream-json / codex plain-text) ─────────────
 
 function getEngineLabel(engine) {
-  return engine === 'codex' ? 'Codex' : 'Claude Code';
+  if (engine === 'codex') return 'Codex';
+  if (engine === 'ollama') return 'Ollama local (via Codex)';
+  return 'Claude Code';
 }
 
 function inferModelProvider(model) {
@@ -595,6 +602,19 @@ function inferModelProvider(model) {
     /^o[1-9]-/.test(normalized)
   ) {
     return 'codex';
+  }
+
+  if (
+    normalized.includes(':') ||
+    normalized.startsWith('qwen') ||
+    normalized.startsWith('llama') ||
+    normalized.startsWith('mistral') ||
+    normalized.startsWith('mixtral') ||
+    normalized.startsWith('gemma') ||
+    normalized.startsWith('deepseek') ||
+    normalized.startsWith('phi')
+  ) {
+    return 'ollama';
   }
 
   return null;
@@ -655,6 +675,23 @@ function normalizeModelForEngine(model, engine) {
     };
   }
 
+  if (engine === 'ollama') {
+    if (!isModelCompatibleWithEngine(trimmed, engine)) {
+      return {
+        model: DEFAULT_ENGINE_MODELS.ollama,
+        source: 'safe-default',
+        reason: 'provider_mismatch',
+      };
+    }
+
+    const canonical = OLLAMA_MODEL_ALIASES[normalized] || trimmed;
+    return {
+      model: canonical,
+      source: canonical === trimmed ? 'configured' : 'normalized-alias',
+      reason: canonical === trimmed ? null : 'alias_normalized',
+    };
+  }
+
   return { model: trimmed, source: 'configured', reason: null };
 }
 
@@ -663,11 +700,11 @@ function normalizeFallbackModelForEngine(model, engine) {
     return { model: null, source: 'default', reason: null };
   }
 
-  if (engine === 'codex') {
+  if (engine === 'codex' || engine === 'ollama') {
     return {
       model: null,
       source: 'omitted',
-      reason: 'codex_cli_has_no_fallback_model',
+      reason: engine === 'codex' ? 'codex_cli_has_no_fallback_model' : 'ollama_via_codex_has_no_fallback_model',
     };
   }
 
@@ -988,16 +1025,19 @@ async function runEngine(project, task, engine, env, instruction, runState, opti
     log(`  Using fallback-model: ${fallbackModel}`);
   }
 
-  log(`  Spawning ${effectiveEngine === 'codex' ? 'Codex CLI' : 'Claude Code'} for task [${task.id}]`);
+  log(`  Spawning ${effectiveEngine === 'codex' ? 'Codex CLI' : effectiveEngine === 'ollama' ? 'Codex CLI (Ollama local provider)' : 'Claude Code'} for task [${task.id}]`);
 
   let proc;
-  if (effectiveEngine === 'codex') {
+  if (effectiveEngine === 'codex' || effectiveEngine === 'ollama') {
     const codexInstruction = buildCodexInstruction(projectPath, instruction);
     const codexArgs = [
       'exec',
       codexInstruction,
       '--dangerously-bypass-approvals-and-sandbox',
     ];
+    if (effectiveEngine === 'ollama') {
+      codexArgs.push('--oss', '--local-provider', 'ollama');
+    }
     if (model) codexArgs.push('--model', model);
     proc = spawn('codex', codexArgs, {
       cwd: projectPath,
@@ -1039,7 +1079,7 @@ async function runEngine(project, task, engine, env, instruction, runState, opti
   let resolveCompletion;
   const completionPromise = new Promise(res => { resolveCompletion = res; });
 
-  if (effectiveEngine === 'codex') {
+  if (effectiveEngine === 'codex' || effectiveEngine === 'ollama') {
     proc.stdout.on('data', chunk => {
       resultText += chunk.toString();
       runState.resultText = resultText;
@@ -1049,12 +1089,12 @@ async function runEngine(project, task, engine, env, instruction, runState, opti
 
     proc.on('close', code => {
       exitCode = code;
-      log(`  Codex process exited (code=${code}) for task [${task.id}]`);
+      log(`  ${effectiveEngine === 'ollama' ? 'Codex/Ollama' : 'Codex'} process exited (code=${code}) for task [${task.id}]`);
       resolveCompletion();
     });
 
     proc.on('error', err => {
-      logError(`Codex process error for task [${task.id}]`, err);
+      logError(`${effectiveEngine === 'ollama' ? 'Codex/Ollama' : 'Codex'} process error for task [${task.id}]`, err);
       resolveCompletion();
     });
   } else {
@@ -1506,7 +1546,7 @@ async function main() {
     return;
   }
 
-  log('Task worker started (multi-engine: claude stream-json / codex plain-text)');
+  log('Task worker started (multi-engine: claude stream-json / codex plain-text / ollama via codex)');
   log(`Poll interval: ${POLL_INTERVAL_MS / 1000}s | Quality gate timeout: ${QUALITY_GATE_TIMEOUT_MS / 60000}m`);
   log(`Max concurrency: ${getMaxConcurrency(config)}`);
   log(`Projects: ${config.projects.map(p => p.name).join(', ')}`);

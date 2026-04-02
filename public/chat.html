@@ -1084,6 +1084,7 @@
               <select class="model-select" id="engineSelect" onchange="onEngineSelectChange()">
                 <option value="claude">🟣 Claude Code</option>
                 <option value="codex">🟢 Codex (OpenAI)</option>
+                <option value="ollama">🟠 Ollama local (via Codex)</option>
               </select>
             </div>
             <div class="model-selector-group">
@@ -1182,6 +1183,54 @@
       gfm: true
     });
 
+    function getEngineLabel(engine) {
+      if (engine === 'codex') return 'Codex';
+      if (engine === 'ollama') return 'Ollama local (via Codex)';
+      return 'Claude Code';
+    }
+
+    function getEngineBadge(engine) {
+      if (engine === 'codex') return '🟢';
+      if (engine === 'ollama') return '🟠';
+      return '🟣';
+    }
+
+    function getPresetModelsForEngine(engine) {
+      if (engine === 'codex') {
+        return [
+          { value: 'gpt-5.4', label: 'gpt-5.4' },
+          { value: 'gpt-5.3-codex', label: 'gpt-5.3-codex' },
+        ];
+      }
+      if (engine === 'ollama') {
+        return [
+          { value: 'qwen3:8b', label: 'qwen3:8b' },
+          { value: 'custom', label: 'Custom model ID...' },
+        ];
+      }
+      return [
+        { value: 'sonnet', label: 'Sonnet — claude-sonnet-4-6' },
+        { value: 'opus', label: 'Opus — claude-opus-4-6' },
+        { value: 'haiku', label: 'Haiku — claude-haiku-3-5' },
+        { value: 'custom', label: 'Custom model ID...' },
+      ];
+    }
+
+    function syncTopbarModelOptions(engine, selectedModel) {
+      const select = document.getElementById('topbarModelSelect');
+      if (!select) return;
+      const options = getPresetModelsForEngine(engine)
+        .filter(option => option.value !== 'custom')
+        .map(option => ({ ...option }));
+      if (selectedModel && !options.some(option => option.value === selectedModel)) {
+        options.push({ value: selectedModel, label: selectedModel });
+      }
+      select.innerHTML = options.map(option => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
+      if (selectedModel && options.some(option => option.value === selectedModel)) {
+        select.value = selectedModel;
+      }
+    }
+
     // ---- Model selector ----
     function onModelChange() {
       const val = document.getElementById('modelSelect').value;
@@ -1194,23 +1243,14 @@
       const engine = document.getElementById('engineSelect').value;
       const modelSel = document.getElementById('modelSelect');
       const label = document.getElementById('startEngineLabel');
-      if (engine === 'codex') {
-        label.textContent = 'Codex';
-        modelSel.innerHTML = `
-          <option value="gpt-5.4">gpt-5.4</option>
-          <option value="gpt-5.3-codex">gpt-5.3-codex</option>
-        `;
-      } else {
-        label.textContent = 'Claude Code';
-        modelSel.innerHTML = `
-          <option value="sonnet">Sonnet — claude-sonnet-4-6</option>
-          <option value="opus">Opus — claude-opus-4-6</option>
-          <option value="haiku">Haiku — claude-haiku-3-5</option>
-          <option value="custom">Custom model ID...</option>
-        `;
-      }
+      const options = getPresetModelsForEngine(engine);
+      label.textContent = getEngineLabel(engine);
+      modelSel.innerHTML = options.map(option => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
       // Reset custom input display
-      document.getElementById('customModelInput').style.display = 'none';
+      const customInput = document.getElementById('customModelInput');
+      customInput.style.display = 'none';
+      customInput.placeholder = engine === 'ollama' ? 'e.g. qwen3:8b' : engine === 'codex' ? 'e.g. gpt-5.4' : 'e.g. claude-sonnet-4-6';
+      syncTopbarModelOptions(engine, null);
       if (shouldRefresh) {
         refreshSessionsForCurrentEngine();
       }
@@ -1313,7 +1353,7 @@
       const date = formatRelativeDate(s.lastActivityAt || s.createdAt);
       const preview = s.firstMessage || '(empty session)';
       const count = s.messageCount || 0;
-      const engineBadge = s.engine === 'codex' ? '🟢' : '🟣';
+      const engineBadge = getEngineBadge(s.engine);
 
       div.innerHTML = `
         <div class="session-item-top">
@@ -1498,10 +1538,7 @@
       // Show model switcher and sync its value
       const switcher = document.getElementById('modelSwitcher');
       switcher.classList.add('visible');
-      const sel = document.getElementById('topbarModelSelect');
-      if (sessionModel && sel.querySelector(`option[value="${sessionModel}"]`)) {
-        sel.value = sessionModel;
-      }
+      syncTopbarModelOptions(activeEngine || getSelectedEngine(), sessionModel);
     }
 
     async function startSession() {
@@ -1511,10 +1548,10 @@
       btn.textContent = forceNew ? 'Creating...' : 'Opening...';
 
       const selectVal = document.getElementById('modelSelect').value;
-      const model = selectVal === 'custom'
-        ? (document.getElementById('customModelInput').value.trim() || 'claude-sonnet-4-6')
-        : selectVal;
       const engine = (document.getElementById('engineSelect') || {}).value || 'claude';
+      const model = selectVal === 'custom'
+        ? (document.getElementById('customModelInput').value.trim() || (engine === 'ollama' ? 'qwen3:8b' : 'claude-sonnet-4-6'))
+        : selectVal;
 
       try {
         const res = await fetch(`/api/projects/${projectId}/chat/start`, {
@@ -2141,6 +2178,7 @@
       sessionModel = model;
       // Notify backend of model change via WebSocket
       ws.send(JSON.stringify({ type: 'change_model', model }));
+      syncTopbarModelOptions(activeEngine || getSelectedEngine(), model);
       appendSystem(`Model changed to ${model}`);
     }
 
@@ -2317,7 +2355,7 @@
             onEngineSelectChange(false);
           }
           document.getElementById('startProjectName').textContent =
-            `Chat with ${projEngine === 'codex' ? 'Codex' : 'Claude Code'} in ${projectData.name} (${projectData.description})`;
+            `Chat with ${getEngineLabel(projEngine)} in ${projectData.name} (${projectData.description})`;
           document.getElementById('hintProjectPath').textContent = projectData.path;
           document.title = `${projectData.name} Chat — Dev Dashboard`;
         }
