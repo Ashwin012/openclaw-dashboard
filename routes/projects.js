@@ -149,6 +149,28 @@ function buildAgents(project, tasks, workerRun) {
   const activeTasks = tasks.filter(task => task.status !== 'done');
   const agents = new Map();
 
+  function resolveAgentStatus(entry) {
+    if (entry.active && workerRun?.pendingQuestion) {
+      return { kind: 'waiting_input', label: 'Question' };
+    }
+    if (entry.active) {
+      return { kind: 'in_progress', label: 'Active' };
+    }
+    if (entry.statuses.includes('blocked')) {
+      return { kind: 'blocked', label: 'Blocked' };
+    }
+    if (entry.statuses.includes('review')) {
+      return { kind: 'review', label: 'Review' };
+    }
+    if (entry.statuses.includes('in_progress')) {
+      return { kind: 'in_progress', label: 'In Progress' };
+    }
+    if (entry.statuses.includes('queued')) {
+      return { kind: 'queued', label: 'Queued' };
+    }
+    return { kind: 'todo', label: 'Todo' };
+  }
+
   function upsertAgent({ name, role, source, engine, model, task }) {
     const normalizedName = typeof name === 'string' ? name.trim() : '';
     if (!normalizedName) return;
@@ -172,7 +194,13 @@ function buildAgents(project, tasks, workerRun) {
         active,
         taskIds: [],
         statuses: [],
-        updatedAt: task?.updatedAt || task?.createdAt || null
+        updatedAt: task?.updatedAt || task?.createdAt || null,
+        currentTask: task ? {
+          id: task.id,
+          title: task.title,
+          status: task.status || 'todo',
+          updatedAt: task.updatedAt || task.createdAt || null
+        } : null
       });
     }
 
@@ -183,6 +211,18 @@ function buildAgents(project, tasks, workerRun) {
     if (task?.status && !entry.statuses.includes(task.status)) entry.statuses.push(task.status);
     if (safeDateValue(task?.updatedAt || task?.createdAt) > safeDateValue(entry.updatedAt)) {
       entry.updatedAt = task.updatedAt || task.createdAt || entry.updatedAt;
+    }
+    if (task && (
+      !entry.currentTask
+      || active
+      || safeDateValue(task.updatedAt || task.createdAt) > safeDateValue(entry.currentTask.updatedAt)
+    )) {
+      entry.currentTask = {
+        id: task.id,
+        title: task.title,
+        status: task.status || 'todo',
+        updatedAt: task.updatedAt || task.createdAt || null
+      };
     }
   }
 
@@ -216,11 +256,20 @@ function buildAgents(project, tasks, workerRun) {
     });
   }
 
-  return Array.from(agents.values()).sort((a, b) => {
-    if (a.active !== b.active) return a.active ? -1 : 1;
-    if (b.taskCount !== a.taskCount) return b.taskCount - a.taskCount;
-    return safeDateValue(b.updatedAt) - safeDateValue(a.updatedAt);
-  });
+  return Array.from(agents.values())
+    .map(entry => {
+      const state = resolveAgentStatus(entry);
+      return {
+        ...entry,
+        statusKind: state.kind,
+        statusLabel: state.label
+      };
+    })
+    .sort((a, b) => {
+      if (a.active !== b.active) return a.active ? -1 : 1;
+      if (b.taskCount !== a.taskCount) return b.taskCount - a.taskCount;
+      return safeDateValue(b.updatedAt) - safeDateValue(a.updatedAt);
+    });
 }
 
 function buildCurrentStatus({ accessible, branch, lastActivity, uncommittedCount, unpushedCount, tasks, workerRun }) {

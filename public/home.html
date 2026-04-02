@@ -1790,15 +1790,36 @@
       return { bg: 'rgba(63,185,80,0.14)', color: 'var(--green)' };
     }
 
+    function agentStatusMeta(kind) {
+      if (kind === 'blocked') return { label: 'Bloqué', bg: 'rgba(248,81,73,0.14)', color: 'var(--red)' };
+      if (kind === 'review') return { label: 'Review', bg: 'rgba(188,140,255,0.14)', color: 'var(--purple)' };
+      if (kind === 'queued') return { label: 'En file', bg: 'rgba(210,153,34,0.14)', color: 'var(--yellow)' };
+      if (kind === 'waiting_input') return { label: 'Question', bg: 'rgba(210,153,34,0.14)', color: 'var(--yellow)' };
+      if (kind === 'in_progress') return { label: 'Actif', bg: 'rgba(88,166,255,0.14)', color: 'var(--accent)' };
+      return { label: 'À faire', bg: 'rgba(63,185,80,0.14)', color: 'var(--green)' };
+    }
+
     function renderProjectAgents(agents) {
       if (!Array.isArray(agents) || !agents.length) {
         return '<span style="font-size:11px;color:var(--text-muted)">Aucun agent attribué</span>';
       }
-      return agents.slice(0, 3).map(agent => `
-        <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:${agent.active ? 'rgba(88,166,255,0.14)' : 'var(--bg-card)'};border:1px solid ${agent.active ? 'rgba(88,166,255,0.28)' : 'var(--border)'};font-size:11px;color:${agent.active ? 'var(--accent)' : 'var(--text-muted)'}">
-          ${agent.active ? '●' : '○'} ${escHtml(agent.name)}${agent.engineLabel ? ` · ${escHtml(agent.engineLabel)}` : ''}
-        </span>
-      `).join('');
+      return agents.slice(0, 3).map(agent => {
+        const tone = agentStatusMeta(agent.statusKind);
+        const taskTitle = agent.currentTask?.title ? escHtml(agent.currentTask.title) : '';
+        return `
+          <span style="display:inline-flex;flex-direction:column;gap:6px;min-width:0;max-width:240px;padding:7px 9px;border-radius:12px;background:${agent.active ? 'rgba(88,166,255,0.10)' : 'var(--bg-card)'};border:1px solid ${agent.active ? 'rgba(88,166,255,0.24)' : 'var(--border)'}">
+            <span style="display:flex;align-items:center;gap:6px;min-width:0">
+              <span style="font-size:11px;color:${agent.active ? 'var(--accent)' : 'var(--text-muted)'}">${agent.active ? '●' : '○'}</span>
+              <span style="font-size:11px;color:var(--text);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(agent.name)}</span>
+              ${agent.engineLabel ? `<span style="font-size:10px;color:var(--text-subtle);white-space:nowrap">${escHtml(agent.engineLabel)}</span>` : ''}
+            </span>
+            <span style="display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0">
+              <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;background:${tone.bg};color:${tone.color};font-size:10px;font-weight:600;border:1px solid ${tone.color}33;white-space:nowrap">${tone.label}</span>
+              ${taskTitle ? `<span title="${taskTitle}" style="font-size:10px;color:var(--text-muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${taskTitle}</span>` : ''}
+            </span>
+          </span>
+        `;
+      }).join('');
     }
 
     function renderDevSummary() {
