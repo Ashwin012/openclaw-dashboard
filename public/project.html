@@ -450,6 +450,24 @@
       };
     }
 
+    function getProjectStatusTone(kind) {
+      if (kind === 'blocked' || kind === 'unavailable') return { bg: 'rgba(248,81,73,0.14)', color: 'var(--red)' };
+      if (kind === 'review' || kind === 'queued' || kind === 'waiting_input' || kind === 'changes' || kind === 'unpushed') return { bg: 'rgba(210,153,34,0.14)', color: 'var(--yellow)' };
+      if (kind === 'in_progress') return { bg: 'rgba(88,166,255,0.14)', color: 'var(--accent)' };
+      return { bg: 'rgba(63,185,80,0.14)', color: 'var(--green)' };
+    }
+
+    function renderProjectAgents(agents) {
+      if (!Array.isArray(agents) || !agents.length) {
+        return '<span style="font-size:12px;color:var(--text-muted)">Aucun agent attribué.</span>';
+      }
+      return agents.map(agent => `
+        <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:${agent.active ? 'rgba(88,166,255,0.14)' : 'var(--bg-card)'};border:1px solid ${agent.active ? 'rgba(88,166,255,0.28)' : 'var(--border)'};font-size:11px;color:${agent.active ? 'var(--accent)' : 'var(--text-muted)'}">
+          ${agent.active ? '●' : '○'} ${escapeHtml(agent.name)}${agent.roleLabel ? ` · ${escapeHtml(agent.roleLabel)}` : ''}${agent.engineLabel ? ` · ${escapeHtml(agent.engineLabel)}` : ''}${agent.model ? ` · ${escapeHtml(agent.model)}` : ''}
+        </span>
+      `).join('');
+    }
+
     function renderTaskModelBadges(task) {
       const info = getTaskModelInfo(task);
       const badges = [
@@ -658,6 +676,8 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       projectData = data;
       currentEngine = data.engine || 'claude';
       const hasChanges = data.files && data.files.length > 0;
+      const statusTone = getProjectStatusTone(data.currentStatus?.kind);
+      const primaryTask = data.currentStatus?.primaryTask;
 
       document.title = `${data.name} — Dev Dashboard`;
 
@@ -674,6 +694,14 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
           <div class="project-header-left">
             <h1>${escapeHtml(data.name)}</h1>
             <div class="desc">${escapeHtml(data.description)} &mdash; <code style="font-size:12px;color:var(--text-muted)">${escapeHtml(data.branch)}</code></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
+              <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:${statusTone.bg};color:${statusTone.color};font-size:11px;font-weight:600;border:1px solid ${statusTone.color}33">${escapeHtml(data.currentStatus?.label || 'Clean')}</span>
+              <span style="font-size:12px;color:var(--text-muted)">${escapeHtml(data.currentStatus?.summary || '')}</span>
+              ${primaryTask ? `<span style="font-size:12px;color:var(--text-muted)">Tâche active: ${escapeHtml(primaryTask.title)} (${escapeHtml(primaryTask.status)})</span>` : ''}
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+              ${renderProjectAgents(data.agents)}
+            </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span class="badge ${hasChanges ? 'badge-pending' : 'badge-clean'}">

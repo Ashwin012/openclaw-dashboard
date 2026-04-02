@@ -1,4 +1,5 @@
 const fs = require('fs');
+const http = require('http');
 const path = require('path');
 const { git, validateBranchName, validateHash } = require('../lib/git');
 const { readJSON, writeJSON } = require('../lib/json-store');
@@ -99,6 +100,276 @@ function readTasks(project) {
   return Array.isArray(data.tasks) ? data.tasks : [];
 }
 
+function getEngineLabel(engine) {
+  if (engine === 'codex') return 'Codex';
+  if (engine === 'ollama') return 'Ollama';
+  return 'Claude';
+}
+
+function safeDateValue(value) {
+  const time = Date.parse(value || '');
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function getTaskCounts(tasks) {
+  const counts = {
+    total: tasks.length,
+    todo: 0,
+    queued: 0,
+    in_progress: 0,
+    review: 0,
+    blocked: 0,
+    done: 0
+  };
+
+  for (const task of tasks) {
+    const status = task && typeof task.status === 'string' ? task.status : 'todo';
+    if (counts[status] !== undefined) counts[status] += 1;
+  }
+
+  return counts;
+}
+
+function pickPrimaryTask(tasks, workerRun) {
+  if (workerRun) {
+    const activeTask = tasks.find(task => task.id === workerRun.id);
+    if (activeTask) return activeTask;
+  }
+
+  const priority = { in_progress: 0, review: 1, queued: 2, blocked: 3, todo: 4, done: 5 };
+  return [...tasks]
+    .sort((a, b) => {
+      const statusDelta = (priority[a.status] ?? 99) - (priority[b.status] ?? 99);
+      if (statusDelta !== 0) return statusDelta;
+      return safeDateValue(b.updatedAt || b.createdAt) - safeDateValue(a.updatedAt || a.createdAt);
+    })[0] || null;
+}
+
+function buildAgents(project, tasks, workerRun) {
+  const activeTasks = tasks.filter(task => task.status !== 'done');
+  const agents = new Map();
+
+  function upsertAgent({ name, role, source, engine, model, task }) {
+    const normalizedName = typeof name === 'string' ? name.trim() : '';
+    if (!normalizedName) return;
+
+    const normalizedEngine = (engine || project.engine || '').trim();
+    const normalizedModel = typeof model === 'string' ? model.trim() : '';
+    const key = [role, normalizedName.toLowerCase(), normalizedEngine, normalizedModel].join('|');
+    const active = Boolean(workerRun && task && workerRun.id === task.id);
+
+    if (!agents.has(key)) {
+      agents.set(key, {
+        key,
+        name: normalizedName,
+        role,
+        roleLabel: role === 'technical' ? 'Technical' : role === 'coder' ? 'Coder' : 'Assignee',
+        source,
+        engine: normalizedEngine || null,
+        engineLabel: normalizedEngine ? getEngineLabel(normalizedEngine) : null,
+        model: normalizedModel || null,
+        taskCount: 0,
+        active,
+        taskIds: [],
+        statuses: [],
+        updatedAt: task?.updatedAt || task?.createdAt || null
+      });
+    }
+
+    const entry = agents.get(key);
+    entry.taskCount += task ? 1 : 0;
+    entry.active = entry.active || active;
+    if (task?.id && !entry.taskIds.includes(task.id)) entry.taskIds.push(task.id);
+    if (task?.status && !entry.statuses.includes(task.status)) entry.statuses.push(task.status);
+    if (safeDateValue(task?.updatedAt || task?.createdAt) > safeDateValue(entry.updatedAt)) {
+      entry.updatedAt = task.updatedAt || task.createdAt || entry.updatedAt;
+    }
+  }
+
+  for (const task of activeTasks) {
+    const taskEngine = task.engine || project.engine || '';
+    upsertAgent({
+      name: task.assignee || 'agent',
+      role: 'assignee',
+      source: 'task',
+      engine: taskEngine,
+      model: task.model || '',
+      task
+    });
+
+    upsertAgent({
+      name: task.technicalAgent,
+      role: 'technical',
+      source: 'task',
+      engine: taskEngine,
+      model: task.model || '',
+      task
+    });
+
+    upsertAgent({
+      name: task.coderAgent,
+      role: 'coder',
+      source: 'task',
+      engine: taskEngine,
+      model: task.model || '',
+      task
+    });
+  }
+
+  return Array.from(agents.values()).sort((a, b) => {
+    if (a.active !== b.active) return a.active ? -1 : 1;
+    if (b.taskCount !== a.taskCount) return b.taskCount - a.taskCount;
+    return safeDateValue(b.updatedAt) - safeDateValue(a.updatedAt);
+  });
+}
+
+function buildCurrentStatus({ accessible, branch, lastActivity, uncommittedCount, unpushedCount, tasks, workerRun }) {
+  const counts = getTaskCounts(tasks);
+  const primaryTask = pickPrimaryTask(tasks.filter(task => task.status !== 'done'), workerRun);
+
+  const worker = workerRun ? {
+    active: true,
+    taskId: workerRun.id,
+    title: workerRun.title,
+    startedAt: workerRun.startedAt || null,
+    durationMin: workerRun.durationMin ?? null,
+    engine: workerRun.engine || null,
+    pendingQuestion: workerRun.pendingQuestion || null
+  } : {
+    active: false,
+    taskId: null,
+    title: null,
+    startedAt: null,
+    durationMin: null,
+    engine: null,
+    pendingQuestion: null
+  };
+
+  let kind = 'clean';
+  let label = 'Clean';
+  let summary = 'Aucune action immédiate';
+
+  if (!accessible) {
+    kind = 'unavailable';
+    label = 'Unavailable';
+    summary = 'Repository inaccessible';
+  } else if (worker.active && worker.pendingQuestion) {
+    kind = 'waiting_input';
+    label = 'Question';
+    summary = `Réponse attendue sur "${worker.title}"`;
+  } else if (worker.active) {
+    kind = 'in_progress';
+    label = 'In Progress';
+    summary = `Worker actif sur "${worker.title}"`;
+  } else if (counts.blocked > 0) {
+    kind = 'blocked';
+    label = 'Blocked';
+    summary = `${counts.blocked} tâche${counts.blocked > 1 ? 's' : ''} bloquée${counts.blocked > 1 ? 's' : ''}`;
+  } else if (counts.review > 0) {
+    kind = 'review';
+    label = 'Review';
+    summary = `${counts.review} tâche${counts.review > 1 ? 's' : ''} en review`;
+  } else if (counts.in_progress > 0) {
+    kind = 'in_progress';
+    label = 'In Progress';
+    summary = `${counts.in_progress} tâche${counts.in_progress > 1 ? 's' : ''} en cours`;
+  } else if (counts.queued > 0) {
+    kind = 'queued';
+    label = 'Queued';
+    summary = `${counts.queued} tâche${counts.queued > 1 ? 's' : ''} en file`;
+  } else if (uncommittedCount > 0) {
+    kind = 'changes';
+    label = 'Changes';
+    summary = `${uncommittedCount} changement${uncommittedCount > 1 ? 's' : ''} non commités`;
+  } else if (unpushedCount > 0) {
+    kind = 'unpushed';
+    label = 'Unpushed';
+    summary = `${unpushedCount} commit${unpushedCount > 1 ? 's' : ''} à pousser`;
+  } else if (counts.todo > 0) {
+    kind = 'todo';
+    label = 'Todo';
+    summary = `${counts.todo} tâche${counts.todo > 1 ? 's' : ''} à lancer`;
+  }
+
+  return {
+    kind,
+    label,
+    summary,
+    accessible,
+    counts,
+    git: {
+      branch: branch || null,
+      lastActivity: lastActivity || null,
+      uncommittedCount,
+      unpushedCount
+    },
+    worker,
+    primaryTask: primaryTask ? {
+      id: primaryTask.id,
+      title: primaryTask.title,
+      status: primaryTask.status || 'todo',
+      assignee: primaryTask.assignee || 'agent',
+      engine: primaryTask.engine || null,
+      model: primaryTask.model || null,
+      updatedAt: primaryTask.updatedAt || primaryTask.createdAt || null
+    } : null
+  };
+}
+
+function enrichProject(project, projectState, workerSnapshot) {
+  const tasks = readTasks(project);
+  const workerRun = Array.isArray(workerSnapshot?.tasks)
+    ? workerSnapshot.tasks.find(run => run.projectId === project.id) || null
+    : null;
+  const agents = buildAgents(project, tasks, workerRun);
+  const currentStatus = buildCurrentStatus({
+    accessible: projectState.accessible !== false,
+    branch: projectState.branch,
+    lastActivity: projectState.lastActivity || projectState.lastCommitDate || null,
+    uncommittedCount: projectState.uncommittedCount || 0,
+    unpushedCount: projectState.unpushedCount || 0,
+    tasks,
+    workerRun
+  });
+
+  return {
+    ...projectState,
+    taskCount: tasks.filter(task => task.status !== 'done').length,
+    taskTotal: tasks.length,
+    agents,
+    currentStatus
+  };
+}
+
+function fetchWorkerSnapshot() {
+  return new Promise((resolve) => {
+    const req = http.get('http://127.0.0.1:8091/status', (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          resolve(null);
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(body);
+          resolve(parsed && typeof parsed === 'object' ? parsed : null);
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+
+    req.on('error', () => resolve(null));
+    req.setTimeout(750, () => {
+      req.destroy();
+      resolve(null);
+    });
+  });
+}
+
 // ===== Route factory =====
 
 module.exports = function createProjectRoutes({ config, requireAuth, requireAuthOrBearer }) {
@@ -107,6 +378,7 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
   // GET /api/projects — list all with git status
   router.get('/api/projects', requireAuth, async (req, res) => {
     try {
+      const workerSnapshot = await fetchWorkerSnapshot();
       const projects = await Promise.all(config.projects.map(async (p) => {
         try {
           const { stdout: branch } = await git(['rev-parse', '--abbrev-ref', 'HEAD'], p.path);
@@ -170,11 +442,7 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
             lastCommitDate: lastLog.trim()
           };
 
-          const allTasks = readTasks(p);
-          const taskTotal = allTasks.length;
-          const taskCount = allTasks.filter(t => t.status !== 'done').length;
-
-          return {
+          return enrichProject(p, {
             ...p,
             branch: branchName,
             pendingChanges: changedFiles,
@@ -185,12 +453,20 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
             lastActivity: lastLog.trim(),
             recentCommits,
             stats,
-            taskCount,
-            taskTotal,
             accessible: true
-          };
+          }, workerSnapshot);
         } catch (err) {
-          return { ...p, branch: 'unknown', pendingChanges: 0, unpushedCount: 0, uncommittedCount: 0, lastActivity: null, recentCommits: [], accessible: false, taskCount: 0, taskTotal: 0, error: err.message };
+          return enrichProject(p, {
+            ...p,
+            branch: 'unknown',
+            pendingChanges: 0,
+            unpushedCount: 0,
+            uncommittedCount: 0,
+            lastActivity: null,
+            recentCommits: [],
+            accessible: false,
+            error: err.message
+          }, workerSnapshot);
         }
       }));
       res.json(projects);
@@ -210,7 +486,9 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
     const repoPath = resolveRepoPath(project, req.query.repo);
 
     try {
+      const workerSnapshot = await fetchWorkerSnapshot();
       const { stdout: branch } = await git(['rev-parse', '--abbrev-ref', 'HEAD'], repoPath);
+      const branchName = branch.trim();
       const { stdout: statusRaw } = await git(['status', '--porcelain'], repoPath);
       const { stdout: diffRaw } = await git(
         ['diff', 'HEAD', '--', ':!vendor', ':!node_modules', ':!.next', ':!storage'],
@@ -273,16 +551,22 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
 
       const { stdout: lastLog } = await git(['log', '-1', '--format=%ci|%s'], repoPath);
       const [lastDate, ...subjectParts] = lastLog.trim().split('|');
+      const unpushed = await getUnpushedCommits({ ...project, path: repoPath }, branchName);
 
-      res.json({
+      res.json(enrichProject(project, {
         ...project,
-        branch: branch.trim(),
+        branch: branchName,
         files,
         diff: fullDiff,
         lastCommitDate: lastDate,
         lastCommitMessage: subjectParts.join('|'),
         activeRepo: req.query.repo || null,
-      });
+        uncommittedCount: allFiles.length,
+        pendingChanges: allFiles.length,
+        unpushedCount: unpushed.length,
+        lastActivity: lastDate || null,
+        accessible: true
+      }, workerSnapshot));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
