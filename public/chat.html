@@ -1528,8 +1528,13 @@
       if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
       hideReconnectBanner();
       if (ws) { try { ws.close(1000, 'Stopped'); } catch (e) {} ws = null; }
+      const engine = getSelectedEngine();
       try {
-        await fetch(`/api/projects/${projectId}/chat/stop`, { method: 'POST' });
+        await fetch(`/api/projects/${projectId}/chat/stop`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ engine })
+        });
       } catch (e) {}
       appendSystem('Session stopped.');
       setStatus('', 'Stopped');

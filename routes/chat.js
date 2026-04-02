@@ -4,6 +4,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
   const crypto = require('crypto');
   const { spawn } = require('child_process');
   const path = require('path');
+  const { readJSON, writeJSON } = require('../lib/json-store');
 
   const wss = new WebSocket.Server({ noServer: true });
   const chatSessions = new Map(); // sessionId -> { projectId, projectPath, model, process, ws, status }
@@ -15,17 +16,33 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
   }
 
   function readChatSessions(project) {
-    const fs = require('fs');
-    const p = getChatSessionsPath(project);
-    if (!fs.existsSync(p)) return [];
-    try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return []; }
+    return readJSON(getChatSessionsPath(project), []);
   }
 
   function writeChatSessions(project, sessions) {
-    const fs = require('fs');
-    const dir = path.join(project.path, '.claude');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(getChatSessionsPath(project), JSON.stringify(sessions, null, 2), 'utf8');
+    writeJSON(getChatSessionsPath(project), sessions);
+  }
+
+  function getRequestEngine(req, fallback = 'claude') {
+    return req.body?.engine || req.query.engine || fallback;
+  }
+
+  function isMatchingProjectEngineSession(sess, projectId, engine) {
+    return sess.projectId === projectId && (sess.engine || 'claude') === engine;
+  }
+
+  function cleanupInMemorySessions(projectId, engine, project) {
+    const now = new Date().toISOString();
+    for (const [sid, sess] of chatSessions.entries()) {
+      if (!isMatchingProjectEngineSession(sess, projectId, engine)) continue;
+      if (sess.cleanupTimer) clearTimeout(sess.cleanupTimer);
+      if (sess.process) { try { sess.process.kill('SIGTERM'); } catch (e) {} }
+      if (sess.ws) { try { sess.ws.close(); } catch (e) {} }
+      if (project && sess.persistentId) {
+        updateChatSessionMeta(project, sess.persistentId, { status: 'closed', lastActivityAt: now });
+      }
+      chatSessions.delete(sid);
+    }
   }
 
   function upsertChatSession(project, sessionData) {
@@ -431,17 +448,8 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
-    // Clean up any existing session for this project
-    for (const [sid, sess] of chatSessions.entries()) {
-      if (sess.projectId === req.params.id) {
-        if (sess.cleanupTimer) clearTimeout(sess.cleanupTimer);
-        if (sess.process) { try { sess.process.kill(); } catch (e) {} }
-        if (sess.ws) { try { sess.ws.close(); } catch (e) {} }
-        chatSessions.delete(sid);
-      }
-    }
-
     const { model = 'sonnet', engine = 'claude' } = req.body;
+    cleanupInMemorySessions(req.params.id, engine, project);
     const modelMap = { sonnet: 'claude-sonnet-4-6', opus: 'claude-opus-4-6', haiku: 'claude-haiku-3-5' };
     const resolvedModel = modelMap[model] || model;
 
@@ -483,18 +491,9 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
   router.post('/api/projects/:id/chat/stop', requireAuth, (req, res) => {
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
+    const engine = getRequestEngine(req, project.engine || 'claude');
 
-    for (const [sid, sess] of chatSessions.entries()) {
-      if (sess.projectId === req.params.id) {
-        if (sess.cleanupTimer) clearTimeout(sess.cleanupTimer);
-        if (sess.process) { try { sess.process.kill('SIGTERM'); } catch (e) {} }
-        if (sess.ws) { try { sess.ws.close(); } catch (e) {} }
-        if (project && sess.persistentId) {
-          updateChatSessionMeta(project, sess.persistentId, { status: 'closed', lastActivityAt: new Date().toISOString() });
-        }
-        chatSessions.delete(sid);
-      }
-    }
+    cleanupInMemorySessions(req.params.id, engine, project);
 
     res.json({ ok: true });
   });
@@ -502,11 +501,12 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
   router.get('/api/projects/:id/chat/status', requireAuth, (req, res) => {
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
+    const engine = getRequestEngine(req, project.engine || 'claude');
 
     let activeSession = null;
     for (const [sessionId, sess] of chatSessions.entries()) {
-      if (sess.projectId === req.params.id) {
-        activeSession = { sessionId, model: sess.model, status: sess.status };
+      if (isMatchingProjectEngineSession(sess, req.params.id, engine)) {
+        activeSession = { sessionId, model: sess.model, engine: sess.engine || 'claude', status: sess.status };
         break;
       }
     }
@@ -561,12 +561,15 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
     // If session is still in memory (short disconnect), just clear timer and reuse
     const existing = chatSessions.get(sessionId);
     if (existing) {
+      if (existing.projectId !== req.params.id) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
       if (existing.cleanupTimer) {
         clearTimeout(existing.cleanupTimer);
         existing.cleanupTimer = null;
       }
       existing.status = 'pending';
-      return res.json({ sessionId, model: existing.model });
+      return res.json({ sessionId, model: existing.model, engine: existing.engine || 'claude' });
     }
 
     // Load from persistent storage
@@ -574,15 +577,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
     const persistent = sessions.find(s => s.id === sessionId);
     if (!persistent) return res.status(404).json({ error: 'Session not found' });
 
-    // Clean up any active sessions for this project
-    for (const [sid, sess] of chatSessions.entries()) {
-      if (sess.projectId === req.params.id) {
-        if (sess.cleanupTimer) clearTimeout(sess.cleanupTimer);
-        if (sess.process) { try { sess.process.kill(); } catch (e) {} }
-        if (sess.ws) { try { sess.ws.close(); } catch (e) {} }
-        chatSessions.delete(sid);
-      }
-    }
+    cleanupInMemorySessions(req.params.id, persistent.engine || 'claude', project);
 
     chatSessions.set(sessionId, {
       projectId: req.params.id,
@@ -601,7 +596,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
     });
 
     updateChatSessionMeta(project, sessionId, { status: 'active', lastActivityAt: new Date().toISOString() });
-    res.json({ sessionId, model: persistent.model });
+    res.json({ sessionId, model: persistent.model, engine: persistent.engine || 'claude' });
   });
 
   return { router, setupWebSocket };
