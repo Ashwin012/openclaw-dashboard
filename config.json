@@ -15,7 +15,10 @@
       "testUrl": "http://158.69.1.160:3084",
       "stagingUrl": "https://sto.afdex.io",
       "githubUrl": "https://github.com/Infozen/afdex-sto",
-      "engine": "claude"
+      "engine": "claude",
+      "openclawAgentIds": [
+        "afdex"
+      ]
     },
     {
       "id": "champion-spirit",
@@ -40,7 +43,10 @@
       "stagingUrl": "https://manager.staging.championspirit.com",
       "prodUrl": "https://manager.championspirit.com",
       "githubUrl": "https://github.com/Champion-Spirit/championspirit-api",
-      "engine": "claude"
+      "engine": "claude",
+      "openclawAgentIds": [
+        "champion-spirit"
+      ]
     },
     {
       "id": "trading-bot",
@@ -56,7 +62,10 @@
       "testUrl": "http://158.69.1.160:8080",
       "prodUrl": "http://45.77.131.11:8080/",
       "githubUrl": "https://github.com/Ashwin012/trading-bot",
-      "engine": "claude"
+      "engine": "claude",
+      "openclawAgentIds": [
+        "trading-bot"
+      ]
     },
     {
       "id": "stho",
@@ -81,7 +90,10 @@
       "stagingUrl": "https://app.staging.thestho.com/",
       "prodUrl": "https://thestho.com/",
       "githubUrl": "https://github.com/STHO-Global/stho-api",
-      "engine": "claude"
+      "engine": "claude",
+      "openclawAgentIds": [
+        "stho"
+      ]
     },
     {
       "id": "openclaw-dashboard",
@@ -96,7 +108,10 @@
       "description": "Dashboard de gestion des projets, trading, facturation et veille",
       "testUrl": "http://158.69.1.160:8090",
       "githubUrl": "https://github.com/Ashwin012/openclaw-dashboard",
-      "engine": "claude"
+      "engine": "claude",
+      "openclawAgentIds": [
+        "main"
+      ]
     },
     {
       "id": "royal-heights",
@@ -112,7 +127,10 @@
       "prodUrl": "https://royal-heights.mu",
       "githubUrl": "https://github.com/Infozen/royal-heights-website",
       "testUrl": "http://158.69.1.160:8085",
-      "engine": "claude"
+      "engine": "claude",
+      "openclawAgentIds": [
+        "royal-heights"
+      ]
     },
     {
       "id": "synapcoin",
@@ -130,7 +148,10 @@
       "apiUrl": "http://158.69.1.160:3001",
       "prodUrl": "https://synapcoin.io",
       "prodApiUrl": "https://api.synapcoin.io",
-      "engine": "claude"
+      "engine": "claude",
+      "openclawAgentIds": [
+        "synapcoin"
+      ]
     },
     {
       "id": "synaphive",
@@ -148,7 +169,68 @@
       "apiUrl": "http://158.69.1.160:4000",
       "prodUrl": "https://synaphive.io",
       "prodApiUrl": "https://api.synaphive.io",
-      "engine": "claude"
+      "engine": "claude",
+      "openclawAgentIds": [
+        "synaphive"
+      ]
+    }
+  ],
+  "openclawAgents": [
+    {
+      "id": "afdex",
+      "name": "Afdex",
+      "engine": "claude",
+      "model": "claude-sonnet-4-6",
+      "workspacePath": "/home/openclaw/projects/afdex"
+    },
+    {
+      "id": "champion-spirit",
+      "name": "Champion Spirit",
+      "engine": "claude",
+      "model": "claude-sonnet-4-6",
+      "workspacePath": "/home/openclaw/projects/champion-spirit"
+    },
+    {
+      "id": "trading-bot",
+      "name": "Trading Bot",
+      "engine": "claude",
+      "model": "claude-sonnet-4-6",
+      "workspacePath": "/home/openclaw/projects/trading-bot"
+    },
+    {
+      "id": "stho",
+      "name": "STHO",
+      "engine": "claude",
+      "model": "claude-sonnet-4-6",
+      "workspacePath": "/home/openclaw/projects/stho"
+    },
+    {
+      "id": "royal-heights",
+      "name": "Royal Heights",
+      "engine": "claude",
+      "model": "claude-sonnet-4-6",
+      "workspacePath": "/home/openclaw/projects/royal-heights"
+    },
+    {
+      "id": "synapcoin",
+      "name": "SynapCoin",
+      "engine": "claude",
+      "model": "claude-sonnet-4-6",
+      "workspacePath": "/home/openclaw/projects/synapcoin"
+    },
+    {
+      "id": "synaphive",
+      "name": "SynapHive",
+      "engine": "claude",
+      "model": "claude-sonnet-4-6",
+      "workspacePath": "/home/openclaw/projects/synaphive"
+    },
+    {
+      "id": "main",
+      "name": "Main",
+      "engine": "claude",
+      "model": "claude-sonnet-4-6",
+      "workspacePath": "/home/openclaw/projects/dev-dashboard"
     }
   ]
 }

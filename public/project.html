@@ -459,13 +459,20 @@
 
     function renderProjectAgents(agents) {
       if (!Array.isArray(agents) || !agents.length) {
-        return '<span style="font-size:12px;color:var(--text-muted)">Aucun agent attribué.</span>';
+        return '<span style="font-size:12px;color:var(--text-muted)">Aucun agent OpenClaw rattaché.</span>';
       }
-      return agents.map(agent => `
-        <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:${agent.active ? 'rgba(88,166,255,0.14)' : 'var(--bg-card)'};border:1px solid ${agent.active ? 'rgba(88,166,255,0.28)' : 'var(--border)'};font-size:11px;color:${agent.active ? 'var(--accent)' : 'var(--text-muted)'}">
-          ${agent.active ? '●' : '○'} ${escapeHtml(agent.name)}${agent.roleLabel ? ` · ${escapeHtml(agent.roleLabel)}` : ''}${agent.engineLabel ? ` · ${escapeHtml(agent.engineLabel)}` : ''}${agent.model ? ` · ${escapeHtml(agent.model)}` : ''}
-        </span>
-      `).join('');
+      return agents.map(agent => {
+        const runtimeKind = agent.runtimeStatus || agent.statusKind || 'idle';
+        const tone = getAgentStatusTone(runtimeKind);
+        const rawName = agent.name || agent.agentId || 'Agent';
+        const rawAgentId = typeof agent.agentId === 'string' ? agent.agentId.trim() : '';
+        const runtimeLabel = tone.label || runtimeKind;
+        return `
+          <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:${tone.bg};border:1px solid ${tone.color}33;font-size:11px;color:${tone.color}">
+            ${runtimeKind === 'active' ? '●' : runtimeKind === 'down' ? '◌' : '○'} ${escapeHtml(rawName)}${rawAgentId && rawAgentId !== rawName ? ` · ${escapeHtml(rawAgentId)}` : ''}${agent.model ? ` · ${escapeHtml(agent.model)}` : ''} · ${escapeHtml(runtimeLabel)}
+          </span>
+        `;
+      }).join('');
     }
 
     function renderTaskModelBadges(task) {
@@ -491,12 +498,13 @@
     }
 
     function getAgentStatusTone(kind) {
-      if (kind === 'blocked') return { bg: 'rgba(248,81,73,0.14)', color: 'var(--red)' };
-      if (kind === 'review' || kind === 'queued') return { bg: 'rgba(210,153,34,0.14)', color: 'var(--yellow)' };
-      if (kind === 'waiting_input') return { bg: 'rgba(250,179,135,0.14)', color: '#fab387' };
-      if (kind === 'in_progress') return { bg: 'rgba(88,166,255,0.14)', color: 'var(--accent)' };
-      if (kind === 'idle') return { bg: 'rgba(139,148,158,0.14)', color: 'var(--text-muted)' };
-      return { bg: 'rgba(139,148,158,0.14)', color: 'var(--text-muted)' };
+      if (kind === 'down') return { label: 'Down', bg: 'rgba(248,81,73,0.14)', color: 'var(--red)' };
+      if (kind === 'active' || kind === 'in_progress') return { label: 'Active', bg: 'rgba(88,166,255,0.14)', color: 'var(--accent)' };
+      if (kind === 'idle') return { label: 'Idle', bg: 'rgba(139,148,158,0.14)', color: 'var(--text-muted)' };
+      if (kind === 'blocked') return { label: 'Blocked', bg: 'rgba(248,81,73,0.14)', color: 'var(--red)' };
+      if (kind === 'review' || kind === 'queued') return { label: 'Review', bg: 'rgba(210,153,34,0.14)', color: 'var(--yellow)' };
+      if (kind === 'waiting_input') return { label: 'Question', bg: 'rgba(250,179,135,0.14)', color: '#fab387' };
+      return { label: 'Todo', bg: 'rgba(139,148,158,0.14)', color: 'var(--text-muted)' };
     }
 
     function normalizeAgentName(value) {
@@ -544,95 +552,148 @@
       const pane = document.getElementById('agentsPane');
       if (!pane) return;
 
-      const agents = Array.isArray(projectData?.agents) ? projectData.agents : [];
-      const workerRun = projectData?.currentStatus?.worker || null;
+      const projectAgents = Array.isArray(projectData?.projectAgents)
+        ? projectData.projectAgents
+        : (Array.isArray(projectData?.agents) ? projectData.agents : []);
+      const taskAgents = Array.isArray(projectData?.taskAgents) ? projectData.taskAgents : [];
 
-      if (!agents.length) {
-        pane.innerHTML = `
-          <div class="empty-state" style="padding:48px">
-            <div class="icon">&#129302;</div>
-            <h3>No agents yet</h3>
-            <p>No agent identity is currently attached to active project tasks.</p>
-          </div>`;
-        return;
-      }
-
-      const activeCount = agents.filter(agent => agent.active).length;
-      const waitingCount = agents.filter(agent => agent.statusKind === 'waiting_input').length;
-      const withTasksCount = agents.filter(agent => getTasksForAgent(agent).length > 0).length;
-
-      pane.innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
-          <div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
-            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Identities</div>
-            <div style="font-size:26px;color:var(--text);font-weight:700;margin-top:6px">${agents.length}</div>
-          </div>
-          <div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
-            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Active</div>
-            <div style="font-size:26px;color:var(--accent);font-weight:700;margin-top:6px">${activeCount}</div>
-          </div>
-          <div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
-            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Waiting Input</div>
-            <div style="font-size:26px;color:#fab387;font-weight:700;margin-top:6px">${waitingCount}</div>
-          </div>
-          <div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
-            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Linked Tasks</div>
-            <div style="font-size:26px;color:var(--text);font-weight:700;margin-top:6px">${withTasksCount}</div>
-          </div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:14px">
-          ${agents.map(agent => {
-            const tone = getAgentStatusTone(agent.statusKind);
-            const agentTasks = getTasksForAgent(agent);
-            const currentTask = agent.currentTask || agentTasks[0] || null;
-            const runInfo = agent.active ? workerRun : null;
-            return `
-              <section style="border:1px solid var(--border);border-radius:12px;background:var(--bg-card);padding:16px">
-                <div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap">
-                  <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-                      <h3 style="margin:0;font-size:18px;color:var(--text)">${escapeHtml(agent.name)}</h3>
-                      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:${tone.bg};color:${tone.color};font-size:11px;font-weight:600;border:1px solid ${tone.color}33">${escapeHtml(agent.statusLabel || 'Todo')}</span>
-                      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--bg-surface);color:var(--text-muted);font-size:11px;border:1px solid var(--border)">${escapeHtml(agent.roleLabel || 'Agent')}</span>
-                    </div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap">
-                      ${agent.engineLabel ? `<span class="task-tag">${escapeHtml(agent.engineLabel)}</span>` : ''}
-                      ${agent.model ? `<span class="task-tag">${escapeHtml(agent.model)}</span>` : ''}
-                      <span class="task-tag">${agent.taskCount} linked task${agent.taskCount > 1 ? 's' : ''}</span>
-                      ${agent.active && runInfo?.durationMin !== null && runInfo?.durationMin !== undefined ? `<span class="task-tag">Running ${escapeHtml(String(runInfo.durationMin))} min</span>` : ''}
-                    </div>
-                  </div>
-                  <div style="font-size:12px;color:var(--text-muted);text-align:right">
-                    <div>Updated ${escapeHtml(formatDateTime(agent.updatedAt))}</div>
-                    ${agent.source ? `<div style="margin-top:4px">Source: ${escapeHtml(agent.source)}</div>` : ''}
-                  </div>
-                </div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px">
-                  <div style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-surface)">
-                    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Current Task</div>
-                    ${currentTask ? `
-                      <div style="font-size:14px;color:var(--text);font-weight:600">${escapeHtml(currentTask.title || 'Untitled task')}</div>
-                      <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${escapeHtml(getTaskStatusMeta(currentTask.status).label)}</div>
-                    ` : '<div style="font-size:12px;color:var(--text-muted)">No current task available.</div>'}
-                  </div>
-                  <div style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-surface)">
-                    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Live State</div>
-                    ${agent.active ? `
-                      <div style="font-size:14px;color:var(--accent);font-weight:600">Worker running</div>
-                      <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${runInfo?.pendingQuestion ? escapeHtml(runInfo.pendingQuestion) : 'No question pending.'}</div>
-                    ` : `
-                      <div style="font-size:14px;color:${tone.color};font-weight:600">${escapeHtml(agent.statusLabel || 'Idle')}</div>
-                      <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Derived from current project task states.</div>
-                    `}
-                  </div>
-                </div>
-                <div style="margin-top:14px">
-                  <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Related Tasks</div>
-                  ${renderAgentTaskRows(agentTasks)}
-                </div>
-              </section>`;
-          }).join('')}
+      const emptyProjectAgentsHtml = `
+        <div class="empty-state" style="padding:40px;margin-bottom:${taskAgents.length ? '16px' : '0'}">
+          <div class="icon">&#129302;</div>
+          <h3>Aucun agent OpenClaw rattaché</h3>
+          <p>Le projet n'a pas encore de rattachement explicite vers un agent OpenClaw.</p>
         </div>`;
+
+      const projectAgentsHtml = projectAgents.length ? (() => {
+        const activeCount = projectAgents.filter(agent => (agent.runtimeStatus || agent.statusKind) === 'active').length;
+        const idleCount = projectAgents.filter(agent => (agent.runtimeStatus || agent.statusKind) === 'idle').length;
+        const downCount = projectAgents.filter(agent => (agent.runtimeStatus || agent.statusKind) === 'down').length;
+
+        return `
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
+            <div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Agents rattachés</div>
+              <div style="font-size:26px;color:var(--text);font-weight:700;margin-top:6px">${projectAgents.length}</div>
+            </div>
+            <div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Active</div>
+              <div style="font-size:26px;color:var(--accent);font-weight:700;margin-top:6px">${activeCount}</div>
+            </div>
+            <div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Idle</div>
+              <div style="font-size:26px;color:var(--text);font-weight:700;margin-top:6px">${idleCount}</div>
+            </div>
+            <div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Down</div>
+              <div style="font-size:26px;color:var(--red);font-weight:700;margin-top:6px">${downCount}</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            ${projectAgents.map(agent => {
+              const runtimeKind = agent.runtimeStatus || agent.statusKind || 'idle';
+              const tone = getAgentStatusTone(runtimeKind);
+              const currentTask = agent.currentTask || null;
+              const runtimeMessage = runtimeKind === 'active'
+                ? (currentTask?.title ? `Task worker actif sur "${escapeHtml(currentTask.title)}".` : 'Task worker actif sur ce projet.')
+                : runtimeKind === 'down'
+                  ? (agent.workspaceExists === false ? 'Workspace agent introuvable.' : 'Task worker indisponible ou non joignable.')
+                  : 'Task worker joignable, aucun run en cours.';
+              return `
+                <section style="border:1px solid var(--border);border-radius:12px;background:var(--bg-card);padding:16px">
+                  <div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap">
+                    <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+                      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                        <h3 style="margin:0;font-size:18px;color:var(--text)">${escapeHtml(agent.name || agent.agentId || 'Agent')}</h3>
+                        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:${tone.bg};color:${tone.color};font-size:11px;font-weight:600;border:1px solid ${tone.color}33">${escapeHtml(tone.label || runtimeKind)}</span>
+                        ${agent.agentId ? `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--bg-surface);color:var(--text-muted);font-size:11px;border:1px solid var(--border)">${escapeHtml(agent.agentId)}</span>` : ''}
+                      </div>
+                      <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        ${agent.engineLabel ? `<span class="task-tag">${escapeHtml(agent.engineLabel)}</span>` : ''}
+                        ${agent.model ? `<span class="task-tag">${escapeHtml(agent.model)}</span>` : ''}
+                      </div>
+                    </div>
+                    <div style="font-size:12px;color:var(--text-muted);text-align:right">
+                      ${agent.workspacePath ? `<div>${escapeHtml(agent.workspacePath)}</div>` : ''}
+                      ${agent.runtimeSource ? `<div style="margin-top:4px">Source runtime: ${escapeHtml(agent.runtimeSource)}</div>` : ''}
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px">
+                    <div style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-surface)">
+                      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Current Task</div>
+                      ${currentTask ? `
+                        <div style="font-size:14px;color:var(--text);font-weight:600">${escapeHtml(currentTask.title || 'Untitled task')}</div>
+                        <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${escapeHtml(getTaskStatusMeta(currentTask.status || 'in_progress').label)}</div>
+                      ` : '<div style="font-size:12px;color:var(--text-muted)">Aucune tâche active.</div>'}
+                    </div>
+                    <div style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-surface)">
+                      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Runtime</div>
+                      <div style="font-size:14px;color:${tone.color};font-weight:600">${escapeHtml(tone.label || runtimeKind)}</div>
+                      <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${runtimeMessage}</div>
+                    </div>
+                  </div>
+                </section>`;
+            }).join('')}
+          </div>`;
+      })() : emptyProjectAgentsHtml;
+
+      const taskAgentsHtml = taskAgents.length ? `
+        <section style="margin-top:16px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);padding:16px">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+            <div>
+              <div style="font-size:16px;color:var(--text);font-weight:700">Identités issues des tâches</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Séparées des agents OpenClaw rattachés au projet.</div>
+            </div>
+            <span style="font-size:12px;color:var(--text-muted)">${taskAgents.length} identité${taskAgents.length > 1 ? 's' : ''}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            ${taskAgents.map(agent => {
+              const tone = getAgentStatusTone(agent.statusKind);
+              const agentTasks = getTasksForAgent(agent);
+              const currentTask = agent.currentTask || agentTasks[0] || null;
+              return `
+                <section style="border:1px solid var(--border);border-radius:12px;background:var(--bg-surface);padding:16px">
+                  <div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap">
+                    <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+                      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                        <h3 style="margin:0;font-size:18px;color:var(--text)">${escapeHtml(agent.name)}</h3>
+                        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:${tone.bg};color:${tone.color};font-size:11px;font-weight:600;border:1px solid ${tone.color}33">${escapeHtml(agent.statusLabel || tone.label || 'Todo')}</span>
+                        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--bg-card);color:var(--text-muted);font-size:11px;border:1px solid var(--border)">${escapeHtml(agent.roleLabel || 'Agent')}</span>
+                      </div>
+                      <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        ${agent.engineLabel ? `<span class="task-tag">${escapeHtml(agent.engineLabel)}</span>` : ''}
+                        ${agent.model ? `<span class="task-tag">${escapeHtml(agent.model)}</span>` : ''}
+                        <span class="task-tag">${agent.taskCount} linked task${agent.taskCount > 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+                    <div style="font-size:12px;color:var(--text-muted);text-align:right">
+                      <div>Updated ${escapeHtml(formatDateTime(agent.updatedAt))}</div>
+                      ${agent.source ? `<div style="margin-top:4px">Source: ${escapeHtml(agent.source)}</div>` : ''}
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px">
+                    <div style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
+                      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Current Task</div>
+                      ${currentTask ? `
+                        <div style="font-size:14px;color:var(--text);font-weight:600">${escapeHtml(currentTask.title || 'Untitled task')}</div>
+                        <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${escapeHtml(getTaskStatusMeta(currentTask.status).label)}</div>
+                      ` : '<div style="font-size:12px;color:var(--text-muted)">No current task available.</div>'}
+                    </div>
+                    <div style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
+                      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Derived State</div>
+                      <div style="font-size:14px;color:${tone.color};font-weight:600">${escapeHtml(agent.statusLabel || tone.label || 'Todo')}</div>
+                      <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Inféré depuis les tâches du backlog.</div>
+                    </div>
+                  </div>
+                  <div style="margin-top:14px">
+                    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Related Tasks</div>
+                    ${renderAgentTaskRows(agentTasks)}
+                  </div>
+                </section>`;
+            }).join('')}
+          </div>
+        </section>` : '';
+
+      pane.innerHTML = `${projectAgentsHtml}${taskAgentsHtml}`;
     }
 
     function getStatusClass(status) {
@@ -900,7 +961,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
           <button class="tab-btn ${activeTab === 'unpushed' ? 'active' : ''}" id="tab-unpushed" onclick="switchTab('unpushed')">&#8593; Unpushed</button>
           <button class="tab-btn ${activeTab === 'history' ? 'active' : ''}" id="tab-history" onclick="switchTab('history')">&#128203; History</button>
           <button class="tab-btn ${activeTab === 'tasks' ? 'active' : ''}" id="tab-tasks" onclick="switchTab('tasks')">&#9776; Tasks <span class="tab-badge" id="tasksBadge" style="display:none"></span></button>
-          <button class="tab-btn ${activeTab === 'agents' ? 'active' : ''}" id="tab-agents" onclick="switchTab('agents')">&#129302; Agents <span class="tab-badge" ${data.agents?.length ? '' : 'style="display:none"'}>${data.agents?.length || ''}</span></button>
+          <button class="tab-btn ${activeTab === 'agents' ? 'active' : ''}" id="tab-agents" onclick="switchTab('agents')">&#129302; Agents projet <span class="tab-badge" ${data.agents?.length ? '' : 'style="display:none"'}>${data.agents?.length || ''}</span></button>
           <div style="flex:1"></div>
           <a class="tab-btn" href="/chat.html?id=${escapeHtml(data.id)}" style="text-decoration:none;color:inherit;background:var(--bg-hover);border:1px solid var(--border);padding:6px 14px;border-radius:var(--radius)">&#128172; Chat</a>
         </div>

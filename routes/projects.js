@@ -3,6 +3,7 @@ const http = require('http');
 const path = require('path');
 const { git, validateBranchName, validateHash } = require('../lib/git');
 const { readJSON, writeJSON } = require('../lib/json-store');
+const { DEFAULT_ENGINE_MODELS } = require('../task-worker');
 
 // ===== Helper functions =====
 
@@ -145,7 +146,36 @@ function pickPrimaryTask(tasks, workerRun) {
     })[0] || null;
 }
 
-function buildAgents(project, tasks, workerRun) {
+function getDefaultModelForEngine(engine) {
+  const normalized = typeof engine === 'string' ? engine.trim().toLowerCase() : '';
+  return normalized ? (DEFAULT_ENGINE_MODELS[normalized] || null) : null;
+}
+
+function getOpenClawAgentIds(project) {
+  if (!Array.isArray(project?.openclawAgentIds)) return [];
+  const seen = new Set();
+  return project.openclawAgentIds
+    .map(value => typeof value === 'string' ? value.trim() : '')
+    .filter(Boolean)
+    .filter(value => {
+      const key = value.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function getOpenClawAgentCatalog(config) {
+  const catalog = new Map();
+  for (const entry of Array.isArray(config?.openclawAgents) ? config.openclawAgents : []) {
+    const agentId = typeof entry?.id === 'string' ? entry.id.trim() : '';
+    if (!agentId) continue;
+    catalog.set(agentId, entry);
+  }
+  return catalog;
+}
+
+function buildTaskAgents(project, tasks, workerRun) {
   const agents = new Map();
 
   function resolveAgentStatus(entry) {
@@ -280,6 +310,68 @@ function buildAgents(project, tasks, workerRun) {
     });
 }
 
+function resolveProjectAgentRuntimeStatus({ agentExists, workspaceExists, workerSnapshot, workerRun }) {
+  if (!agentExists || !workspaceExists) {
+    return { kind: 'down', label: 'Down', source: !agentExists ? 'catalog' : 'workspace' };
+  }
+  if (workerRun) {
+    return { kind: 'active', label: 'Active', source: 'task-worker' };
+  }
+  if (!workerSnapshot) {
+    return { kind: 'down', label: 'Down', source: 'task-worker' };
+  }
+  return { kind: 'idle', label: 'Idle', source: 'task-worker' };
+}
+
+function buildProjectAgents(config, project, workerSnapshot, workerRun) {
+  const catalog = getOpenClawAgentCatalog(config);
+  const projectAgentIds = getOpenClawAgentIds(project);
+
+  return projectAgentIds.map(agentId => {
+    const agentConfig = catalog.get(agentId) || null;
+    const engine = (agentConfig?.engine || project.engine || 'claude').trim();
+    const model = agentConfig?.model || project.model || getDefaultModelForEngine(engine) || null;
+    const workspacePath = agentConfig?.workspacePath || agentConfig?.path || project.path || null;
+    const workspaceExists = workspacePath ? fs.existsSync(workspacePath) : false;
+    const runtime = resolveProjectAgentRuntimeStatus({
+      agentExists: Boolean(agentConfig),
+      workspaceExists,
+      workerSnapshot,
+      workerRun
+    });
+
+    return {
+      key: `openclaw|${agentId}`,
+      id: agentId,
+      agentId,
+      name: agentConfig?.name || agentConfig?.displayName || agentId,
+      engine: engine || null,
+      engineLabel: engine ? getEngineLabel(engine) : null,
+      model,
+      active: runtime.kind === 'active',
+      runtimeStatus: runtime.kind,
+      statusKind: runtime.kind,
+      statusLabel: runtime.label,
+      runtimeSource: runtime.source,
+      workspacePath,
+      workspaceExists,
+      currentTask: workerRun ? {
+        id: workerRun.id,
+        title: workerRun.title,
+        status: 'in_progress',
+        updatedAt: workerRun.startedAt || null
+      } : null
+    };
+  }).sort((a, b) => {
+    if (a.active !== b.active) return a.active ? -1 : 1;
+    if (a.runtimeStatus !== b.runtimeStatus) {
+      const order = { active: 0, idle: 1, down: 2 };
+      return (order[a.runtimeStatus] ?? 99) - (order[b.runtimeStatus] ?? 99);
+    }
+    return a.name.localeCompare(b.name, 'en', { sensitivity: 'base' });
+  });
+}
+
 function buildCurrentStatus({ accessible, branch, lastActivity, uncommittedCount, unpushedCount, tasks, workerRun }) {
   const counts = getTaskCounts(tasks);
   const primaryTask = pickPrimaryTask(tasks.filter(task => task.status !== 'done'), workerRun);
@@ -373,12 +465,13 @@ function buildCurrentStatus({ accessible, branch, lastActivity, uncommittedCount
   };
 }
 
-function enrichProject(project, projectState, workerSnapshot) {
+function enrichProject(config, project, projectState, workerSnapshot) {
   const tasks = readTasks(project);
   const workerRun = Array.isArray(workerSnapshot?.tasks)
     ? workerSnapshot.tasks.find(run => run.projectId === project.id) || null
     : null;
-  const agents = buildAgents(project, tasks, workerRun);
+  const projectAgents = buildProjectAgents(config, project, workerSnapshot, workerRun);
+  const taskAgents = buildTaskAgents(project, tasks, workerRun);
   const currentStatus = buildCurrentStatus({
     accessible: projectState.accessible !== false,
     branch: projectState.branch,
@@ -393,12 +486,14 @@ function enrichProject(project, projectState, workerSnapshot) {
     ...projectState,
     taskCount: tasks.filter(task => task.status !== 'done').length,
     taskTotal: tasks.length,
-    agents,
+    agents: projectAgents,
+    projectAgents,
+    taskAgents,
     currentStatus
   };
 }
 
-async function buildProjectStatusSnapshot(project, workerSnapshot, options = {}) {
+async function buildProjectStatusSnapshot(config, project, workerSnapshot, options = {}) {
   const repoPath = options.repoPath || project.path;
   const activeRepo = options.activeRepo || null;
 
@@ -410,7 +505,7 @@ async function buildProjectStatusSnapshot(project, workerSnapshot, options = {})
     const changedFiles = status.trim().split('\n').filter(l => l.trim()).length;
     const unpushed = await getUnpushedCommits({ ...project, path: repoPath }, branchName);
 
-    return enrichProject(project, {
+    return enrichProject(config, project, {
       ...project,
       branch: branchName,
       pendingChanges: changedFiles,
@@ -421,7 +516,7 @@ async function buildProjectStatusSnapshot(project, workerSnapshot, options = {})
       accessible: true
     }, workerSnapshot);
   } catch (err) {
-    return enrichProject(project, {
+    return enrichProject(config, project, {
       ...project,
       branch: 'unknown',
       pendingChanges: 0,
@@ -536,7 +631,7 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
             lastCommitDate: lastLog.trim()
           };
 
-          return enrichProject(p, {
+          return enrichProject(config, p, {
             ...p,
             branch: branchName,
             pendingChanges: changedFiles,
@@ -550,7 +645,7 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
             accessible: true
           }, workerSnapshot);
         } catch (err) {
-          return enrichProject(p, {
+          return enrichProject(config, p, {
             ...p,
             branch: 'unknown',
             pendingChanges: 0,
@@ -574,7 +669,7 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
     try {
       const workerSnapshot = await fetchWorkerSnapshot();
       const projects = await Promise.all(
-        config.projects.map(project => buildProjectStatusSnapshot(project, workerSnapshot))
+        config.projects.map(project => buildProjectStatusSnapshot(config, project, workerSnapshot))
       );
       res.json(projects);
     } catch (err) {
@@ -660,7 +755,7 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
       const [lastDate, ...subjectParts] = lastLog.trim().split('|');
       const unpushed = await getUnpushedCommits({ ...project, path: repoPath }, branchName);
 
-      res.json(enrichProject(project, {
+      res.json(enrichProject(config, project, {
         ...project,
         branch: branchName,
         files,
@@ -688,7 +783,7 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
 
     try {
       const workerSnapshot = await fetchWorkerSnapshot();
-      const snapshot = await buildProjectStatusSnapshot(project, workerSnapshot, {
+      const snapshot = await buildProjectStatusSnapshot(config, project, workerSnapshot, {
         repoPath,
         activeRepo: req.query.repo || null
       });

@@ -1791,33 +1791,41 @@
     }
 
     function agentStatusMeta(kind) {
+      if (kind === 'down') return { label: 'Down', bg: 'rgba(248,81,73,0.14)', color: 'var(--red)' };
+      if (kind === 'active' || kind === 'in_progress') return { label: 'Actif', bg: 'rgba(88,166,255,0.14)', color: 'var(--accent)' };
+      if (kind === 'idle') return { label: 'Idle', bg: 'rgba(139,148,158,0.14)', color: 'var(--text-muted)' };
       if (kind === 'blocked') return { label: 'Bloqué', bg: 'rgba(248,81,73,0.14)', color: 'var(--red)' };
       if (kind === 'review') return { label: 'Review', bg: 'rgba(188,140,255,0.14)', color: 'var(--purple)' };
       if (kind === 'queued') return { label: 'En file', bg: 'rgba(210,153,34,0.14)', color: 'var(--yellow)' };
       if (kind === 'waiting_input') return { label: 'Question', bg: 'rgba(210,153,34,0.14)', color: 'var(--yellow)' };
-      if (kind === 'in_progress') return { label: 'Actif', bg: 'rgba(88,166,255,0.14)', color: 'var(--accent)' };
-      if (kind === 'idle') return { label: 'Idle', bg: 'rgba(139,148,158,0.14)', color: 'var(--text-muted)' };
       return { label: 'À faire', bg: 'rgba(63,185,80,0.14)', color: 'var(--green)' };
     }
 
     function renderProjectAgents(agents) {
       if (!Array.isArray(agents) || !agents.length) {
-        return '<span style="font-size:11px;color:var(--text-muted)">Aucun agent attribué</span>';
+        return '<span style="font-size:11px;color:var(--text-muted)">Aucun agent OpenClaw rattaché</span>';
       }
       return agents.slice(0, 3).map(agent => {
-        const tone = agentStatusMeta(agent.statusKind);
-        const taskTitle = agent.currentTask?.title ? escHtml(agent.currentTask.title) : '';
+        const runtimeKind = agent.runtimeStatus || agent.statusKind;
+        const tone = agentStatusMeta(runtimeKind);
+        const active = runtimeKind === 'active' || agent.active;
+        const rawName = agent.name || agent.agentId || 'Agent';
+        const displayName = escHtml(rawName);
+        const displayAgentId = typeof agent.agentId === 'string' ? agent.agentId.trim() : '';
+        const showAgentId = displayAgentId && displayAgentId !== rawName;
+        const taskTitle = active && agent.currentTask?.title ? escHtml(agent.currentTask.title) : '';
         return `
-          <span style="display:inline-flex;flex-direction:column;gap:6px;min-width:0;max-width:240px;padding:7px 9px;border-radius:12px;background:${agent.active ? 'rgba(88,166,255,0.10)' : 'var(--bg-card)'};border:1px solid ${agent.active ? 'rgba(88,166,255,0.24)' : 'var(--border)'}">
+          <span style="display:inline-flex;flex-direction:column;gap:6px;min-width:0;max-width:260px;padding:7px 9px;border-radius:12px;background:${active ? 'rgba(88,166,255,0.10)' : 'var(--bg-card)'};border:1px solid ${active ? 'rgba(88,166,255,0.24)' : 'var(--border)'}">
             <span style="display:flex;align-items:center;gap:6px;min-width:0">
-              <span style="font-size:11px;color:${agent.active ? 'var(--accent)' : 'var(--text-muted)'}">${agent.active ? '●' : '○'}</span>
-              <span style="font-size:11px;color:var(--text);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(agent.name)}</span>
-              ${agent.engineLabel ? `<span style="font-size:10px;color:var(--text-subtle);white-space:nowrap">${escHtml(agent.engineLabel)}</span>` : ''}
+              <span style="font-size:11px;color:${active ? 'var(--accent)' : 'var(--text-muted)'}">${active ? '●' : '○'}</span>
+              <span style="font-size:11px;color:var(--text);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${displayName}</span>
+              ${showAgentId ? `<span style="font-size:10px;color:var(--text-subtle);white-space:nowrap">#${escHtml(displayAgentId)}</span>` : ''}
             </span>
             <span style="display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0">
               <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;background:${tone.bg};color:${tone.color};font-size:10px;font-weight:600;border:1px solid ${tone.color}33;white-space:nowrap">${tone.label}</span>
-              ${taskTitle ? `<span title="${taskTitle}" style="font-size:10px;color:var(--text-muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${taskTitle}</span>` : ''}
+              ${agent.model ? `<span style="font-size:10px;color:var(--text-muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(agent.model)}</span>` : ''}
             </span>
+            ${taskTitle ? `<span title="${taskTitle}" style="font-size:10px;color:var(--text-muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${taskTitle}</span>` : ''}
           </span>
         `;
       }).join('');
