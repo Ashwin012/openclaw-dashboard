@@ -737,38 +737,82 @@
       return `<div class="projects-list">${cards.join('')}</div>`;
     }
 
+    let projectsCache = [];
+    let tasksByProjectCache = {};
+
+    function mergeProjectSnapshots(snapshots) {
+      if (!Array.isArray(snapshots) || !projectsCache.length) return;
+      const snapshotMap = new Map(snapshots.map(project => [project.id, project]));
+      projectsCache = projectsCache.map(project => {
+        const snapshot = snapshotMap.get(project.id);
+        return snapshot ? { ...project, ...snapshot } : project;
+      });
+    }
+
+    function renderProjectsFromCache() {
+      const content = document.getElementById('content');
+      if (!projectsCache.length) {
+        content.innerHTML = '<div class="empty-state"><div class="icon">&#128193;</div><h3>No projects configured</h3><p>Add projects to config.json</p></div>';
+        return;
+      }
+
+      content.innerHTML = renderProjectCards(projectsCache, tasksByProjectCache);
+    }
+
+    async function refreshProjectStatuses() {
+      if (!projectsCache.length) return;
+      try {
+        const res = await fetch('/api/projects/status', {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        if (!res.ok) return;
+        mergeProjectSnapshots(await res.json());
+        renderProjectsFromCache();
+      } catch {}
+    }
+
     async function loadProjects() {
       try {
-        const res = await fetch('/api/projects');
+        const res = await fetch('/api/projects', {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' }
+        });
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         const projects = await res.json();
-
-        const content = document.getElementById('content');
-
-        if (!projects.length) {
-          content.innerHTML = '<div class="empty-state"><div class="icon">&#128193;</div><h3>No projects configured</h3><p>Add projects to config.json</p></div>';
-          return;
-        }
+        projectsCache = projects;
 
         const colorMap = {};
-        projects.forEach((p, i) => { colorMap[p.id] = PROJECT_COLORS[i % PROJECT_COLORS.length]; });
+        projectsCache.forEach((p, i) => { colorMap[p.id] = PROJECT_COLORS[i % PROJECT_COLORS.length]; });
 
         // Fetch tasks for all projects in parallel
         const taskResults = await Promise.allSettled(
-          projects.map(p => fetch(`/api/projects/${encodeURIComponent(p.id)}/tasks`).then(r => r.ok ? r.json() : []))
+          projectsCache.map(p => fetch(`/api/projects/${encodeURIComponent(p.id)}/tasks`).then(r => r.ok ? r.json() : []))
         );
-        const tasksByProject = {};
-        projects.forEach((p, i) => {
-          tasksByProject[p.id] = taskResults[i].status === 'fulfilled' ? taskResults[i].value : [];
+        tasksByProjectCache = {};
+        projectsCache.forEach((p, i) => {
+          tasksByProjectCache[p.id] = taskResults[i].status === 'fulfilled' ? taskResults[i].value : [];
         });
-
-        content.innerHTML = renderProjectCards(projects, tasksByProject);
+        renderProjectsFromCache();
       } catch (err) {
         document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load projects</h3><p>${err.message}</p></div>`;
       }
     }
 
-    initCommon(() => { loadProjects(); });
+    initCommon(() => {
+      loadProjects();
+      createSmartInterval(refreshProjectStatuses, 15_000);
+    });
+
+    window.addEventListener('focus', () => {
+      refreshProjectStatuses();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        refreshProjectStatuses();
+      }
+    });
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});

@@ -695,11 +695,11 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
             <h1>${escapeHtml(data.name)}</h1>
             <div class="desc">${escapeHtml(data.description)} &mdash; <code style="font-size:12px;color:var(--text-muted)">${escapeHtml(data.branch)}</code></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
-              <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:${statusTone.bg};color:${statusTone.color};font-size:11px;font-weight:600;border:1px solid ${statusTone.color}33">${escapeHtml(data.currentStatus?.label || 'Clean')}</span>
-              <span style="font-size:12px;color:var(--text-muted)">${escapeHtml(data.currentStatus?.summary || '')}</span>
-              ${primaryTask ? `<span style="font-size:12px;color:var(--text-muted)">Tâche active: ${escapeHtml(primaryTask.title)} (${escapeHtml(primaryTask.status)})</span>` : ''}
+              <span id="projectLiveStatusBadge" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:${statusTone.bg};color:${statusTone.color};font-size:11px;font-weight:600;border:1px solid ${statusTone.color}33">${escapeHtml(data.currentStatus?.label || 'Clean')}</span>
+              <span id="projectLiveStatusSummary" style="font-size:12px;color:var(--text-muted)">${escapeHtml(data.currentStatus?.summary || '')}</span>
+              <span id="projectLivePrimaryTask" style="font-size:12px;color:var(--text-muted);display:${primaryTask ? 'inline' : 'none'}">${primaryTask ? `Tâche active: ${escapeHtml(primaryTask.title)} (${escapeHtml(primaryTask.status)})` : ''}</span>
             </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+            <div id="projectLiveAgents" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
               ${renderProjectAgents(data.agents)}
             </div>
           </div>
@@ -1593,6 +1593,58 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       }
     }
 
+    function applyProjectLiveStatus(snapshot) {
+      if (!snapshot || snapshot.id !== projectId) return;
+      projectData = { ...projectData, ...snapshot };
+
+      const badge = document.getElementById('projectLiveStatusBadge');
+      const summary = document.getElementById('projectLiveStatusSummary');
+      const primaryTask = document.getElementById('projectLivePrimaryTask');
+      const agents = document.getElementById('projectLiveAgents');
+      const branchSelect = document.getElementById('branchSelect');
+
+      if (badge) {
+        const tone = getProjectStatusTone(snapshot.currentStatus?.kind);
+        badge.textContent = snapshot.currentStatus?.label || 'Clean';
+        badge.style.background = tone.bg;
+        badge.style.color = tone.color;
+        badge.style.borderColor = `${tone.color}33`;
+      }
+
+      if (summary) {
+        summary.textContent = snapshot.currentStatus?.summary || '';
+      }
+
+      if (primaryTask) {
+        const currentPrimaryTask = snapshot.currentStatus?.primaryTask;
+        primaryTask.style.display = currentPrimaryTask ? 'inline' : 'none';
+        primaryTask.textContent = currentPrimaryTask
+          ? `Tâche active: ${currentPrimaryTask.title} (${currentPrimaryTask.status})`
+          : '';
+      }
+
+      if (agents) {
+        agents.innerHTML = renderProjectAgents(snapshot.agents);
+      }
+
+      if (branchSelect && snapshot.branch) {
+        branchSelect.value = snapshot.branch;
+      }
+    }
+
+    async function refreshProjectStatus() {
+      if (!projectId || !projectData) return;
+      try {
+        const repoParam = selectedRepo ? `?repo=${encodeURIComponent(selectedRepo)}` : '';
+        const res = await fetch(`/api/projects/${projectId}/status${repoParam}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        if (!res.ok) return;
+        applyProjectLiveStatus(await res.json());
+      } catch {}
+    }
+
     async function loadRepos() {
       try {
         const res = await fetch(`/api/projects/${projectId}/repos`);
@@ -1699,6 +1751,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       loadProject();
       pollWorkerStatus();
       createSmartInterval(async () => {
+        await refreshProjectStatus();
         await pollWorkerStatus();
         if (activeTab === 'tasks' && document.getElementById('kanbanBoard')) {
           await loadTasks({ showSpinner: false });
@@ -1709,12 +1762,16 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
     });
 
     window.addEventListener('focus', () => {
+      refreshProjectStatus();
       if (activeTab === 'tasks') loadTasks({ showSpinner: false });
     });
 
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && activeTab === 'tasks') {
-        loadTasks({ showSpinner: false });
+      if (document.visibilityState === 'visible') {
+        refreshProjectStatus();
+        if (activeTab === 'tasks') {
+          loadTasks({ showSpinner: false });
+        }
       }
     });
 

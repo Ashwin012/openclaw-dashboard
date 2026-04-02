@@ -1442,7 +1442,11 @@
 
     async function loadProjects() {
       try {
-        const res = await fetch('/api/projects', { credentials: 'include' });
+        const res = await fetch('/api/projects', {
+          credentials: 'include',
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' }
+        });
         if (!res.ok) {
           console.error('loadProjects: HTTP', res.status, res.statusText);
           document.getElementById('devGrid').innerHTML = `<div style="color:var(--red);font-size:13px">Erreur API: ${res.status} ${res.statusText}</div>`;
@@ -1458,6 +1462,26 @@
         return;
       }
       renderDevSummary();
+    }
+
+    async function refreshProjectStatuses() {
+      if (!projects.length) return;
+      try {
+        const res = await fetch('/api/projects/status', {
+          credentials: 'include',
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        if (!res.ok) return;
+        const snapshots = await res.json();
+        const snapshotMap = new Map(snapshots.map(project => [project.id, project]));
+        projects = projects.map(project => {
+          const snapshot = snapshotMap.get(project.id);
+          return snapshot ? { ...project, ...snapshot } : project;
+        });
+        renderDevSummary();
+        updateStats();
+      } catch {}
     }
 
     function updateStats() {
@@ -1821,6 +1845,17 @@
 
     // ===== Init =====
     loadAll();
+    createSmartInterval(refreshProjectStatuses, 15_000);
+
+    window.addEventListener('focus', () => {
+      refreshProjectStatuses();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        refreshProjectStatuses();
+      }
+    });
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});

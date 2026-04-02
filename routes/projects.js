@@ -341,6 +341,43 @@ function enrichProject(project, projectState, workerSnapshot) {
   };
 }
 
+async function buildProjectStatusSnapshot(project, workerSnapshot, options = {}) {
+  const repoPath = options.repoPath || project.path;
+  const activeRepo = options.activeRepo || null;
+
+  try {
+    const { stdout: branch } = await git(['rev-parse', '--abbrev-ref', 'HEAD'], repoPath);
+    const { stdout: status } = await git(['status', '--porcelain'], repoPath);
+    const { stdout: lastLog } = await git(['log', '-1', '--format=%ci'], repoPath);
+    const branchName = branch.trim();
+    const changedFiles = status.trim().split('\n').filter(l => l.trim()).length;
+    const unpushed = await getUnpushedCommits({ ...project, path: repoPath }, branchName);
+
+    return enrichProject(project, {
+      ...project,
+      branch: branchName,
+      pendingChanges: changedFiles,
+      unpushedCount: unpushed.length,
+      uncommittedCount: changedFiles,
+      lastActivity: lastLog.trim(),
+      activeRepo,
+      accessible: true
+    }, workerSnapshot);
+  } catch (err) {
+    return enrichProject(project, {
+      ...project,
+      branch: 'unknown',
+      pendingChanges: 0,
+      unpushedCount: 0,
+      uncommittedCount: 0,
+      lastActivity: null,
+      activeRepo,
+      accessible: false,
+      error: err.message
+    }, workerSnapshot);
+  }
+}
+
 function fetchWorkerSnapshot() {
   return new Promise((resolve) => {
     const req = http.get('http://127.0.0.1:8091/status', (res) => {
@@ -475,6 +512,19 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
     }
   });
 
+  // GET /api/projects/status — lightweight status snapshot for live refresh
+  router.get('/api/projects/status', requireAuth, async (req, res) => {
+    try {
+      const workerSnapshot = await fetchWorkerSnapshot();
+      const projects = await Promise.all(
+        config.projects.map(project => buildProjectStatusSnapshot(project, workerSnapshot))
+      );
+      res.json(projects);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/projects/:id — detail with diff
   router.get('/api/projects/:id', requireAuth, async (req, res) => {
     const project = config.projects.find(p => p.id === req.params.id);
@@ -567,6 +617,25 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
         lastActivity: lastDate || null,
         accessible: true
       }, workerSnapshot));
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/projects/:id/status — lightweight detail snapshot for live refresh
+  router.get('/api/projects/:id/status', requireAuth, async (req, res) => {
+    const project = config.projects.find(p => p.id === req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const repoPath = resolveRepoPath(project, req.query.repo);
+
+    try {
+      const workerSnapshot = await fetchWorkerSnapshot();
+      const snapshot = await buildProjectStatusSnapshot(project, workerSnapshot, {
+        repoPath,
+        activeRepo: req.query.repo || null
+      });
+      res.json(snapshot);
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
