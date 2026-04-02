@@ -146,7 +146,6 @@ function pickPrimaryTask(tasks, workerRun) {
 }
 
 function buildAgents(project, tasks, workerRun) {
-  const activeTasks = tasks.filter(task => task.status !== 'done');
   const agents = new Map();
 
   function resolveAgentStatus(entry) {
@@ -168,6 +167,9 @@ function buildAgents(project, tasks, workerRun) {
     if (entry.statuses.includes('queued')) {
       return { kind: 'queued', label: 'Queued' };
     }
+    if (entry.statuses.length && entry.statuses.every(status => status === 'done')) {
+      return { kind: 'idle', label: 'Idle' };
+    }
     return { kind: 'todo', label: 'Todo' };
   }
 
@@ -177,7 +179,7 @@ function buildAgents(project, tasks, workerRun) {
 
     const normalizedEngine = (engine || project.engine || '').trim();
     const normalizedModel = typeof model === 'string' ? model.trim() : '';
-    const key = [role, normalizedName.toLowerCase(), normalizedEngine, normalizedModel].join('|');
+    const key = [role, normalizedName.toLowerCase()].join('|');
     const active = Boolean(workerRun && task && workerRun.id === task.id);
 
     if (!agents.has(key)) {
@@ -211,6 +213,9 @@ function buildAgents(project, tasks, workerRun) {
     if (task?.status && !entry.statuses.includes(task.status)) entry.statuses.push(task.status);
     if (safeDateValue(task?.updatedAt || task?.createdAt) > safeDateValue(entry.updatedAt)) {
       entry.updatedAt = task.updatedAt || task.createdAt || entry.updatedAt;
+      entry.engine = normalizedEngine || entry.engine || null;
+      entry.engineLabel = normalizedEngine ? getEngineLabel(normalizedEngine) : entry.engineLabel || null;
+      entry.model = normalizedModel || entry.model || null;
     }
     if (task && (
       !entry.currentTask
@@ -223,10 +228,13 @@ function buildAgents(project, tasks, workerRun) {
         status: task.status || 'todo',
         updatedAt: task.updatedAt || task.createdAt || null
       };
+      entry.engine = normalizedEngine || entry.engine || null;
+      entry.engineLabel = normalizedEngine ? getEngineLabel(normalizedEngine) : entry.engineLabel || null;
+      entry.model = normalizedModel || entry.model || null;
     }
   }
 
-  for (const task of activeTasks) {
+  for (const task of tasks) {
     const taskEngine = task.engine || project.engine || '';
     upsertAgent({
       name: task.assignee || 'agent',

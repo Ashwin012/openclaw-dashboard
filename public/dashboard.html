@@ -530,6 +530,7 @@
       if (kind === 'queued') return { label: 'Queued', bg: 'rgba(210,153,34,0.14)', color: 'var(--yellow)' };
       if (kind === 'waiting_input') return { label: 'Question', bg: 'rgba(210,153,34,0.14)', color: 'var(--yellow)' };
       if (kind === 'in_progress') return { label: 'Active', bg: 'rgba(88,166,255,0.14)', color: 'var(--accent)' };
+      if (kind === 'idle') return { label: 'Idle', bg: 'rgba(139,148,158,0.14)', color: 'var(--text-muted)' };
       return { label: 'Todo', bg: 'rgba(63,185,80,0.14)', color: 'var(--green)' };
     }
 
