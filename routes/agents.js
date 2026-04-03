@@ -155,6 +155,10 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       for (const lp of linkedProjects) {
         if (lp.name) projectNamesToSearch.add(lp.name);
       }
+      // Also search by workspace project when agent has an explicit workspacePath
+      if (agent.workspacePath && workspaceProjectName) {
+        projectNamesToSearch.add(workspaceProjectName);
+      }
 
       if (projectNamesToSearch.size) {
         const matching = notifications.filter(n =>
@@ -183,11 +187,19 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     const engineIsInferred = !agent.engine;
 
     // All linked project paths — used for multi-repo git commit lookup
+    // Include all repo paths, not just project.path, to catch commits in sub-repos
     const linkedPaths = agent.workspacePath
       ? [] // explicit workspace covers it; don't also look at linked project repos
-      : linkedProjects
-          .map(lp => (cfg.projects || []).find(p => p.id === lp.id)?.path)
-          .filter(Boolean);
+      : linkedProjects.flatMap(lp => {
+          const proj = (cfg.projects || []).find(p => p.id === lp.id);
+          if (!proj) return [];
+          const paths = new Set();
+          if (proj.path) paths.add(proj.path);
+          for (const r of (proj.repos || [])) {
+            if (r.path) paths.add(r.path);
+          }
+          return [...paths];
+        });
 
     return {
       ...agent,

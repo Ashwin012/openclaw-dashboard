@@ -580,13 +580,6 @@
           }
           const missing = a.workspaceExists === false ? ' <span style="color:var(--red)" title="Chemin introuvable">(absent)</span>' : '';
           if (a.workspaceProjectName && a.workspaceProjectId) {
-            if (a.workspaceExtraProjects > 0 && Array.isArray(a.linkedProjects) && a.linkedProjects.length > 1) {
-              // Show all linked projects as separate clickable links
-              const allLinks = a.linkedProjects.map(p =>
-                `<a href="/project.html?id=${encodeURIComponent(p.id)}" style="color:var(--accent);text-decoration:none">${escapeHtml(p.name)}</a>`
-              ).join('<span style="color:var(--border)"> · </span>');
-              return `${allLinks}${missing}`;
-            }
             return `<a href="/project.html?id=${encodeURIComponent(a.workspaceProjectId)}" style="color:var(--accent);text-decoration:none" title="${escapeHtml(a.workspacePath)}">${escapeHtml(a.workspaceProjectName)}</a>${missing}`;
           }
           const shortPath = escapeHtml(a.workspacePath.split('/').filter(Boolean).slice(-2).join('/') || a.workspacePath);
