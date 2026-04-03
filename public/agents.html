@@ -562,7 +562,14 @@
               if (!candidates.length) {
                 return `<div class="agent-last-activity"><span style="color:var(--text-muted);font-size:11px;font-style:italic">Aucune activité récente</span></div>`;
               }
-              const best = candidates.reduce((a, b) => a.ts >= b.ts ? a : b);
+              // Prioritize actionable statuses (review/validating) over git commits
+              const ACTIONABLE = new Set(['review', 'validating']);
+              const actionable = candidates.filter(c =>
+                (c.kind === 'notification' || c.kind === 'task') && ACTIONABLE.has(c.d.status)
+              );
+              const best = actionable.length > 0
+                ? actionable.reduce((a, b) => a.ts >= b.ts ? a : b)
+                : candidates.reduce((a, b) => a.ts >= b.ts ? a : b);
               if (best.kind === 'notification' || best.kind === 'task') {
                 const item = best.d;
                 const statusColor = item.status === 'done' || item.status === 'approved' ? 'var(--green)'
@@ -572,6 +579,9 @@
                 const statusBadge = `<span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;white-space:nowrap" title="${escapeHtml(item.message || item.status)}">${escapeHtml(item.status)}</span>`;
                 const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.taskId || '');
                 const taskIdSpan = item.taskId && !isUuid ? `<span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(item.taskId)}</span>` : '';
+                const extraReview = (item.reviewPendingCount || 0) > 1
+                  ? ` <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--yellow)22;color:var(--yellow);border:1px solid var(--yellow)44" title="${item.reviewPendingCount} tâches en attente de review">+${item.reviewPendingCount - 1} en review</span>`
+                  : '';
                 const projTag = item.projectId
                   ? `<a href="/project.html?id=${encodeURIComponent(item.projectId)}" class="agent-project-tag" style="font-size:10px;padding:1px 7px">${escapeHtml(item.projectName || item.projectId)}</a>`
                   : (item.projectName ? `<span style="font-size:10px;color:var(--text-muted)">${escapeHtml(item.projectName)}</span>` : '');
@@ -579,6 +589,7 @@
                   ${statusBadge}
                   <span style="color:${statusColor}">${escapeHtml(item.taskTitle || item.taskId || '?')}</span>
                   ${taskIdSpan}
+                  ${extraReview}
                   <span style="color:var(--text-muted);font-size:11px">${timeAgo(item.timestamp)}</span>
                   ${projTag}
                 </div>`;

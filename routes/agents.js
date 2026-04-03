@@ -351,7 +351,9 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
           : (a.workspacePath ? [a.workspacePath] : (a.gitLookupPath ? [a.gitLookupPath] : []));
         for (const p of agentPaths) taskPathsToFetch.add(p);
       }
-      const projectTaskMap = {};
+      const REVIEW_STATUSES = new Set(['review', 'validating']);
+      const projectTaskMap = {};       // path → most-recent task entry
+      const projectReviewCountMap = {}; // path → count of review/validating tasks
       await Promise.allSettled(
         Array.from(taskPathsToFetch).map(async (p) => {
           try {
@@ -371,6 +373,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
               status: latest.status,
               timestamp: latest.updatedAt || latest.completedAt,
             };
+            projectReviewCountMap[p] = candidates.filter(t => REVIEW_STATUSES.has(t.status)).length;
           } catch { /* ignore: file may not exist */ }
         })
       );
@@ -381,9 +384,11 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
           : (a.workspacePath ? [a.workspacePath] : (a.gitLookupPath ? [a.gitLookupPath] : []));
         let bestTask = null;
         let bestTaskPath = null;
+        let totalReviewCount = 0;
         for (const p of agentPaths) {
           const t = projectTaskMap[p];
           if (!t) continue;
+          totalReviewCount += projectReviewCountMap[p] || 0;
           if (!bestTask || new Date(t.timestamp) > new Date(bestTask.timestamp)) {
             bestTask = t;
             bestTaskPath = p;
@@ -399,6 +404,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
             ...bestTask,
             projectName: taskProject?.name || null,
             projectId: taskProject?.id || null,
+            reviewPendingCount: totalReviewCount,
           };
         }
       }
