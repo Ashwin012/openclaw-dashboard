@@ -563,10 +563,12 @@
                 const gcProjTag = gc.projectId
                   ? `<a href="/project.html?id=${encodeURIComponent(gc.projectId)}" style="color:var(--accent);text-decoration:none;font-size:10px">[${escapeHtml(gc.projectName)}]</a>`
                   : (gc.projectName ? `<span style="color:var(--text-muted);font-size:10px">[${escapeHtml(gc.projectName)}]</span>` : '');
+                const gcAuthor = gc.author ? ` <span style="color:var(--text-muted);font-size:10px" title="Auteur du commit">${escapeHtml(gc.author)}</span>` : '';
                 return `<div class="agent-last-activity">
                   <span style="color:var(--text-muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">git</span>
                   <span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(gc.hash)}</span>
                   <span style="color:var(--text);font-size:12px">${escapeHtml(gc.message)}</span>
+                  ${gcAuthor}
                   <span style="color:var(--text-muted);font-size:11px">${timeAgo(gc.timestamp)}</span>
                   ${gcProjTag}
                 </div>`;
@@ -579,14 +581,22 @@
             return '<span style="color:var(--text-muted)">—</span>';
           }
           const missing = a.workspaceExists === false ? ' <span style="color:var(--red)" title="Chemin introuvable">(absent)</span>' : '';
+          const srcBadge = a.workspaceSource === 'inferred'
+            ? ' <span style="font-size:9px;opacity:0.5;font-weight:400" title="Déduit de l\'ID agent">auto</span>'
+            : a.workspaceSource === 'linked'
+            ? ' <span style="font-size:9px;opacity:0.5;font-weight:400" title="Via projet lié">lié</span>'
+            : '';
           if (a.workspaceProjectName && a.workspaceProjectId) {
+            const extraNames = Array.isArray(a.workspaceExtraProjectNames) && a.workspaceExtraProjectNames.length
+              ? a.workspaceExtraProjectNames.join(', ')
+              : (a.workspaceExtraProjects > 0 ? `+${a.workspaceExtraProjects} projet(s)` : '');
             const extra = a.workspaceExtraProjects > 0
-              ? ` <span style="font-size:10px;color:var(--text-muted)" title="${a.workspaceExtraProjects} autre(s) projet(s)">+${a.workspaceExtraProjects}</span>`
+              ? ` <span style="font-size:10px;color:var(--text-muted)" title="${escapeHtml(extraNames)}">+${a.workspaceExtraProjects}</span>`
               : '';
-            return `<a href="/project.html?id=${encodeURIComponent(a.workspaceProjectId)}" style="color:var(--accent);text-decoration:none" title="${escapeHtml(a.workspacePath)}">${escapeHtml(a.workspaceProjectName)}</a>${extra}${missing}`;
+            return `<a href="/project.html?id=${encodeURIComponent(a.workspaceProjectId)}" style="color:var(--accent);text-decoration:none" title="${escapeHtml(a.workspacePath)}">${escapeHtml(a.workspaceProjectName)}</a>${srcBadge}${extra}${missing}`;
           }
           const shortPath = escapeHtml(a.workspacePath.split('/').filter(Boolean).slice(-2).join('/') || a.workspacePath);
-          return `<span style="font-family:monospace;font-size:12px" title="${escapeHtml(a.workspacePath)}">${shortPath}</span>${missing}`;
+          return `<span style="font-family:monospace;font-size:12px" title="${escapeHtml(a.workspacePath)}">${shortPath}</span>${srcBadge}${missing}`;
         })();
 
         return `<div class="agent-card">

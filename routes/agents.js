@@ -34,8 +34,12 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
   function inferEngine(model) {
     if (!model) return 'claude';
     const m = model.toLowerCase();
-    if (m.startsWith('claude-')) return 'claude';      // Direct Anthropic API: claude-opus-4-6, etc.
-    if (m.startsWith('anthropic/')) return 'openrouter'; // OpenRouter format: anthropic/claude-*
+    if (m.startsWith('claude-')) return 'claude';        // Direct Anthropic API: claude-opus-4-6, etc.
+    if (m.includes('/')) return 'openrouter';            // provider/model format → OpenRouter
+    // Local model family patterns (no provider prefix = likely Ollama)
+    if (m.startsWith('qwen') || m.startsWith('llama') || m.startsWith('mistral') ||
+        m.startsWith('gemma') || m.startsWith('phi') || m.startsWith('deepseek') ||
+        m.startsWith('codestral') || m.startsWith('starcoder') || m.includes(':')) return 'ollama';
     return 'openrouter';
   }
 
@@ -92,6 +96,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       : null;
     // Extra linked projects beyond the first (for UI "+N" indicator)
     const workspaceExtraProjects = !agent.workspacePath && !inferredProject && linkedProjects.length > 1 ? linkedProjects.length - 1 : 0;
+    const workspaceExtraProjectNames = workspaceExtraProjects > 0 ? linkedProjects.slice(1).map(p => p.name) : [];
     const workspacePath = agent.workspacePath || inferredProject?.path || firstLinkedProject?.path || '';
     const workspaceExists = workspacePath ? fs.existsSync(workspacePath) : false;
     const workspaceSource = agent.workspacePath ? 'explicit' : (inferredProject ? 'inferred' : firstLinkedProject ? 'linked' : 'none');
@@ -212,6 +217,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       workspaceProjectName,
       workspaceProjectId,
       workspaceExtraProjects,
+      workspaceExtraProjectNames,
       linkedPaths,
       statusKind,
       statusLabel,
