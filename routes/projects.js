@@ -317,9 +317,6 @@ function resolveProjectAgentRuntimeStatus({ agentExists, workspaceExists, worker
   if (workerRun) {
     return { kind: 'active', label: 'Active', source: 'task-worker' };
   }
-  if (!workerSnapshot) {
-    return { kind: 'down', label: 'Down', source: 'task-worker' };
-  }
   return { kind: 'idle', label: 'Idle', source: 'task-worker' };
 }
 
