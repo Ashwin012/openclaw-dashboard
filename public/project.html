@@ -925,35 +925,33 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
 
       document.getElementById('content').innerHTML = `
         <div class="project-header">
-          <div class="project-header-left">
+          <div class="ph-row1">
             <h1>${escapeHtml(data.name)}</h1>
-            <div class="desc">${escapeHtml(data.description)}</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
-              <span id="projectLiveStatusBadge" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:${statusTone.bg};color:${statusTone.color};font-size:11px;font-weight:600;border:1px solid ${statusTone.color}33">${escapeHtml(data.currentStatus?.label || 'Clean')}</span>
-              <span id="projectLiveStatusSummary" style="font-size:12px;color:var(--text-muted)">${escapeHtml(data.currentStatus?.summary || '')}</span>
-              <span id="projectLivePrimaryTask" style="font-size:12px;color:var(--text-muted);display:${primaryTask ? 'inline' : 'none'}">${primaryTask ? `Tâche active: ${escapeHtml(primaryTask.title)} (${escapeHtml(primaryTask.status)})` : ''}</span>
-            </div>
+            <span id="projectLiveStatusBadge" class="ph-status-badge" style="background:${statusTone.bg};color:${statusTone.color};border-color:${statusTone.color}33">${escapeHtml(data.currentStatus?.label || 'Clean')}</span>
+            <span id="projectLiveStatusSummary" class="ph-status-summary">${escapeHtml(data.currentStatus?.summary || '')}</span>
+            <span id="projectLivePrimaryTask" class="ph-status-summary" style="display:${primaryTask ? 'inline' : 'none'}">${primaryTask ? escapeHtml(primaryTask.title) : ''}</span>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <select id="branchSelect" onchange="onBranchChange()" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;max-width:160px">
+          <div class="ph-row2">
+            <select id="branchSelect" onchange="onBranchChange()" class="ph-select">
               <option value="${escapeHtml(data.branch)}" selected>${escapeHtml(data.branch)}</option>
             </select>
-            ${data.testUrl ? `<a href="${escapeHtml(data.testUrl)}" target="_blank" style="background:var(--accent);color:var(--bg);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Dev</a>` : ''}
-            ${data.apiUrl ? `<a href="${escapeHtml(data.apiUrl)}" target="_blank" style="background:#c4a7e7;color:var(--bg);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">API</a>` : ''}
-            ${data.stagingUrl ? `<a href="${escapeHtml(data.stagingUrl)}" target="_blank" style="background:var(--yellow);color:var(--bg);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Staging</a>` : ''}
-            ${data.prodUrl ? `<a href="${escapeHtml(data.prodUrl)}" target="_blank" style="background:var(--green);color:var(--bg);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Prod</a>` : ''}
-            ${data.prodApiUrl ? `<a href="${escapeHtml(data.prodApiUrl)}" target="_blank" style="background:#40a02b;color:var(--bg);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">Prod API</a>` : ''}
-            ${data.githubUrl ? `<a href="${escapeHtml(data.githubUrl)}" target="_blank" style="background:#6e6a86;color:#e0def4;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">GitHub</a>` : ''}
-            <button onclick="openConfigModal()" style="background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:14px;cursor:pointer;line-height:1" title="Edit project config">⚙</button>
-            <button onclick="gitPull()" style="background:var(--green);color:var(--bg);border:none;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer" id="pullBtn">Pull</button>
-            <div class="engine-selector" style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:11px;color:var(--text-muted)">Engine:</span>
-              <select id="engineSelect" onchange="onEngineChange()" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer">
-                <option value="claude" ${data.engine !== 'codex' && data.engine !== 'ollama' ? 'selected' : ''}>🟣 Claude Code</option>
-                <option value="codex" ${data.engine === 'codex' ? 'selected' : ''}>🟢 Codex (OpenAI)</option>
-                <option value="ollama" ${data.engine === 'ollama' ? 'selected' : ''}>🟠 Ollama local (via Codex)</option>
+            <button onclick="gitPull()" class="ph-btn ph-btn-pull" id="pullBtn">Pull</button>
+            <button onclick="openConfigModal()" class="ph-btn ph-btn-config" title="Edit project config">&#9881;</button>
+            <div class="ph-engine">
+              <select id="engineSelect" onchange="onEngineChange()" class="ph-select">
+                <option value="claude" ${data.engine !== 'codex' && data.engine !== 'ollama' ? 'selected' : ''}>Claude Code</option>
+                <option value="codex" ${data.engine === 'codex' ? 'selected' : ''}>Codex (OpenAI)</option>
+                <option value="ollama" ${data.engine === 'ollama' ? 'selected' : ''}>Ollama local</option>
               </select>
             </div>
+          </div>
+          <div class="ph-row3">
+            ${data.testUrl ? `<a href="${escapeHtml(data.testUrl)}" target="_blank" class="ph-link ph-link-dev">Dev</a>` : ''}
+            ${data.apiUrl ? `<a href="${escapeHtml(data.apiUrl)}" target="_blank" class="ph-link ph-link-api">API</a>` : ''}
+            ${data.stagingUrl ? `<a href="${escapeHtml(data.stagingUrl)}" target="_blank" class="ph-link ph-link-staging">Staging</a>` : ''}
+            ${data.prodUrl ? `<a href="${escapeHtml(data.prodUrl)}" target="_blank" class="ph-link ph-link-prod">Prod</a>` : ''}
+            ${data.prodApiUrl ? `<a href="${escapeHtml(data.prodApiUrl)}" target="_blank" class="ph-link ph-link-prodapi">Prod API</a>` : ''}
+            ${data.githubUrl ? `<a href="${escapeHtml(data.githubUrl)}" target="_blank" class="ph-link ph-link-github">GitHub</a>` : ''}
           </div>
         </div>
 

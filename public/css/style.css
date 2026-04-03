@@ -262,10 +262,122 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 
 .project-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  gap: 16px;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+/* Row 1: Name + status */
+.ph-row1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.ph-row1 h1 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.ph-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ph-status-summary {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Row 2: Branch + actions + engine */
+.ph-row2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ph-select {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  max-width: 180px;
+}
+.ph-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1;
+}
+.ph-btn-pull {
+  background: var(--green);
+  color: var(--bg);
+}
+.ph-btn-config {
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  padding: 4px 10px;
+}
+.ph-btn-config:hover { background: var(--bg-hover); }
+.ph-engine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* Row 3: URL links */
+.ph-row3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ph-link {
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.ph-link:hover { opacity: 0.85; }
+.ph-link-dev { background: var(--accent); color: var(--bg); }
+.ph-link-api { background: #c4a7e7; color: var(--bg); }
+.ph-link-staging { background: var(--yellow); color: var(--bg); }
+.ph-link-prod { background: var(--green); color: var(--bg); }
+.ph-link-prodapi { background: #40a02b; color: var(--bg); }
+.ph-link-github { background: #6e6a86; color: #e0def4; }
+
+@media (max-width: 768px) {
+  .ph-row1 h1 { font-size: 17px; }
+  .ph-engine { margin-left: 0; width: 100%; }
+  .ph-row3 { gap: 5px; }
+  .ph-link { padding: 4px 8px; font-size: 10px; }
 }
 
 .project-header-left h1 { font-size: 22px; font-weight: 600; }

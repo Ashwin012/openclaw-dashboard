@@ -359,6 +359,9 @@
       color: var(--border);
     }
 
+    /* Card-level link overrides */
+    .card-section .ph-link { padding: 3px 8px; font-size: 10px; }
+
     /* ===== Responsive ===== */
     @media (max-width: 640px) {
       .card-header { flex-wrap: wrap; }
@@ -573,19 +576,13 @@
         // Error state
         if (!p.accessible) {
           return `<div class="project-card">
-            <div class="card-header">
-              <div class="card-header-left" style="cursor:pointer" onclick="window.location.href='/project.html?id=${escapeHtml(p.id)}'">
+            <div class="card-header" style="cursor:pointer" onclick="window.location.href='/project.html?id=${escapeHtml(p.id)}'">
+              <div class="card-header-left">
                 <span class="status-dot error"></span>
                 <div class="card-header-info">
                   <div class="project-name">${escapeHtml(p.name)}</div>
-                  <div class="project-desc">${escapeHtml(p.description || '')}${p.repos && p.repos.length > 1 ? ` <span style="color:var(--text-muted);font-size:11px;margin-left:6px">&#128230; ${p.repos.length} repos</span>` : ''}</div>
+                  <div class="project-desc">${escapeHtml(p.description || '')}</div>
                 </div>
-              </div>
-              <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
-                ${p.testUrl ? `<a class="test-btn" href="${escapeHtml(p.testUrl)}" target="_blank">Test</a>` : ''}
-                ${p.stagingUrl ? `<a class="test-btn" href="${escapeHtml(p.stagingUrl)}" target="_blank" style="background:#fab387;color:var(--bg)">Staging</a>` : ''}
-                ${p.prodUrl ? `<a class="test-btn" href="${escapeHtml(p.prodUrl)}" target="_blank" style="background:var(--green);color:var(--bg)">Prod</a>` : ''}
-                ${p.githubUrl ? `<a class="test-btn" href="${escapeHtml(p.githubUrl)}" target="_blank" style="background:#6e6a86;color:var(--text)">GitHub</a>` : ''}
               </div>
             </div>
             <div class="card-section" style="color:var(--red);font-size:12px;opacity:0.8">
@@ -605,17 +602,6 @@
         if (pendingCount > 0) dotClass = 'dirty';
         else if (unpushedCount > 0) dotClass = 'unpushed';
         const statusTone = getStatusTone(p.currentStatus?.kind);
-
-        // --- Section 1: Current Status ---
-        const section0 = `<div class="card-section">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:${statusTone.bg};color:${statusTone.color};font-size:11px;font-weight:600;border:1px solid ${statusTone.color}33">${escapeHtml(p.currentStatus?.label || 'Clean')}</span>
-            <span style="font-size:12px;color:var(--text-muted)">${escapeHtml(p.currentStatus?.summary || '')}</span>
-          </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
-            ${renderAgentBadges(p.agents)}
-          </div>
-        </div>`;
 
         // --- Section 1: Recent Commits ---
         const recentCommits = (p.recentCommits || []).slice(0, 5);
@@ -730,32 +716,31 @@
         }
 
         // --- Footer ---
-        const commitCount = (p.recentCommits || []).length;
         const footer = `<div class="card-footer">
-          <span>&#9135; ${escapeHtml(p.branch || 'unknown')}</span>
-          <span class="card-footer-sep">·</span>
-          <span>${commitCount} recent commit${commitCount !== 1 ? 's' : ''}</span>
-          <span class="card-footer-sep">·</span>
           <span>Last activity ${timeAgo(p.lastActivity)}</span>
         </div>`;
 
         return `<div class="project-card">
-          <div class="card-header">
-            <div class="card-header-left" style="cursor:pointer" onclick="window.location.href='/project.html?id=${escapeHtml(p.id)}'">
+          <div class="card-header" style="cursor:pointer" onclick="window.location.href='/project.html?id=${escapeHtml(p.id)}'">
+            <div class="card-header-left">
               <span class="status-dot ${dotClass}"></span>
               <div class="card-header-info">
                 <div class="project-name">${escapeHtml(p.name)}</div>
                 <div class="project-desc">${escapeHtml(p.description || '')}${p.repos && p.repos.length > 1 ? ` <span style="color:var(--text-muted);font-size:11px;margin-left:6px">&#128230; ${p.repos.length} repos</span>` : ''}</div>
               </div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
-              ${p.testUrl ? `<a class="test-btn" href="${escapeHtml(p.testUrl)}" target="_blank">Test</a>` : ''}
-              ${p.stagingUrl ? `<a class="test-btn" href="${escapeHtml(p.stagingUrl)}" target="_blank" style="background:#fab387;color:var(--bg)">Staging</a>` : ''}
-                ${p.prodUrl ? `<a class="test-btn" href="${escapeHtml(p.prodUrl)}" target="_blank" style="background:var(--green);color:var(--bg)">Prod</a>` : ''}
-                ${p.githubUrl ? `<a class="test-btn" href="${escapeHtml(p.githubUrl)}" target="_blank" style="background:#6e6a86;color:var(--text)">GitHub</a>` : ''}
-            </div>
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:${statusTone.bg};color:${statusTone.color};font-size:11px;font-weight:600;border:1px solid ${statusTone.color}33;flex-shrink:0">${escapeHtml(p.currentStatus?.label || 'Clean')}</span>
           </div>
-          ${section0}
+          <div class="card-section" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px">
+            <span style="font-size:11px;color:var(--text-muted)">&#9135; ${escapeHtml(p.branch || '?')}</span>
+            ${p.currentStatus?.summary ? `<span style="font-size:11px;color:var(--text-muted)">&#183; ${escapeHtml(p.currentStatus.summary)}</span>` : ''}
+            <span style="flex:1"></span>
+            ${p.testUrl ? `<a class="ph-link ph-link-dev" href="${escapeHtml(p.testUrl)}" target="_blank" onclick="event.stopPropagation()">Dev</a>` : ''}
+            ${p.stagingUrl ? `<a class="ph-link ph-link-staging" href="${escapeHtml(p.stagingUrl)}" target="_blank" onclick="event.stopPropagation()">Staging</a>` : ''}
+            ${p.prodUrl ? `<a class="ph-link ph-link-prod" href="${escapeHtml(p.prodUrl)}" target="_blank" onclick="event.stopPropagation()">Prod</a>` : ''}
+            ${p.githubUrl ? `<a class="ph-link ph-link-github" href="${escapeHtml(p.githubUrl)}" target="_blank" onclick="event.stopPropagation()">GitHub</a>` : ''}
+          </div>
+          ${Array.isArray(p.agents) && p.agents.length ? `<div class="card-section" style="display:flex;gap:6px;flex-wrap:wrap;padding-top:6px;padding-bottom:8px">${renderAgentBadges(p.agents)}</div>` : ''}
           ${section1}
           ${section2}
           ${section3}
