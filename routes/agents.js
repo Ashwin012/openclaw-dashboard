@@ -147,6 +147,13 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         const hasDedicatedAgent = agentIds && agentIds.has(lp.id) && lp.id !== agent.id;
         if (lp.name && !hasDedicatedAgent) projectNamesToSearch.add(lp.name);
       }
+      // Fallback: if no exclusive projects after dedup filter, include all linked projects
+      if (!projectNamesToSearch.size) {
+        for (const lp of linkedProjects) {
+          if (lp.name) projectNamesToSearch.add(lp.name);
+        }
+      }
+
       if (projectNamesToSearch.size) {
         const matching = notifications.filter(n =>
           projectNamesToSearch.has(n.projectName) && TERMINAL_STATUSES.has(n.toStatus)
@@ -170,9 +177,12 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       }
     }
 
+    const engineIsInferred = !agent.engine;
+
     return {
       ...agent,
       engine,
+      engineIsInferred,
       workspacePath,
       gitLookupPath,
       workspaceExists,
@@ -280,7 +290,11 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
 
       const { name, engine, model, workspacePath } = req.body;
       if (name !== undefined) agents[idx].name = String(name).trim();
-      if (engine !== undefined) agents[idx].engine = String(engine).trim();
+      if (engine !== undefined) {
+        const engineVal = String(engine).trim();
+        if (engineVal) agents[idx].engine = engineVal;
+        else delete agents[idx].engine;
+      }
       if (model !== undefined) agents[idx].model = String(model).trim();
       if (workspacePath !== undefined) agents[idx].workspacePath = String(workspacePath).trim();
 
@@ -313,10 +327,11 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const newAgent = {
         id: agentId,
         name: (name || agentId).trim(),
-        engine: (engine || 'claude').trim(),
         model: (model || 'claude-sonnet-4-6').trim(),
         workspacePath: (workspacePath || '').trim()
       };
+      const engineVal = (engine || '').trim();
+      if (engineVal) newAgent.engine = engineVal;
 
       agents.push(newAgent);
       cfg.openclawAgents = agents;

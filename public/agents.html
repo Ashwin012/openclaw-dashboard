@@ -382,6 +382,7 @@
         <div class="agent-form-group">
           <label for="formEngine">Engine</label>
           <select id="formEngine">
+            <option value="">Auto (inféré du modèle)</option>
             <option value="claude">Claude</option>
             <option value="openrouter">OpenRouter</option>
             <option value="ollama">Ollama</option>
@@ -442,23 +443,17 @@
       return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};font-size:11px;font-weight:600;border:1px solid ${color}44">${escapeHtml(thinking)}${suffix}</span>`;
     }
 
-    function getEngineBadge(engine, model) {
+    function getEngineBadge(engine, model, isInferred) {
       const map = {
         claude:      { color: 'var(--accent)',  label: 'Claude' },
         openrouter:  { color: 'var(--yellow)',  label: 'OpenRouter' },
         ollama:      { color: 'var(--green)',   label: 'Ollama' },
         codex:       { color: 'var(--purple)',  label: 'Codex' },
       };
-      // If engine is set explicitly, use it; otherwise infer from model prefix
-      let e = (engine || '').toLowerCase();
-      if (!e) {
-        const m = (model || '').toLowerCase();
-        if (m.startsWith('claude-')) e = 'claude';
-        else if (m.startsWith('anthropic/')) e = 'openrouter';
-        else e = 'openrouter';
-      }
+      const e = (engine || '').toLowerCase();
       const { color, label } = map[e] || { color: 'var(--text-muted)', label: escapeHtml(engine || e) };
-      return `<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};font-size:11px;font-weight:600;border:1px solid ${color}44">${label}</span>`;
+      const inferredSuffix = isInferred ? ' <span style="font-size:9px;opacity:0.55;font-weight:400">auto</span>' : '';
+      return `<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};font-size:11px;font-weight:600;border:1px solid ${color}44">${label}${inferredSuffix}</span>`;
     }
 
     function renderStats() {
@@ -571,12 +566,6 @@
 
         const workspaceHtml = (() => {
           if (!a.workspacePath) {
-            const linked = a.linkedProjects || [];
-            if (linked.length > 0) {
-              return linked.map(p =>
-                `<a href="/project.html?id=${encodeURIComponent(p.id)}" style="color:var(--accent);text-decoration:none">${escapeHtml(p.name)}</a>`
-              ).join('<span style="color:var(--border);margin:0 4px">/</span>');
-            }
             return '<span style="color:var(--text-muted)">—</span>';
           }
           const missing = a.workspaceExists === false ? ' <span style="color:var(--red)" title="Chemin introuvable">(absent)</span>' : '';
@@ -598,7 +587,7 @@
           <div class="agent-card-body">
             <div class="agent-field">
               <div class="agent-field-label">Engine</div>
-              <div class="agent-field-value">${getEngineBadge(a.engine, a.model)}</div>
+              <div class="agent-field-value">${getEngineBadge(a.engine, a.model, a.engineIsInferred)}</div>
             </div>
             <div class="agent-field">
               <div class="agent-field-label">Model</div>
@@ -654,7 +643,7 @@
       document.getElementById('formId').value = '';
       document.getElementById('formId').disabled = false;
       document.getElementById('formName').value = '';
-      document.getElementById('formEngine').value = 'claude';
+      document.getElementById('formEngine').value = '';
       document.getElementById('formModel').value = 'claude-sonnet-4-6';
       document.getElementById('formWorkspace').value = '';
       modal.classList.add('open');
@@ -669,7 +658,7 @@
       document.getElementById('formId').value = a.id;
       document.getElementById('formId').disabled = true;
       document.getElementById('formName').value = a.name || '';
-      document.getElementById('formEngine').value = a.engine || 'claude';
+      document.getElementById('formEngine').value = a.engineIsInferred ? '' : (a.engine || '');
       document.getElementById('formModel').value = a.model || '';
       document.getElementById('formWorkspace').value = a.workspacePath || '';
       modal.classList.add('open');
