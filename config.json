@@ -50,7 +50,8 @@
       "githubUrl": "https://github.com/Champion-Spirit/championspirit-api",
       "engine": "claude",
       "openclawAgentIds": [
-        "champion-spirit"
+        "champion-spirit",
+        "champion-spirit-staging-analytics"
       ]
     },
     {
@@ -115,7 +116,8 @@
       "githubUrl": "https://github.com/Ashwin012/openclaw-dashboard",
       "engine": "claude",
       "openclawAgentIds": [
-        "openclaw-dashboard"
+        "openclaw-dashboard",
+        "main"
       ]
     },
     {
@@ -134,7 +136,8 @@
       "testUrl": "http://158.69.1.160:8085",
       "engine": "claude",
       "openclawAgentIds": [
-        "royal-heights"
+        "royal-heights",
+        "royal-heights-marketing"
       ]
     },
     {
@@ -155,7 +158,11 @@
       "prodApiUrl": "https://api.synapcoin.io",
       "engine": "claude",
       "openclawAgentIds": [
-        "synapcoin"
+        "synapcoin",
+        "synapcoin-marketing",
+        "synapcoin-docs",
+        "synap-communication",
+        "synap-qa"
       ]
     },
     {
@@ -176,7 +183,10 @@
       "prodApiUrl": "https://api.synaphive.io",
       "engine": "claude",
       "openclawAgentIds": [
-        "synaphive"
+        "synaphive",
+        "synaphive-marketing",
+        "synap-communication",
+        "synap-qa"
       ]
     }
   ],

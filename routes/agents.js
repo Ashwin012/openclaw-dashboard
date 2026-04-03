@@ -56,20 +56,24 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
   function enrichAgent(agent, workerSnapshot, cfg, notifications) {
     const engine = agent.engine || inferEngine(agent.model);
 
-    // Workspace: explicit > inferred from matching project
-    const inferredProject = !agent.workspacePath
-      ? (cfg.projects || []).find(p => p.id === agent.id) || null
-      : null;
-    const workspacePath = agent.workspacePath || inferredProject?.path || '';
-    const workspaceExists = workspacePath ? fs.existsSync(workspacePath) : false;
-    const workspaceSource = agent.workspacePath ? 'explicit' : (inferredProject ? 'inferred' : 'none');
-    const workspaceProjectName = inferredProject?.name || null;
-
-    // Find which projects reference this agent (compute before workerRun matching)
+    // Find which projects reference this agent (needed for workspace fallback)
     const linkedProjects = (cfg.projects || [])
       .filter(p => Array.isArray(p.openclawAgentIds) && p.openclawAgentIds.includes(agent.id))
       .map(p => ({ id: p.id, name: p.name }));
     const linkedProjectIds = new Set(linkedProjects.map(p => p.id));
+
+    // Workspace: explicit > same-id project (inferred) > first linked project
+    const inferredProject = !agent.workspacePath
+      ? (cfg.projects || []).find(p => p.id === agent.id) || null
+      : null;
+    const firstLinkedProject = !agent.workspacePath && !inferredProject && linkedProjects.length > 0
+      ? (cfg.projects || []).find(p => p.id === linkedProjects[0].id) || null
+      : null;
+    const workspacePath = agent.workspacePath || inferredProject?.path || firstLinkedProject?.path || '';
+    const workspaceExists = workspacePath ? fs.existsSync(workspacePath) : false;
+    const workspaceSource = agent.workspacePath ? 'explicit' : (inferredProject ? 'inferred' : firstLinkedProject ? 'linked' : 'none');
+    const workspaceProjectName = inferredProject?.name || firstLinkedProject?.name || null;
+    const workspaceProjectId = inferredProject?.id || firstLinkedProject?.id || null;
 
     // Match worker task: by projectId == agent.id, or by any linked project
     const workerRun = Array.isArray(workerSnapshot?.tasks)
@@ -131,6 +135,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       workspaceExists,
       workspaceSource,
       workspaceProjectName,
+      workspaceProjectId,
       statusKind,
       statusLabel,
       linkedProjects,

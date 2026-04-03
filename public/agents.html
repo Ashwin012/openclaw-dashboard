@@ -521,8 +521,8 @@
         const workspaceHtml = (() => {
           if (!a.workspacePath) return '<span style="color:var(--text-muted)">—</span>';
           const missing = a.workspaceExists === false ? ' <span style="color:var(--red)" title="Chemin introuvable">(absent)</span>' : '';
-          if (a.workspaceSource === 'inferred' && a.workspaceProjectName) {
-            return `<a href="/project.html?id=${encodeURIComponent(a.id)}" style="color:var(--accent);text-decoration:none">${escapeHtml(a.workspaceProjectName)}</a>${missing}`;
+          if ((a.workspaceSource === 'inferred' || a.workspaceSource === 'linked') && a.workspaceProjectName && a.workspaceProjectId) {
+            return `<a href="/project.html?id=${encodeURIComponent(a.workspaceProjectId)}" style="color:var(--accent);text-decoration:none">${escapeHtml(a.workspaceProjectName)}</a>${missing}`;
           }
           const shortPath = escapeHtml(a.workspacePath.split('/').filter(Boolean).slice(-2).join('/') || a.workspacePath);
           return `${shortPath}${missing}`;
