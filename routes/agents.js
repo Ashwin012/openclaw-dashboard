@@ -80,7 +80,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     return log;
   }
 
-  function enrichAgent(agent, workerSnapshot, cfg, notifications, agentIds, inProgressTaskIds) {
+  function enrichAgent(agent, workerSnapshot, cfg, notifications, agentIds, inProgressTsMap) {
     const engine = agent.engine || inferEngine(agent.model);
 
     // Find which projects reference this agent (needed for workspace fallback)
@@ -172,7 +172,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
           projectNamesToSearch.has(n.projectName) && TERMINAL_STATUSES.has(n.toStatus) &&
           !activeTaskIds.has(n.taskId) &&
           // Exclude terminal notifications superseded by a more recent in_progress for the same task
-          !(inProgressTaskIds && n.taskId && inProgressTaskIds.has(n.taskId))
+          !(inProgressTsMap && n.taskId && inProgressTsMap[n.taskId] !== undefined &&
+            inProgressTsMap[n.taskId] > new Date(n.timestamp).getTime())
         );
         if (matching.length) {
           const sorted = [...matching].sort((a, b) =>
@@ -262,17 +263,23 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         fetchWorkerSnapshot(),
         Promise.resolve(readNotifications()),
       ]);
-      // Task IDs that are currently in_progress (from pending notifications) —
-      // used to suppress showing stale terminal status for tasks that were re-started
-      const inProgressTaskIds = new Set();
+      // Map taskId → most-recent in_progress timestamp (ms) from pending notifications.
+      // Used to suppress terminal statuses that were superseded by a re-queue.
+      // Only suppresses when in_progress timestamp is NEWER than the terminal notification.
+      const inProgressTsMap = {};
       try {
         const pendingData = JSON.parse(fs.readFileSync(NOTIFICATIONS_PATH, 'utf8'));
         for (const n of (pendingData.pending || [])) {
-          if (n.toStatus === 'in_progress' && n.taskId) inProgressTaskIds.add(n.taskId);
+          if (n.toStatus === 'in_progress' && n.taskId) {
+            const ts = new Date(n.timestamp).getTime();
+            if (!inProgressTsMap[n.taskId] || ts > inProgressTsMap[n.taskId]) {
+              inProgressTsMap[n.taskId] = ts;
+            }
+          }
         }
       } catch {}
       const agentIds = new Set(agents.map(a => a.id));
-      const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg, notifications, agentIds, inProgressTaskIds));
+      const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg, notifications, agentIds, inProgressTsMap));
 
       // Fetch git last commit for agents with no notification activity and a valid workspace.
       // Multi-linked agents (no explicit workspace) check all linked project paths and pick
@@ -416,7 +423,17 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const workerSnapshot = await fetchWorkerSnapshot();
       const notifications = readNotifications();
       const agentIds = new Set(agents.map(a => a.id));
-      res.json(enrichAgent(agent, workerSnapshot, cfg, notifications, agentIds));
+      const inProgressTsMap = {};
+      try {
+        const pendingData = JSON.parse(fs.readFileSync(NOTIFICATIONS_PATH, 'utf8'));
+        for (const n of (pendingData.pending || [])) {
+          if (n.toStatus === 'in_progress' && n.taskId) {
+            const ts = new Date(n.timestamp).getTime();
+            if (!inProgressTsMap[n.taskId] || ts > inProgressTsMap[n.taskId]) inProgressTsMap[n.taskId] = ts;
+          }
+        }
+      } catch {}
+      res.json(enrichAgent(agent, workerSnapshot, cfg, notifications, agentIds, inProgressTsMap));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
