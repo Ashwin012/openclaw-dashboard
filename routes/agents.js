@@ -250,10 +250,11 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const pathsToFetch = new Set();
       for (const a of enriched) {
         if (a.lastActivity || a.currentTask) continue;
-        if (a.workspacePath) {
-          pathsToFetch.add(a.workspacePath);
-        } else if (a.linkedPaths && a.linkedPaths.length) {
+        // Prefer linkedPaths (covers all repos in multi-repo projects) over single workspacePath
+        if (a.linkedPaths && a.linkedPaths.length) {
           for (const p of a.linkedPaths) pathsToFetch.add(p);
+        } else if (a.workspacePath) {
+          pathsToFetch.add(a.workspacePath);
         } else if (a.gitLookupPath) {
           pathsToFetch.add(a.gitLookupPath);
         }
@@ -279,10 +280,10 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       );
       for (const a of enriched) {
         if (a.lastActivity || a.currentTask) continue;
-        // Collect all paths relevant to this agent
-        const agentPaths = a.workspacePath
-          ? [a.workspacePath]
-          : (a.linkedPaths && a.linkedPaths.length ? a.linkedPaths : (a.gitLookupPath ? [a.gitLookupPath] : []));
+        // Collect all paths relevant to this agent — prefer linkedPaths for multi-repo coverage
+        const agentPaths = (a.linkedPaths && a.linkedPaths.length)
+          ? a.linkedPaths
+          : (a.workspacePath ? [a.workspacePath] : (a.gitLookupPath ? [a.gitLookupPath] : []));
         // Pick the most recent commit across all repos
         let best = null;
         let bestPath = null;
