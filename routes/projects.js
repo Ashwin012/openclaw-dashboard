@@ -340,6 +340,10 @@ function buildProjectAgents(config, project, workerSnapshot, workerRun) {
       workerRun
     });
 
+    const thinkingDefault = config.agents?.defaults?.thinkingDefault || 'auto';
+    const effectiveThinking = agentConfig?.thinking || thinkingDefault;
+    const thinkingIsDefault = !agentConfig?.thinking;
+
     return {
       key: `openclaw|${agentId}`,
       id: agentId,
@@ -348,6 +352,8 @@ function buildProjectAgents(config, project, workerSnapshot, workerRun) {
       engine: engine || null,
       engineLabel: engine ? getEngineLabel(engine) : null,
       model,
+      effectiveThinking,
+      thinkingIsDefault,
       active: runtime.kind === 'active',
       runtimeStatus: runtime.kind,
       statusKind: runtime.kind,

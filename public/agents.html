@@ -458,18 +458,30 @@
   <script src="/js/common.js"></script>
   <script>
     let agents = [];
+    let agentDefaults = { thinkingDefault: 'auto' };
     let deleteTargetId = null;
+
+    function getThinkingBadge(thinking, isDefault) {
+      const colors = { auto: 'var(--text-muted)', low: 'var(--text-muted)', medium: 'var(--yellow)', high: 'var(--purple)' };
+      const color = colors[thinking] || 'var(--text-muted)';
+      const suffix = isDefault ? ' <span style="font-size:10px;opacity:0.6">(défaut)</span>' : '';
+      return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};font-size:11px;font-weight:600;border:1px solid ${color}44">${escapeHtml(thinking)}${suffix}</span>`;
+    }
 
     function renderStats() {
       const total = agents.length;
       const active = agents.filter(a => a.statusKind === 'active').length;
       const idle = agents.filter(a => a.statusKind === 'idle').length;
       const down = agents.filter(a => a.statusKind === 'down').length;
+      const td = agentDefaults.thinkingDefault || 'auto';
+      const tdColors = { auto: 'var(--text-muted)', low: 'var(--text-muted)', medium: 'var(--yellow)', high: 'var(--purple)' };
+      const tdColor = tdColors[td] || 'var(--text-muted)';
       document.getElementById('agentsStats').innerHTML =
         `<span class="stat-pill"><span style="color:var(--text)">${total}</span> total</span>` +
         `<span class="stat-pill"><span style="color:var(--green)">${active}</span> actifs</span>` +
         `<span class="stat-pill"><span style="color:var(--yellow)">${idle}</span> idle</span>` +
-        `<span class="stat-pill"><span style="color:var(--text-muted)">${down}</span> down</span>`;
+        `<span class="stat-pill"><span style="color:var(--text-muted)">${down}</span> down</span>` +
+        `<span class="stat-pill" title="Niveau de thinking par défaut (agents.defaults.thinkingDefault)">thinking: <span style="color:${tdColor};font-weight:600">${escapeHtml(td)}</span></span>`;
     }
 
     function renderAgents() {
@@ -507,6 +519,10 @@
               <div class="agent-field-value mono">${escapeHtml(a.model || '-')}</div>
             </div>
             <div class="agent-field">
+              <div class="agent-field-label">Thinking</div>
+              <div class="agent-field-value">${getThinkingBadge(a.effectiveThinking || 'auto', a.thinkingIsDefault !== false)}</div>
+            </div>
+            <div class="agent-field">
               <div class="agent-field-label">Workspace</div>
               <div class="agent-field-value mono">${escapeHtml(a.workspacePath || '-')}${a.workspaceExists === false ? ' <span style="color:var(--red)">(absent)</span>' : ''}</div>
             </div>
@@ -528,7 +544,9 @@
       try {
         const res = await fetch('/api/agents');
         if (!res.ok) throw new Error('Erreur chargement agents');
-        agents = await res.json();
+        const data = await res.json();
+        agents = Array.isArray(data) ? data : (data.agents || []);
+        agentDefaults = data.defaults || { thinkingDefault: 'auto' };
         renderAgents();
       } catch (err) {
         document.getElementById('agentsGrid').innerHTML = `<div class="empty-state" style="color:var(--red)">Erreur: ${escapeHtml(err.message)}</div>`;

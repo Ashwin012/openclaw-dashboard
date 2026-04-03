@@ -1,5 +1,10 @@
 {
   "webhookUrl": "",
+  "agents": {
+    "defaults": {
+      "thinkingDefault": "auto"
+    }
+  },
   "projects": [
     {
       "id": "afdex",

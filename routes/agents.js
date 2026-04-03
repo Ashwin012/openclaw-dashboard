@@ -30,6 +30,11 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     });
   }
 
+  function getThinkingDefault() {
+    const cfg = reloadConfig();
+    return cfg.agents?.defaults?.thinkingDefault || 'auto';
+  }
+
   function enrichAgent(agent, workerSnapshot) {
     const workspaceExists = agent.workspacePath ? fs.existsSync(agent.workspacePath) : false;
     const workerRun = Array.isArray(workerSnapshot?.tasks)
@@ -55,12 +60,18 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       .filter(p => Array.isArray(p.openclawAgentIds) && p.openclawAgentIds.includes(agent.id))
       .map(p => ({ id: p.id, name: p.name }));
 
+    const thinkingDefault = getThinkingDefault();
+    const effectiveThinking = agent.thinking || thinkingDefault;
+    const thinkingIsDefault = !agent.thinking;
+
     return {
       ...agent,
       workspaceExists,
       statusKind,
       statusLabel,
       linkedProjects,
+      effectiveThinking,
+      thinkingIsDefault,
       currentTask: workerRun ? {
         id: workerRun.id,
         title: workerRun.title,
@@ -77,7 +88,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const agents = Array.isArray(cfg.openclawAgents) ? cfg.openclawAgents : [];
       const workerSnapshot = await fetchWorkerSnapshot();
       const enriched = agents.map(a => enrichAgent(a, workerSnapshot));
-      res.json(enriched);
+      const thinkingDefault = cfg.agents?.defaults?.thinkingDefault || 'auto';
+      res.json({ agents: enriched, defaults: { thinkingDefault } });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
