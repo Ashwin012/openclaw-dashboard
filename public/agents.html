@@ -510,10 +510,20 @@
               const la = a.lastActivity;
               const statusIcon = la.status === 'review' || la.status === 'done' ? '✓ ' : la.status === 'in_progress' ? '↻ ' : '';
               const statusColor = la.status === 'review' || la.status === 'done' ? 'var(--green)' : 'var(--text-muted)';
+              const projTag = la.projectName
+                ? (la.projectId
+                    ? `<a href="/project.html?id=${encodeURIComponent(la.projectId)}" style="color:var(--accent);text-decoration:none;font-size:10px">[${escapeHtml(la.projectName)}]</a>`
+                    : `<span style="color:var(--text-muted);font-size:10px">[${escapeHtml(la.projectName)}]</span>`)
+                : '';
+              const msgSpan = la.message
+                ? `<span style="color:var(--text-muted);font-size:11px" title="${escapeHtml(la.message)}">${escapeHtml(la.message)}</span>`
+                : '';
               return `<div class="agent-last-activity">
                 <span style="color:${statusColor}">${statusIcon}${escapeHtml(la.taskTitle || la.taskId || '?')}</span>
+                ${la.taskId ? `<span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(la.taskId)}</span>` : ''}
                 <span style="color:var(--text-muted);font-size:11px">${timeAgo(la.timestamp)}</span>
-                ${la.projectName ? `<span style="color:var(--text-muted);font-size:10px">[${escapeHtml(la.projectName)}]</span>` : ''}
+                ${projTag}
+                ${msgSpan}
               </div>`;
             })()
           : '';
@@ -521,11 +531,11 @@
         const workspaceHtml = (() => {
           if (!a.workspacePath) return '<span style="color:var(--text-muted)">—</span>';
           const missing = a.workspaceExists === false ? ' <span style="color:var(--red)" title="Chemin introuvable">(absent)</span>' : '';
-          if ((a.workspaceSource === 'inferred' || a.workspaceSource === 'linked') && a.workspaceProjectName && a.workspaceProjectId) {
-            return `<a href="/project.html?id=${encodeURIComponent(a.workspaceProjectId)}" style="color:var(--accent);text-decoration:none">${escapeHtml(a.workspaceProjectName)}</a>${missing}`;
+          if (a.workspaceProjectName && a.workspaceProjectId) {
+            return `<a href="/project.html?id=${encodeURIComponent(a.workspaceProjectId)}" style="color:var(--accent);text-decoration:none" title="${escapeHtml(a.workspacePath)}">${escapeHtml(a.workspaceProjectName)}</a>${missing}`;
           }
           const shortPath = escapeHtml(a.workspacePath.split('/').filter(Boolean).slice(-2).join('/') || a.workspacePath);
-          return `${shortPath}${missing}`;
+          return `<span title="${escapeHtml(a.workspacePath)}">${shortPath}</span>${missing}`;
         })();
 
         return `<div class="agent-card">

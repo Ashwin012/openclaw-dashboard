@@ -72,8 +72,17 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     const workspacePath = agent.workspacePath || inferredProject?.path || firstLinkedProject?.path || '';
     const workspaceExists = workspacePath ? fs.existsSync(workspacePath) : false;
     const workspaceSource = agent.workspacePath ? 'explicit' : (inferredProject ? 'inferred' : firstLinkedProject ? 'linked' : 'none');
-    const workspaceProjectName = inferredProject?.name || firstLinkedProject?.name || null;
-    const workspaceProjectId = inferredProject?.id || firstLinkedProject?.id || null;
+    let workspaceProjectName = inferredProject?.name || firstLinkedProject?.name || null;
+    let workspaceProjectId = inferredProject?.id || firstLinkedProject?.id || null;
+
+    // For explicit workspace paths, find a matching project by path
+    if (agent.workspacePath && !workspaceProjectName) {
+      const pathMatch = (cfg.projects || []).find(p => p.path === agent.workspacePath);
+      if (pathMatch) {
+        workspaceProjectName = pathMatch.name;
+        workspaceProjectId = pathMatch.id;
+      }
+    }
 
     // Match worker task: by projectId == agent.id, or by any linked project
     const workerRun = Array.isArray(workerSnapshot?.tasks)
@@ -117,12 +126,15 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
           );
           const latest = sorted[sorted.length - 1];
+          const latestProject = (cfg.projects || []).find(p => p.name === latest.projectName);
           lastActivity = {
             taskTitle: latest.taskTitle || null,
             taskId: latest.taskId || null,
             timestamp: latest.timestamp,
             status: latest.toStatus,
             projectName: latest.projectName,
+            projectId: latestProject?.id || null,
+            message: latest.message || null,
           };
         }
       }
