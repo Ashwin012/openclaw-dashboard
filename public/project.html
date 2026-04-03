@@ -933,9 +933,6 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
               <span id="projectLiveStatusSummary" style="font-size:12px;color:var(--text-muted)">${escapeHtml(data.currentStatus?.summary || '')}</span>
               <span id="projectLivePrimaryTask" style="font-size:12px;color:var(--text-muted);display:${primaryTask ? 'inline' : 'none'}">${primaryTask ? `Tâche active: ${escapeHtml(primaryTask.title)} (${escapeHtml(primaryTask.status)})` : ''}</span>
             </div>
-            <div id="projectLiveAgents" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
-              ${renderProjectAgents(data.agents)}
-            </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <select id="branchSelect" onchange="onBranchChange()" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;max-width:160px">
@@ -1845,7 +1842,6 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       const badge = document.getElementById('projectLiveStatusBadge');
       const summary = document.getElementById('projectLiveStatusSummary');
       const primaryTask = document.getElementById('projectLivePrimaryTask');
-      const agents = document.getElementById('projectLiveAgents');
       const branchSelect = document.getElementById('branchSelect');
 
       if (badge) {
@@ -1866,10 +1862,6 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         primaryTask.textContent = currentPrimaryTask
           ? `Tâche active: ${currentPrimaryTask.title} (${currentPrimaryTask.status})`
           : '';
-      }
-
-      if (agents) {
-        agents.innerHTML = renderProjectAgents(snapshot.agents);
       }
 
       const agentsTabBadge = document.querySelector('#tab-agents .tab-badge');
