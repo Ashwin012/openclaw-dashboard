@@ -310,14 +310,17 @@ function buildTaskAgents(project, tasks, workerRun) {
     });
 }
 
-function resolveProjectAgentRuntimeStatus({ agentExists, workspaceExists, workerSnapshot, workerRun }) {
-  if (!agentExists || !workspaceExists) {
-    return { kind: 'down', label: 'Down', source: !agentExists ? 'catalog' : 'workspace' };
+function resolveProjectAgentRuntimeStatus({ agentExists, workerSnapshot, workerRun }) {
+  if (!agentExists) {
+    return { kind: 'down', label: 'Down', source: 'catalog' };
   }
   if (workerRun) {
     return { kind: 'active', label: 'Active', source: 'task-worker' };
   }
-  return { kind: 'idle', label: 'Idle', source: 'task-worker' };
+  if (workerSnapshot) {
+    return { kind: 'idle', label: 'Idle', source: 'task-worker' };
+  }
+  return { kind: 'down', label: 'Down', source: 'task-worker' };
 }
 
 function buildProjectAgents(config, project, workerSnapshot, workerRun) {
@@ -332,7 +335,6 @@ function buildProjectAgents(config, project, workerSnapshot, workerRun) {
     const workspaceExists = workspacePath ? fs.existsSync(workspacePath) : false;
     const runtime = resolveProjectAgentRuntimeStatus({
       agentExists: Boolean(agentConfig),
-      workspaceExists,
       workerSnapshot,
       workerRun
     });
