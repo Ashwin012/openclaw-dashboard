@@ -139,9 +139,13 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     let lastActivity = null;
     if (!workerRun && notifications && notifications.length) {
       const projectNamesToSearch = new Set();
+      // The inferred (same-id) project is always "owned" by this agent
       if (inferredProject?.name) projectNamesToSearch.add(inferredProject.name);
+      // For linked projects, only include activity if there's no dedicated agent for that project
+      // (same logic as workerRun matching — avoids showing duplicate activity on secondary agents like "main")
       for (const lp of linkedProjects) {
-        if (lp.name) projectNamesToSearch.add(lp.name);
+        const hasDedicatedAgent = agentIds && agentIds.has(lp.id) && lp.id !== agent.id;
+        if (lp.name && !hasDedicatedAgent) projectNamesToSearch.add(lp.name);
       }
       if (projectNamesToSearch.size) {
         const matching = notifications.filter(n =>
