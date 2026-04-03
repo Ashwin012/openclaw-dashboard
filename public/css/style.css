@@ -60,7 +60,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .home-header .logo {
   font-size: 14px;
   font-weight: 700;
-  flex: 1;
+  margin-right: auto;
   white-space: nowrap;
   min-width: 0;
   overflow: hidden;
@@ -242,7 +242,7 @@ body.menu-open { overflow: hidden; }
   flex-shrink: 0;
 }
 
-/* Responsive: show hamburger above 960px breakpoint */
+/* Responsive: show hamburger below 960px breakpoint */
 @media (max-width: 960px) {
   .header-nav { display: none; }
   .hamburger-btn { display: inline-flex; }
