@@ -920,7 +920,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         <div class="project-header">
           <div class="project-header-left">
             <h1>${escapeHtml(data.name)}</h1>
-            <div class="desc">${escapeHtml(data.description)} &mdash; <code style="font-size:12px;color:var(--text-muted)">${escapeHtml(data.branch)}</code></div>
+            <div class="desc">${escapeHtml(data.description)}</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
               <span id="projectLiveStatusBadge" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:${statusTone.bg};color:${statusTone.color};font-size:11px;font-weight:600;border:1px solid ${statusTone.color}33">${escapeHtml(data.currentStatus?.label || 'Clean')}</span>
               <span id="projectLiveStatusSummary" style="font-size:12px;color:var(--text-muted)">${escapeHtml(data.currentStatus?.summary || '')}</span>
@@ -931,9 +931,6 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span class="badge ${hasChanges ? 'badge-pending' : 'badge-clean'}">
-              ${hasChanges ? `${data.files.length} file${data.files.length !== 1 ? 's' : ''} changed` : 'Clean'}
-            </span>
             <select id="branchSelect" onchange="onBranchChange()" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;max-width:160px">
               <option value="${escapeHtml(data.branch)}" selected>${escapeHtml(data.branch)}</option>
             </select>
