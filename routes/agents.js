@@ -197,16 +197,27 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     // Include all repo paths, not just project.path, to catch commits in sub-repos
     const linkedPaths = agent.workspacePath
       ? [] // explicit workspace covers it; don't also look at linked project repos
-      : linkedProjects.flatMap(lp => {
-          const proj = (cfg.projects || []).find(p => p.id === lp.id);
-          if (!proj) return [];
-          const paths = new Set();
-          if (proj.path) paths.add(proj.path);
-          for (const r of (proj.repos || [])) {
-            if (r.path) paths.add(r.path);
+      : (() => {
+          const allPaths = new Set();
+          // Paths from projects that reference this agent via openclawAgentIds
+          for (const lp of linkedProjects) {
+            const proj = (cfg.projects || []).find(p => p.id === lp.id);
+            if (!proj) continue;
+            if (proj.path) allPaths.add(proj.path);
+            for (const r of (proj.repos || [])) {
+              if (r.path) allPaths.add(r.path);
+            }
           }
-          return [...paths];
-        });
+          // Also include inferredProject repos (agent.id === project.id) as fallback
+          // in case the project doesn't list the agent in openclawAgentIds
+          if (inferredProject) {
+            if (inferredProject.path) allPaths.add(inferredProject.path);
+            for (const r of (inferredProject.repos || [])) {
+              if (r.path) allPaths.add(r.path);
+            }
+          }
+          return [...allPaths];
+        })();
 
     return {
       ...agent,
