@@ -558,7 +558,10 @@
                 ? `<div style="margin-top:4px;padding:4px 8px;background:rgba(210,153,34,0.1);border:1px solid rgba(210,153,34,0.3);border-radius:4px;color:var(--yellow);font-size:11px">⚠ En attente: ${escapeHtml(typeof t.pendingQuestion === 'object' ? (t.pendingQuestion.question || JSON.stringify(t.pendingQuestion)) : t.pendingQuestion)}</div>`
                 : '';
               const engineBadge = t.engine ? ` <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--accent)22;color:var(--accent);border:1px solid var(--accent)44;opacity:0.8">${escapeHtml(t.engine)}</span>` : '';
-              return `<div class="agent-current-task"><strong>Tâche active:</strong> ${escapeHtml(t.title || t.id)}${proj}${dur}${engineBadge}${pending}</div>`;
+              const reviewBadge = (a.pendingReviewCount || 0) > 0
+                ? ` <a href="/project.html?id=${encodeURIComponent(t.projectId || '')}" style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:8px;background:var(--yellow)22;color:var(--yellow);border:1px solid var(--yellow)44;text-decoration:none" title="${a.pendingReviewCount} tâche(s) en attente de review">⚑ ${a.pendingReviewCount} en review</a>`
+                : '';
+              return `<div class="agent-current-task"><strong>Tâche active:</strong> ${escapeHtml(t.title || t.id)}${proj}${dur}${engineBadge}${reviewBadge}${pending}</div>`;
             })()
           : '';
 
@@ -654,6 +657,10 @@
             return '<span style="color:var(--text-muted)">—</span>';
           }
           const missing = a.workspaceExists === false ? ' <span style="color:var(--red)" title="Chemin introuvable">(absent)</span>' : '';
+          // Show workspace source badge when auto-resolved (not explicitly configured)
+          const srcBadge = a.workspaceSource !== 'explicit'
+            ? ` <span style="font-size:9px;color:var(--text-muted);opacity:0.7" title="Workspace résolu automatiquement depuis le projet lié">auto</span>`
+            : '';
           if (a.workspaceProjectName && a.workspaceProjectId) {
             const extraNames = Array.isArray(a.workspaceExtraProjectNames) && a.workspaceExtraProjectNames.length
               ? a.workspaceExtraProjectNames.join(', ')
@@ -661,10 +668,10 @@
             const extra = a.workspaceExtraProjects > 0
               ? ` <span style="font-size:10px;color:var(--text-muted)" title="${escapeHtml(extraNames)}">+${a.workspaceExtraProjects}</span>`
               : '';
-            return `<a href="/project.html?id=${encodeURIComponent(a.workspaceProjectId)}" style="color:var(--accent);text-decoration:none" title="${escapeHtml(a.workspacePath)}">${escapeHtml(a.workspaceProjectName)}</a>${extra}${missing}`;
+            return `<a href="/project.html?id=${encodeURIComponent(a.workspaceProjectId)}" style="color:var(--accent);text-decoration:none" title="${escapeHtml(a.workspacePath)}">${escapeHtml(a.workspaceProjectName)}</a>${extra}${srcBadge}${missing}`;
           }
           const shortPath = escapeHtml(a.workspacePath.split('/').filter(Boolean).slice(-2).join('/') || a.workspacePath);
-          return `<span style="font-family:monospace;font-size:12px" title="${escapeHtml(a.workspacePath)}">${shortPath}</span>${missing}`;
+          return `<span style="font-family:monospace;font-size:12px" title="${escapeHtml(a.workspacePath)}">${shortPath}</span>${srcBadge}${missing}`;
         })();
 
         return `<div class="agent-card">

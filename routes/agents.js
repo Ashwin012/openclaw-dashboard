@@ -400,11 +400,13 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       }
 
       // Read project .claude/tasks.json for recent task activity (richer than git commits alone)
+      // Also computes pending review count for ALL agents (including active ones) so the UI
+      // can show "N tasks in review" even when the agent is currently busy.
       const TASK_DONE_STATUSES = new Set(['done', 'review', 'approved', 'rejected', 'failed', 'validating']);
       const workerActiveTaskIds = new Set((workerSnapshot?.tasks || []).map(t => t.id));
       const taskPathsToFetch = new Set();
       for (const a of enriched) {
-        if (a.currentTask) continue;
+        // Collect paths for ALL agents — active agents also need review count
         const agentPaths = (a.linkedPaths && a.linkedPaths.length)
           ? a.linkedPaths
           : (a.workspacePath ? [a.workspacePath] : (a.gitLookupPath ? [a.gitLookupPath] : []));
@@ -437,7 +439,6 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         })
       );
       for (const a of enriched) {
-        if (a.currentTask) continue;
         const agentPaths = (a.linkedPaths && a.linkedPaths.length)
           ? a.linkedPaths
           : (a.workspacePath ? [a.workspacePath] : (a.gitLookupPath ? [a.gitLookupPath] : []));
@@ -453,7 +454,10 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
             bestTaskPath = p;
           }
         }
-        if (bestTask) {
+        // Always expose pending review count on the agent (shown even when agent is active)
+        if (totalReviewCount > 0) a.pendingReviewCount = totalReviewCount;
+        // Only set projectLastTask for agents without an active worker task
+        if (!a.currentTask && bestTask) {
           const taskProject = bestTaskPath
             ? (cfg.projects || []).find(proj =>
                 proj.path === bestTaskPath || (proj.repos || []).some(r => r.path === bestTaskPath)
