@@ -145,6 +145,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     // Last activity from notifications (only when not currently active)
     // Only consider terminal states — skip in_progress to avoid stale "running" display
     // TERMINAL_STATUSES is defined at module level above readNotifications()
+    // Also exclude tasks currently being processed by the worker (activeTaskIds)
+    const activeTaskIds = new Set((workerSnapshot?.tasks || []).map(t => t.id));
     let lastActivity = null;
     if (!workerRun && notifications && notifications.length) {
       // Collect all project names this agent is associated with
@@ -156,7 +158,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
 
       if (projectNamesToSearch.size) {
         const matching = notifications.filter(n =>
-          projectNamesToSearch.has(n.projectName) && TERMINAL_STATUSES.has(n.toStatus)
+          projectNamesToSearch.has(n.projectName) && TERMINAL_STATUSES.has(n.toStatus) &&
+          !activeTaskIds.has(n.taskId)
         );
         if (matching.length) {
           const sorted = [...matching].sort((a, b) =>
@@ -270,12 +273,21 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
           : (a.linkedPaths && a.linkedPaths.length ? a.linkedPaths : (a.gitLookupPath ? [a.gitLookupPath] : []));
         // Pick the most recent commit across all repos
         let best = null;
+        let bestPath = null;
         for (const p of agentPaths) {
           const c = gitCommitMap[p];
           if (!c) continue;
-          if (!best || new Date(c.timestamp) > new Date(best.timestamp)) best = c;
+          if (!best || new Date(c.timestamp) > new Date(best.timestamp)) {
+            best = c;
+            bestPath = p;
+          }
         }
-        if (best) a.gitLastCommit = best;
+        if (best) {
+          const gitProject = bestPath
+            ? (cfg.projects || []).find(p => p.path === bestPath || (p.repos || []).some(r => r.path === bestPath))
+            : null;
+          a.gitLastCommit = { ...best, projectName: gitProject?.name || null, projectId: gitProject?.id || null };
+        }
       }
 
       const thinkingDefault = cfg.agents?.defaults?.thinkingDefault || 'auto';

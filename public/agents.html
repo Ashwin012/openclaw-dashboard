@@ -560,11 +560,15 @@
                 </div>`;
               } else {
                 const gc = a.gitLastCommit;
+                const gcProjTag = gc.projectId
+                  ? `<a href="/project.html?id=${encodeURIComponent(gc.projectId)}" style="color:var(--accent);text-decoration:none;font-size:10px">[${escapeHtml(gc.projectName)}]</a>`
+                  : (gc.projectName ? `<span style="color:var(--text-muted);font-size:10px">[${escapeHtml(gc.projectName)}]</span>` : '');
                 return `<div class="agent-last-activity">
                   <span style="color:var(--text-muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">git</span>
                   <span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(gc.hash)}</span>
                   <span style="color:var(--text);font-size:12px">${escapeHtml(gc.message)}</span>
                   <span style="color:var(--text-muted);font-size:11px">${timeAgo(gc.timestamp)}</span>
+                  ${gcProjTag}
                 </div>`;
               }
             })()
