@@ -72,6 +72,9 @@ function setupHamburgerMenu() {
   document.addEventListener('click', e => {
     if (!mobileMenu.contains(e.target) && e.target !== hamburgerBtn) closeMenu();
   });
+  mobileMenu.querySelectorAll('.btn-nav').forEach(function(link) {
+    link.addEventListener('click', closeMenu);
+  });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && mobileMenu.classList.contains('open')) {
       closeMenu();

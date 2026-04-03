@@ -12,8 +12,8 @@
  */
 (function () {
   var NAV_ITEMS = [
-    { icon: '🏠', label: 'Accueil',       href: '/home.html' },
-    { icon: '🔧', label: 'Dev',           href: '/dev' },
+    { icon: '🏠', label: 'Accueil',       href: '/home.html', homeAlias: true },
+    { icon: '🔧', label: 'Dev',           href: '/dev', matchPrefix: true },
     { icon: '🤖', label: 'Agents',        href: '/agents.html' },
     { icon: '🏛️', label: 'Royal Heights', href: '/royal-heights.html',
       subPaths: ['/royal-heights-prospection.html', '/royal-heights-russia.html'] },
@@ -30,18 +30,16 @@
     { icon: '🇷🇺', label: 'Marché Russe',   href: '/sales/royal-heights/russia' },
   ];
 
+  function normPath(p) {
+    return p.replace(/\/$/, '') || '/';
+  }
+
   function isActive(item) {
-    var path = window.location.pathname;
-    var href = typeof item === 'string' ? item : item.href;
-    if (href === '/dev') {
-      return path === '/dev' || path.startsWith('/dev/');
-    }
-    if (href === '/home.html') {
-      return path === '/' || path === '/home.html';
-    }
-    if (href === '/sales/royal-heights') {
-      return path === '/sales/royal-heights' || path === '/sales/royal-heights/';
-    }
+    var path = normPath(window.location.pathname);
+    if (typeof item === 'string') return path === item;
+    var href = normPath(item.href);
+    if (item.matchPrefix) return path === href || path.startsWith(href + '/');
+    if (item.homeAlias) return path === '/' || path === href;
     if (item.subPaths && item.subPaths.indexOf(path) !== -1) return true;
     return path === href;
   }
@@ -88,7 +86,9 @@
       '<header class="home-header" id="appNavbar">' +
         '<div class="logo"><a href="' + escAttr(logoHref) + '">' + logoInner + '</a></div>' +
         readonlyBadge +
-        '<button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu" aria-expanded="false">☰</button>' +
+        '<button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu" aria-expanded="false">' +
+          '<span class="bar"></span><span class="bar"></span><span class="bar"></span>' +
+        '</button>' +
         '<nav class="header-nav" role="navigation" aria-label="Navigation principale">' +
           links + logoutDesktop +
         '</nav>' +
