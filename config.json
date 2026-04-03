@@ -182,60 +182,106 @@
   ],
   "openclawAgents": [
     {
-      "id": "afdex",
-      "name": "Afdex",
-      "engine": "claude",
-      "model": "claude-sonnet-4-6",
-      "workspacePath": "/home/openclaw/projects/afdex"
+      "id": "main",
+      "name": "Gollum (Main)",
+      "model": "claude-opus-4-6",
+      "thinking": "high"
     },
     {
       "id": "champion-spirit",
-      "name": "Champion Spirit",
-      "engine": "claude",
-      "model": "claude-sonnet-4-6",
-      "workspacePath": "/home/openclaw/projects/champion-spirit"
+      "name": "Champion Spirit Dev Agent",
+      "model": "claude-opus-4-6",
+      "thinking": "high"
     },
     {
-      "id": "trading-bot",
-      "name": "Trading Bot",
-      "engine": "claude",
-      "model": "claude-sonnet-4-6",
-      "workspacePath": "/home/openclaw/projects/trading-bot"
-    },
-    {
-      "id": "stho",
-      "name": "STHO",
-      "engine": "claude",
-      "model": "claude-sonnet-4-6",
-      "workspacePath": "/home/openclaw/projects/stho"
-    },
-    {
-      "id": "royal-heights",
-      "name": "Royal Heights",
-      "engine": "claude",
-      "model": "claude-sonnet-4-6",
-      "workspacePath": "/home/openclaw/projects/royal-heights"
-    },
-    {
-      "id": "synapcoin",
-      "name": "SynapCoin",
-      "engine": "claude",
-      "model": "claude-sonnet-4-6",
-      "workspacePath": "/home/openclaw/projects/synapcoin"
+      "id": "afdex",
+      "name": "Afdex Dev Agent",
+      "model": "claude-opus-4-6",
+      "thinking": "high"
     },
     {
       "id": "synaphive",
-      "name": "SynapHive",
-      "engine": "claude",
-      "model": "claude-sonnet-4-6",
-      "workspacePath": "/home/openclaw/projects/synaphive"
+      "name": "SynapHive Dev Agent",
+      "model": "claude-opus-4-6",
+      "thinking": "high"
     },
     {
-      "id": "main",
-      "name": "Main",
-      "engine": "claude",
+      "id": "synapcoin",
+      "name": "SynapCoin Dev Agent",
+      "model": "claude-opus-4-6",
+      "thinking": "high"
+    },
+    {
+      "id": "trading-bot",
+      "name": "Trading Bot Dev Agent",
+      "model": "claude-opus-4-6",
+      "thinking": "high"
+    },
+    {
+      "id": "openclaw-dashboard",
+      "name": "OpenClaw Dashboard & Infra",
+      "model": "claude-opus-4-6",
+      "thinking": "high"
+    },
+    {
+      "id": "stho",
+      "name": "STHO Dev Agent",
       "model": "claude-sonnet-4-6",
-      "workspacePath": "/home/openclaw/projects/dev-dashboard"
+      "thinking": "medium"
+    },
+    {
+      "id": "synap-communication",
+      "name": "Synap Communication",
+      "model": "claude-sonnet-4-6",
+      "thinking": "medium"
+    },
+    {
+      "id": "synapcoin-marketing",
+      "name": "SynapCoin Marketing",
+      "model": "claude-sonnet-4-6",
+      "thinking": "medium"
+    },
+    {
+      "id": "synaphive-marketing",
+      "name": "SynapHive Marketing",
+      "model": "claude-sonnet-4-6",
+      "thinking": "medium"
+    },
+    {
+      "id": "synapcoin-docs",
+      "name": "SynapCoin Docs",
+      "model": "claude-sonnet-4-6",
+      "thinking": "medium"
+    },
+    {
+      "id": "synap-qa",
+      "name": "Synap QA",
+      "model": "claude-sonnet-4-6",
+      "thinking": "medium"
+    },
+    {
+      "id": "royal-heights",
+      "name": "Royal Heights Prospection",
+      "model": "anthropic/claude-sonnet-4-6",
+      "thinking": "medium"
+    },
+    {
+      "id": "royal-heights-marketing",
+      "name": "Royal Heights Marketing",
+      "model": "anthropic/claude-sonnet-4-6",
+      "thinking": "medium"
+    },
+    {
+      "id": "champion-spirit-staging-analytics",
+      "name": "CS Staging Analytics",
+      "model": "anthropic/claude-sonnet-4-6",
+      "thinking": "medium"
+    },
+    {
+      "id": "dj",
+      "name": "DJ Gollum",
+      "model": "qwen3.6-plus-free",
+      "thinking": "low"
     }
   ]
 }

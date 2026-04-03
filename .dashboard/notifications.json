@@ -1,1 +1,148 @@
-{"pending":[]}
+{
+  "pending": [
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Refactor navbar — unified template + full UI/UX overhaul",
+      "taskId": "DASH-NAV-001",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-03T07:17:52.258Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Refactor navbar — unified template + full UI/UX overhaul",
+      "taskId": "DASH-NAV-001",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-03T07:25:59.314Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Refactor navbar — unified template + full UI/UX overhaul",
+      "taskId": "DASH-NAV-001",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-03T07:53:53.645Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Refactor navbar — unified template + full UI/UX overhaul",
+      "taskId": "DASH-NAV-001",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-03T08:00:00.848Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Refactor navbar — unified template + full UI/UX overhaul",
+      "taskId": "DASH-NAV-001",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-03T08:39:55.653Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Refactor navbar — unified template + full UI/UX overhaul",
+      "taskId": "DASH-NAV-001",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-03T08:45:03.627Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Refactor navbar — unified template + full UI/UX overhaul",
+      "taskId": "DASH-NAV-001",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-03T09:26:57.706Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Refactor navbar — unified template + full UI/UX overhaul",
+      "taskId": "DASH-NAV-001",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-03T09:29:03.233Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Refactor navbar — unified template + full UI/UX overhaul",
+      "taskId": "DASH-NAV-001",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-03T09:45:28.212Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Refactor navbar — unified template + full UI/UX overhaul",
+      "taskId": "DASH-NAV-001",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-03T09:50:23.727Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Refactor navbar — unified template + full UI/UX overhaul",
+      "taskId": "DASH-NAV-001",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-03T09:50:58.360Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Refactor navbar — unified template + full UI/UX overhaul",
+      "taskId": "DASH-NAV-001",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-03T09:53:22.423Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Full dashboard unification — shared navbar, shared components, consistent UI/UX on ALL pages",
+      "taskId": "DASH-NAV-002",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-03T09:54:28.468Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Full dashboard unification — shared navbar, shared components, consistent UI/UX on ALL pages",
+      "taskId": "DASH-NAV-002",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-03T09:58:03.447Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Hotfix: agents all showing Down + missing spacing navbar-to-content",
+      "taskId": "DASH-HOTFIX-001",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-03T10:06:58.829Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Hotfix: agents all showing Down + missing spacing navbar-to-content",
+      "taskId": "DASH-HOTFIX-001",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-03T10:13:52.365Z"
+    }
+  ]
+}
