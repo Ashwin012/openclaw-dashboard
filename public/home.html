@@ -1945,9 +1945,8 @@
       try { await fetch('/api/children/refresh',{method:'POST',credentials:'include'}); await loadChildren(); } catch(e) { document.getElementById('children-updated').textContent = '❌ Erreur'; }
     }
 
-    // Load EQS & Children
-    loadEqs(); loadChildren();
-    createSmartInterval(loadEqs, 1800000);
+    // Load Children (Pronote)
+    loadChildren();
     createSmartInterval(loadChildren, 300000);
   </script>
 
