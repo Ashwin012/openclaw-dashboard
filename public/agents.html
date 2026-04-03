@@ -341,8 +341,9 @@
           <label for="formEngine">Engine</label>
           <select id="formEngine">
             <option value="claude">Claude</option>
-            <option value="codex">Codex</option>
+            <option value="openrouter">OpenRouter</option>
             <option value="ollama">Ollama</option>
+            <option value="codex">Codex</option>
           </select>
         </div>
         <div class="agent-form-group">
@@ -380,6 +381,7 @@
   <script>
     let agents = [];
     let agentDefaults = { thinkingDefault: 'auto' };
+    let workerStatus = null;
     let deleteTargetId = null;
 
     function getThinkingBadge(thinking, isDefault) {
@@ -409,11 +411,20 @@
       const td = agentDefaults.thinkingDefault || 'auto';
       const tdColors = { auto: 'var(--text-muted)', low: 'var(--text-muted)', medium: 'var(--yellow)', high: 'var(--purple)' };
       const tdColor = tdColors[td] || 'var(--text-muted)';
+      let slotsPill = '';
+      if (workerStatus) {
+        const slotsColor = workerStatus.count >= (workerStatus.maxConcurrency || Infinity) ? 'var(--red)' : workerStatus.count > 0 ? 'var(--yellow)' : 'var(--green)';
+        const slotsLabel = workerStatus.maxConcurrency ? `${workerStatus.count}/${workerStatus.maxConcurrency} slots` : `${workerStatus.count} actif(s)`;
+        slotsPill = `<span class="stat-pill" title="Worker: ${workerStatus.running ? 'en ligne' : 'offline'}"><span style="color:${slotsColor};font-weight:600">${slotsLabel}</span></span>`;
+      } else {
+        slotsPill = `<span class="stat-pill"><span style="color:var(--text-muted)">worker offline</span></span>`;
+      }
       document.getElementById('agentsStats').innerHTML =
-        `<span class="stat-pill"><span style="color:var(--text)">${total}</span> total</span>` +
+        `<span class="stat-pill"><span style="color:var(--text)">${total}</span> agents</span>` +
         `<span class="stat-pill"><span style="color:var(--green)">${active}</span> actifs</span>` +
         `<span class="stat-pill"><span style="color:var(--yellow)">${idle}</span> idle</span>` +
         `<span class="stat-pill"><span style="color:var(--text-muted)">${down}</span> down</span>` +
+        slotsPill +
         `<span class="stat-pill" title="Niveau de thinking par défaut (agents.defaults.thinkingDefault)">thinking: <span style="color:${tdColor};font-weight:600">${escapeHtml(td)}</span></span>`;
     }
 
@@ -425,7 +436,15 @@
         return;
       }
 
-      grid.innerHTML = agents.map(a => {
+      const statusOrder = { active: 0, idle: 1, down: 2 };
+      const sorted = [...agents].sort((a, b) => {
+        const sa = statusOrder[a.statusKind] ?? 3;
+        const sb = statusOrder[b.statusKind] ?? 3;
+        if (sa !== sb) return sa - sb;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+
+      grid.innerHTML = sorted.map(a => {
         const sk = a.statusKind || 'down';
         const projectTags = (a.linkedProjects || []).map(p =>
           `<a href="/project.html?id=${encodeURIComponent(p.id)}" class="agent-project-tag">${escapeHtml(p.name)}</a>`
@@ -437,7 +456,10 @@
               const dur = t.durationMin > 0 ? ` <span style="color:var(--text-muted)">${t.durationMin}min</span>` : '';
               const projLabel = t.projectName || t.projectId;
               const proj = t.projectId ? ` <a href="/project.html?id=${encodeURIComponent(t.projectId)}" style="color:var(--accent);text-decoration:none;font-size:11px">[${escapeHtml(projLabel)}]</a>` : '';
-              return `<div class="agent-current-task"><strong>Tâche active:</strong> ${escapeHtml(t.title || t.id)}${proj}${dur}</div>`;
+              const pending = t.pendingQuestion
+                ? `<div style="margin-top:4px;padding:4px 8px;background:rgba(210,153,34,0.1);border:1px solid rgba(210,153,34,0.3);border-radius:4px;color:var(--yellow);font-size:11px">⚠ En attente: ${escapeHtml(t.pendingQuestion)}</div>`
+                : '';
+              return `<div class="agent-current-task"><strong>Tâche active:</strong> ${escapeHtml(t.title || t.id)}${proj}${dur}${pending}</div>`;
             })()
           : '';
 
@@ -485,7 +507,7 @@
             </div>
           </div>
         </div>`;
-      }).join('');
+      }).join(''); // sorted
       renderStats();
     }
 
@@ -496,6 +518,7 @@
         const data = await res.json();
         agents = Array.isArray(data) ? data : (data.agents || []);
         agentDefaults = data.defaults || { thinkingDefault: 'auto' };
+        workerStatus = data.workerStatus || null;
         renderAgents();
       } catch (err) {
         document.getElementById('agentsGrid').innerHTML = `<div class="empty-state" style="color:var(--red)">Erreur: ${escapeHtml(err.message)}</div>`;

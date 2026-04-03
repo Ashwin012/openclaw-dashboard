@@ -102,7 +102,9 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         projectId: taskProjectId,
         projectName: taskProject?.name || taskProjectId,
         startedAt: workerRun.startedAt || null,
-        durationMin: workerRun.durationMin || 0
+        durationMin: workerRun.durationMin || 0,
+        pendingQuestion: workerRun.pendingQuestion || null,
+        engine: workerRun.engine || null
       } : null
     };
   }
@@ -115,7 +117,10 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const workerSnapshot = await fetchWorkerSnapshot();
       const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg));
       const thinkingDefault = cfg.agents?.defaults?.thinkingDefault || 'auto';
-      res.json({ agents: enriched, defaults: { thinkingDefault } });
+      const workerStatus = workerSnapshot
+        ? { running: workerSnapshot.running !== false, count: workerSnapshot.count || 0, maxConcurrency: workerSnapshot.maxConcurrency || null }
+        : null;
+      res.json({ agents: enriched, defaults: { thinkingDefault }, workerStatus });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
