@@ -54,7 +54,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     }
   }
 
-  function enrichAgent(agent, workerSnapshot, cfg, notifications) {
+  function enrichAgent(agent, workerSnapshot, cfg, notifications, agentIds) {
     const engine = agent.engine || inferEngine(agent.model);
 
     // Find which projects reference this agent (needed for workspace fallback)
@@ -85,10 +85,11 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       }
     }
 
-    // Match worker task: by projectId == agent.id, or by any linked project
+    // Match worker task: direct match by agent.id, or by linked project only if no dedicated agent exists for that project
     const workerRun = Array.isArray(workerSnapshot?.tasks)
       ? workerSnapshot.tasks.find(t =>
-          t.projectId === agent.id || linkedProjectIds.has(t.projectId)
+          t.projectId === agent.id ||
+          (linkedProjectIds.has(t.projectId) && !(agentIds && agentIds.has(t.projectId)))
         ) || null
       : null;
 
@@ -181,7 +182,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         fetchWorkerSnapshot(),
         Promise.resolve(readNotifications()),
       ]);
-      const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg, notifications));
+      const agentIds = new Set(agents.map(a => a.id));
+      const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg, notifications, agentIds));
 
       // Fetch git last commit for agents with no notification activity and a valid workspace
       const pathsToFetch = new Set(
@@ -233,7 +235,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       if (!agent) return res.status(404).json({ error: 'Agent not found' });
       const workerSnapshot = await fetchWorkerSnapshot();
       const notifications = readNotifications();
-      res.json(enrichAgent(agent, workerSnapshot, cfg, notifications));
+      const agentIds = new Set(agents.map(a => a.id));
+      res.json(enrichAgent(agent, workerSnapshot, cfg, notifications, agentIds));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -261,7 +264,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
 
       const workerSnapshot = await fetchWorkerSnapshot();
       const notifications = readNotifications();
-      res.json(enrichAgent(agents[idx], workerSnapshot, cfg, notifications));
+      const agentIds = new Set(agents.map(a => a.id));
+      res.json(enrichAgent(agents[idx], workerSnapshot, cfg, notifications, agentIds));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -293,7 +297,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
 
       const workerSnapshot = await fetchWorkerSnapshot();
       const notifications = readNotifications();
-      res.status(201).json(enrichAgent(newAgent, workerSnapshot, cfg, notifications));
+      const agentIds = new Set(agents.map(a => a.id));
+      res.status(201).json(enrichAgent(newAgent, workerSnapshot, cfg, notifications, agentIds));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

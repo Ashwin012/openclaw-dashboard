@@ -535,7 +535,15 @@
           : '';
 
         const workspaceHtml = (() => {
-          if (!a.workspacePath) return '<span style="color:var(--text-muted)">—</span>';
+          if (!a.workspacePath) {
+            const linked = a.linkedProjects || [];
+            if (linked.length > 0) {
+              return linked.map(p =>
+                `<a href="/project.html?id=${encodeURIComponent(p.id)}" style="color:var(--accent);text-decoration:none">${escapeHtml(p.name)}</a>`
+              ).join('<span style="color:var(--border);margin:0 4px">/</span>');
+            }
+            return '<span style="color:var(--text-muted)">—</span>';
+          }
           const missing = a.workspaceExists === false ? ' <span style="color:var(--red)" title="Chemin introuvable">(absent)</span>' : '';
           if (a.workspaceProjectName && a.workspaceProjectId) {
             return `<a href="/project.html?id=${encodeURIComponent(a.workspaceProjectId)}" style="color:var(--accent);text-decoration:none" title="${escapeHtml(a.workspacePath)}">${escapeHtml(a.workspaceProjectName)}</a>${missing}`;
