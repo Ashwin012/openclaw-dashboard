@@ -208,6 +208,33 @@
     }
     .agent-current-task strong { color: var(--green); }
 
+    .agent-last-activity {
+      font-size: 12px;
+      padding: 6px 20px;
+      border-top: 1px solid var(--border-muted, var(--border));
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .agent-pending-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: rgba(210, 153, 34, 0.18);
+      color: var(--yellow);
+      border: 1px solid rgba(210, 153, 34, 0.4);
+      animation: pulse-yellow 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-yellow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.65; }
+    }
+
     /* Modal */
     .agent-modal-overlay {
       display: none;
@@ -384,6 +411,15 @@
     let workerStatus = null;
     let deleteTargetId = null;
 
+    function timeAgo(isoDate) {
+      if (!isoDate) return '';
+      const diff = (Date.now() - new Date(isoDate).getTime()) / 1000;
+      if (diff < 60) return 'il y a moins d\'une minute';
+      if (diff < 3600) return `il y a ${Math.floor(diff / 60)}min`;
+      if (diff < 86400) return `il y a ${Math.floor(diff / 3600)}h`;
+      return `il y a ${Math.floor(diff / 86400)}j`;
+    }
+
     function getThinkingBadge(thinking, isDefault) {
       const colors = { auto: 'var(--text-muted)', low: 'var(--text-muted)', medium: 'var(--yellow)', high: 'var(--purple)' };
       const color = colors[thinking] || 'var(--text-muted)';
@@ -438,6 +474,10 @@
 
       const statusOrder = { active: 0, idle: 1, down: 2 };
       const sorted = [...agents].sort((a, b) => {
+        // Agents awaiting an answer bubble to the very top
+        const aPending = a.currentTask?.pendingQuestion ? 1 : 0;
+        const bPending = b.currentTask?.pendingQuestion ? 1 : 0;
+        if (aPending !== bPending) return bPending - aPending;
         const sa = statusOrder[a.statusKind] ?? 3;
         const sb = statusOrder[b.statusKind] ?? 3;
         if (sa !== sb) return sa - sb;
@@ -450,6 +490,8 @@
           `<a href="/project.html?id=${encodeURIComponent(p.id)}" class="agent-project-tag">${escapeHtml(p.name)}</a>`
         ).join('');
 
+        const hasPending = !!a.currentTask?.pendingQuestion;
+
         const taskRow = a.currentTask
           ? (() => {
               const t = a.currentTask;
@@ -457,16 +499,40 @@
               const projLabel = t.projectName || t.projectId;
               const proj = t.projectId ? ` <a href="/project.html?id=${encodeURIComponent(t.projectId)}" style="color:var(--accent);text-decoration:none;font-size:11px">[${escapeHtml(projLabel)}]</a>` : '';
               const pending = t.pendingQuestion
-                ? `<div style="margin-top:4px;padding:4px 8px;background:rgba(210,153,34,0.1);border:1px solid rgba(210,153,34,0.3);border-radius:4px;color:var(--yellow);font-size:11px">⚠ En attente: ${escapeHtml(t.pendingQuestion)}</div>`
+                ? `<div style="margin-top:4px;padding:4px 8px;background:rgba(210,153,34,0.1);border:1px solid rgba(210,153,34,0.3);border-radius:4px;color:var(--yellow);font-size:11px">⚠ En attente: ${escapeHtml(typeof t.pendingQuestion === 'object' ? (t.pendingQuestion.question || JSON.stringify(t.pendingQuestion)) : t.pendingQuestion)}</div>`
                 : '';
               return `<div class="agent-current-task"><strong>Tâche active:</strong> ${escapeHtml(t.title || t.id)}${proj}${dur}${pending}</div>`;
             })()
           : '';
 
+        const lastActivityRow = !a.currentTask && a.lastActivity
+          ? (() => {
+              const la = a.lastActivity;
+              const statusIcon = la.status === 'review' || la.status === 'done' ? '✓ ' : la.status === 'in_progress' ? '↻ ' : '';
+              const statusColor = la.status === 'review' || la.status === 'done' ? 'var(--green)' : 'var(--text-muted)';
+              return `<div class="agent-last-activity">
+                <span style="color:${statusColor}">${statusIcon}${escapeHtml(la.taskTitle || la.taskId || '?')}</span>
+                <span style="color:var(--text-muted);font-size:11px">${timeAgo(la.timestamp)}</span>
+                ${la.projectName ? `<span style="color:var(--text-muted);font-size:10px">[${escapeHtml(la.projectName)}]</span>` : ''}
+              </div>`;
+            })()
+          : '';
+
+        const workspaceHtml = (() => {
+          if (!a.workspacePath) return '<span style="color:var(--text-muted)">—</span>';
+          const missing = a.workspaceExists === false ? ' <span style="color:var(--red)" title="Chemin introuvable">(absent)</span>' : '';
+          if (a.workspaceSource === 'inferred' && a.workspaceProjectName) {
+            return `<a href="/project.html?id=${encodeURIComponent(a.id)}" style="color:var(--accent);text-decoration:none">${escapeHtml(a.workspaceProjectName)}</a>${missing}`;
+          }
+          const shortPath = escapeHtml(a.workspacePath.split('/').filter(Boolean).slice(-2).join('/') || a.workspacePath);
+          return `${shortPath}${missing}`;
+        })();
+
         return `<div class="agent-card">
           <div class="agent-card-header">
             <div class="agent-status-dot ${sk}"></div>
             <div class="agent-name">${escapeHtml(a.name)}</div>
+            ${hasPending ? '<span class="agent-pending-badge">⚠ Réponse requise</span>' : ''}
             <span class="agent-id-badge">${escapeHtml(a.id)}</span>
             <span class="agent-status-label ${sk}">${escapeHtml(a.statusLabel || sk)}</span>
           </div>
@@ -486,19 +552,12 @@
             <div class="agent-field">
               <div class="agent-field-label">Workspace</div>
               <div class="agent-field-value mono" title="${escapeHtml(a.workspacePath || '')}">
-                ${(() => {
-                  if (!a.workspacePath) return '<span style="color:var(--text-muted)">—</span>';
-                  const label = a.workspaceSource === 'inferred' && a.workspaceProjectName
-                    ? escapeHtml(a.workspaceProjectName)
-                    : escapeHtml(a.workspacePath.split('/').filter(Boolean).slice(-2).join('/') || a.workspacePath);
-                  const missing = a.workspaceExists === false ? ' <span style="color:var(--red)" title="Chemin introuvable">(absent)</span>' : '';
-                  const inferred = a.workspaceSource === 'inferred' ? ' <span style="color:var(--text-muted);font-size:10px">(inféré)</span>' : '';
-                  return label + inferred + missing;
-                })()}
+                ${workspaceHtml}
               </div>
             </div>
           </div>
           ${taskRow}
+          ${lastActivityRow}
           <div class="agent-card-footer">
             <div class="agent-projects">${projectTags || '<span style="font-size:11px;color:var(--text-muted)">Aucun projet</span>'}</div>
             <div class="agent-actions">

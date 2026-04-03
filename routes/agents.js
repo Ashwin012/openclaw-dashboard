@@ -42,7 +42,18 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     return project?.path || '';
   }
 
-  function enrichAgent(agent, workerSnapshot, cfg) {
+  const NOTIFICATIONS_PATH = path.join(__dirname, '..', '.dashboard', 'notifications.json');
+
+  function readNotifications() {
+    try {
+      const data = JSON.parse(fs.readFileSync(NOTIFICATIONS_PATH, 'utf8'));
+      return Array.isArray(data.pending) ? data.pending : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function enrichAgent(agent, workerSnapshot, cfg, notifications) {
     const engine = agent.engine || inferEngine(agent.model);
 
     // Workspace: explicit > inferred from matching project
@@ -54,9 +65,17 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     const workspaceSource = agent.workspacePath ? 'explicit' : (inferredProject ? 'inferred' : 'none');
     const workspaceProjectName = inferredProject?.name || null;
 
-    // Match by agentId (explicit) or projectId (convention: agent id often equals project id)
+    // Find which projects reference this agent (compute before workerRun matching)
+    const linkedProjects = (cfg.projects || [])
+      .filter(p => Array.isArray(p.openclawAgentIds) && p.openclawAgentIds.includes(agent.id))
+      .map(p => ({ id: p.id, name: p.name }));
+    const linkedProjectIds = new Set(linkedProjects.map(p => p.id));
+
+    // Match worker task: by projectId == agent.id, or by any linked project
     const workerRun = Array.isArray(workerSnapshot?.tasks)
-      ? workerSnapshot.tasks.find(t => t.agentId === agent.id || t.projectId === agent.id) || null
+      ? workerSnapshot.tasks.find(t =>
+          t.projectId === agent.id || linkedProjectIds.has(t.projectId)
+        ) || null
       : null;
 
     let statusKind = 'down';
@@ -69,11 +88,6 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       statusLabel = 'Idle';
     }
 
-    // Find which projects reference this agent
-    const linkedProjects = (cfg.projects || [])
-      .filter(p => Array.isArray(p.openclawAgentIds) && p.openclawAgentIds.includes(agent.id))
-      .map(p => ({ id: p.id, name: p.name }));
-
     const thinkingDefault = cfg.agents?.defaults?.thinkingDefault || 'auto';
     const effectiveThinking = agent.thinking || thinkingDefault;
     const thinkingIsDefault = !agent.thinking;
@@ -83,6 +97,32 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     const taskProject = taskProjectId
       ? (cfg.projects || []).find(p => p.id === taskProjectId) || null
       : null;
+
+    // Last activity from notifications (only when not currently active)
+    let lastActivity = null;
+    if (!workerRun && notifications && notifications.length) {
+      const projectNamesToSearch = new Set();
+      if (inferredProject?.name) projectNamesToSearch.add(inferredProject.name);
+      for (const lp of linkedProjects) {
+        if (lp.name) projectNamesToSearch.add(lp.name);
+      }
+      if (projectNamesToSearch.size) {
+        const matching = notifications.filter(n => projectNamesToSearch.has(n.projectName));
+        if (matching.length) {
+          const sorted = [...matching].sort((a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+          const latest = sorted[sorted.length - 1];
+          lastActivity = {
+            taskTitle: latest.taskTitle || null,
+            taskId: latest.taskId || null,
+            timestamp: latest.timestamp,
+            status: latest.toStatus,
+            projectName: latest.projectName,
+          };
+        }
+      }
+    }
 
     return {
       ...agent,
@@ -96,6 +136,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       linkedProjects,
       effectiveThinking,
       thinkingIsDefault,
+      lastActivity,
       currentTask: workerRun ? {
         id: workerRun.id,
         title: workerRun.title,
@@ -114,8 +155,11 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     try {
       const cfg = reloadConfig();
       const agents = Array.isArray(cfg.openclawAgents) ? cfg.openclawAgents : [];
-      const workerSnapshot = await fetchWorkerSnapshot();
-      const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg));
+      const [workerSnapshot, notifications] = await Promise.all([
+        fetchWorkerSnapshot(),
+        Promise.resolve(readNotifications()),
+      ]);
+      const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg, notifications));
       const thinkingDefault = cfg.agents?.defaults?.thinkingDefault || 'auto';
       const workerStatus = workerSnapshot
         ? { running: workerSnapshot.running !== false, count: workerSnapshot.count || 0, maxConcurrency: workerSnapshot.maxConcurrency || null }
@@ -134,7 +178,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const agent = agents.find(a => a.id === req.params.id);
       if (!agent) return res.status(404).json({ error: 'Agent not found' });
       const workerSnapshot = await fetchWorkerSnapshot();
-      res.json(enrichAgent(agent, workerSnapshot, cfg));
+      const notifications = readNotifications();
+      res.json(enrichAgent(agent, workerSnapshot, cfg, notifications));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -161,7 +206,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       Object.assign(config, cfg);
 
       const workerSnapshot = await fetchWorkerSnapshot();
-      res.json(enrichAgent(agents[idx], workerSnapshot, cfg));
+      const notifications = readNotifications();
+      res.json(enrichAgent(agents[idx], workerSnapshot, cfg, notifications));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -192,7 +238,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       Object.assign(config, cfg);
 
       const workerSnapshot = await fetchWorkerSnapshot();
-      res.status(201).json(enrichAgent(newAgent, workerSnapshot, cfg));
+      const notifications = readNotifications();
+      res.status(201).json(enrichAgent(newAgent, workerSnapshot, cfg, notifications));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
