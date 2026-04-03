@@ -94,6 +94,7 @@
         '</nav>' +
         '<div class="clock" id="clock">--:--:--</div>' +
       '</header>' +
+      '<div class="mobile-backdrop" id="mobileBackdrop"></div>' +
       '<div class="mobile-menu" id="mobileMenu" role="navigation" aria-label="Menu mobile">' +
         links + logoutMobile +
       '</div>';

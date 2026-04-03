@@ -175,9 +175,17 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .hamburger-btn[aria-expanded="true"] .bar:nth-child(2) { opacity: 0; transform: scaleX(0); }
 .hamburger-btn[aria-expanded="true"] .bar:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
 
-/* Mobile dropdown */
-.mobile-menu {
+/* Mobile backdrop + dropdown */
+.mobile-backdrop {
   display: none;
+  position: fixed;
+  inset: 0;
+  top: 52px;
+  background: rgba(0,0,0,0.4);
+  z-index: 98;
+}
+.mobile-backdrop.open { display: block; }
+.mobile-menu {
   position: fixed;
   top: 52px;
   left: 0;
@@ -185,14 +193,23 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
   z-index: 99;
+  display: flex;
   flex-direction: column;
   padding: 8px 12px 12px;
   gap: 3px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  transform: translateY(-100%);
+  opacity: 0;
+  visibility: hidden;
+  transition: transform 0.2s ease, opacity 0.2s ease, visibility 0.2s;
 }
-.mobile-menu.open { display: flex; }
+.mobile-menu.open {
+  transform: translateY(0);
+  opacity: 1;
+  visibility: visible;
+}
 .mobile-menu .btn-nav {
-  padding: 9px 12px;
+  padding: 10px 12px;
   font-size: 13px;
   width: 100%;
   justify-content: flex-start;
@@ -202,7 +219,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .mobile-menu .btn-nav:hover { background: var(--bg-hover); border-color: var(--border); }
 .mobile-menu .btn-nav.active { background: rgba(88,166,255,0.1); border-color: rgba(88,166,255,0.4); color: var(--accent); }
 .mobile-menu .btn-logout-home {
-  padding: 9px 12px;
+  padding: 10px 12px;
   font-size: 13px;
   width: 100%;
   text-align: left;
@@ -211,6 +228,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   padding-top: 12px;
   color: var(--text-muted);
 }
+body.menu-open { overflow: hidden; }
 
 /* readonly badge (sales pages) */
 .readonly-badge {
@@ -233,9 +251,10 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 @media (max-width: 480px) {
   .home-header { height: 48px; padding: 0 12px; }
   .mobile-menu { top: 48px; }
+  .mobile-backdrop { top: 48px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .btn-nav, .hamburger-btn, .btn-logout-home, .hamburger-btn .bar { transition: none; }
+  .btn-nav, .hamburger-btn, .btn-logout-home, .hamburger-btn .bar, .mobile-menu { transition: none; }
 }
 
 /* ===== Login Page ===== */

@@ -59,16 +59,25 @@ function setupLogout() {
 function setupHamburgerMenu() {
   const hamburgerBtn = document.getElementById('hamburgerBtn');
   const mobileMenu = document.getElementById('mobileMenu');
+  const backdrop = document.getElementById('mobileBackdrop');
   if (!hamburgerBtn || !mobileMenu) return;
   function closeMenu() {
     mobileMenu.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('open');
+    document.body.classList.remove('menu-open');
     hamburgerBtn.setAttribute('aria-expanded', 'false');
+  }
+  function openMenu() {
+    mobileMenu.classList.add('open');
+    if (backdrop) backdrop.classList.add('open');
+    document.body.classList.add('menu-open');
+    hamburgerBtn.setAttribute('aria-expanded', 'true');
   }
   hamburgerBtn.addEventListener('click', e => {
     e.stopPropagation();
-    const isOpen = mobileMenu.classList.toggle('open');
-    hamburgerBtn.setAttribute('aria-expanded', String(isOpen));
+    if (mobileMenu.classList.contains('open')) closeMenu(); else openMenu();
   });
+  if (backdrop) backdrop.addEventListener('click', closeMenu);
   document.addEventListener('click', e => {
     if (!mobileMenu.contains(e.target) && e.target !== hamburgerBtn) closeMenu();
   });
