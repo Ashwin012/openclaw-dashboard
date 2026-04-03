@@ -55,15 +55,20 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       if (Array.isArray(raw)) log = raw;
     } catch {}
     // Merge any fresh pending notifications not yet in log
+    let newEntries = 0;
     try {
       const data = JSON.parse(fs.readFileSync(NOTIFICATIONS_PATH, 'utf8'));
       if (Array.isArray(data.pending) && data.pending.length) {
         const logKeys = new Set(log.map(n => `${n.taskId}|${n.timestamp}`));
         for (const n of data.pending) {
-          if (!logKeys.has(`${n.taskId}|${n.timestamp}`)) log.push(n);
+          if (!logKeys.has(`${n.taskId}|${n.timestamp}`)) { log.push(n); newEntries++; }
         }
       }
     } catch {}
+    // Persist so activity survives notifications.json clears (bell)
+    if (newEntries > 0) {
+      try { writeJSON(ACTIVITY_LOG_PATH, log); } catch {}
+    }
     return log;
   }
 
@@ -80,9 +85,11 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     const inferredProject = !agent.workspacePath
       ? (cfg.projects || []).find(p => p.id === agent.id) || null
       : null;
-    const firstLinkedProject = !agent.workspacePath && !inferredProject && linkedProjects.length === 1
+    const firstLinkedProject = !agent.workspacePath && !inferredProject && linkedProjects.length >= 1
       ? (cfg.projects || []).find(p => p.id === linkedProjects[0].id) || null
       : null;
+    // Extra linked projects beyond the first (for UI "+N" indicator)
+    const workspaceExtraProjects = !agent.workspacePath && !inferredProject && linkedProjects.length > 1 ? linkedProjects.length - 1 : 0;
     const workspacePath = agent.workspacePath || inferredProject?.path || firstLinkedProject?.path || '';
     const workspaceExists = workspacePath ? fs.existsSync(workspacePath) : false;
     const workspaceSource = agent.workspacePath ? 'explicit' : (inferredProject ? 'inferred' : firstLinkedProject ? 'linked' : 'none');
@@ -147,8 +154,10 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         const hasDedicatedAgent = agentIds && agentIds.has(lp.id) && lp.id !== agent.id;
         if (lp.name && !hasDedicatedAgent) projectNamesToSearch.add(lp.name);
       }
-      // Fallback: if no exclusive projects after dedup filter, include all linked projects
-      if (!projectNamesToSearch.size) {
+      // Fallback only for agents that span multiple projects (e.g. synap-communication, synap-qa).
+      // Single-linked secondary agents fall through to git activity to avoid duplicating
+      // notifications already shown by the dedicated agent for that project.
+      if (!projectNamesToSearch.size && linkedProjects.length > 1) {
         for (const lp of linkedProjects) {
           if (lp.name) projectNamesToSearch.add(lp.name);
         }
@@ -189,6 +198,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       workspaceSource,
       workspaceProjectName,
       workspaceProjectId,
+      workspaceExtraProjects,
       statusKind,
       statusLabel,
       linkedProjects,
