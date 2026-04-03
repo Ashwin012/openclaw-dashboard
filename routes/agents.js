@@ -50,6 +50,34 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
   // Must match TERMINAL_STATUSES used in enrichAgent for display filtering
   const TERMINAL_STATUSES = new Set(['review', 'done', 'approved', 'rejected', 'failed', 'validating']);
 
+  // Returns { inProgressTsMap, inProgressNotifMap } from pending notifications.
+  // inProgressTsMap: taskId → most-recent in_progress timestamp (ms)
+  // inProgressNotifMap: projectName → most-recent in_progress notification object
+  function readPendingInProgressMaps() {
+    const inProgressTsMap = {};
+    const inProgressNotifMap = {};
+    try {
+      const pendingData = JSON.parse(fs.readFileSync(NOTIFICATIONS_PATH, 'utf8'));
+      for (const n of (pendingData.pending || [])) {
+        if (n.toStatus === 'in_progress') {
+          if (n.taskId) {
+            const ts = new Date(n.timestamp).getTime();
+            if (!inProgressTsMap[n.taskId] || ts > inProgressTsMap[n.taskId]) {
+              inProgressTsMap[n.taskId] = ts;
+            }
+          }
+          if (n.projectName) {
+            const existing = inProgressNotifMap[n.projectName];
+            if (!existing || new Date(n.timestamp) > new Date(existing.timestamp)) {
+              inProgressNotifMap[n.projectName] = n;
+            }
+          }
+        }
+      }
+    } catch {}
+    return { inProgressTsMap, inProgressNotifMap };
+  }
+
   function readNotifications() {
     // Read persistent activity log first (survives bell clears)
     let log = [];
@@ -91,7 +119,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     return log;
   }
 
-  function enrichAgent(agent, workerSnapshot, cfg, notifications, agentIds, inProgressTsMap) {
+  function enrichAgent(agent, workerSnapshot, cfg, notifications, agentIds, inProgressTsMap, inProgressNotifMap = {}) {
     const engine = agent.engine || inferEngine(agent.model);
 
     // Find which projects reference this agent (needed for workspace fallback)
@@ -123,9 +151,12 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         : ''
     );
 
-    // For explicit workspace paths, find a matching project by path
+    // For explicit workspace paths, find a matching project by path or repo sub-path
     if (agent.workspacePath && !workspaceProjectName) {
-      const pathMatch = (cfg.projects || []).find(p => p.path === agent.workspacePath);
+      const pathMatch = (cfg.projects || []).find(p =>
+        p.path === agent.workspacePath ||
+        (Array.isArray(p.repos) && p.repos.some(r => r.path === agent.workspacePath))
+      );
       if (pathMatch) {
         workspaceProjectName = pathMatch.name;
         workspaceProjectId = pathMatch.id;
@@ -207,6 +238,33 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
 
     const engineIsInferred = !agent.engine;
 
+    // Fallback: when no terminal activity, show most recent in_progress notification as "last known state"
+    // Only shown when agent is idle/down and has no terminal notification/task/commit activity
+    let lastKnownActivity = null;
+    if (!workerRun && !lastActivity) {
+      const projectNamesToSearch = new Set();
+      if (inferredProject?.name) projectNamesToSearch.add(inferredProject.name);
+      for (const lp of linkedProjects) { if (lp.name) projectNamesToSearch.add(lp.name); }
+      if (workspaceProjectName) projectNamesToSearch.add(workspaceProjectName);
+      let best = null;
+      for (const projName of projectNamesToSearch) {
+        const n = inProgressNotifMap[projName];
+        if (!n) continue;
+        if (!best || new Date(n.timestamp) > new Date(best.timestamp)) best = n;
+      }
+      if (best) {
+        const matchProj = (cfg.projects || []).find(p => p.name === best.projectName);
+        lastKnownActivity = {
+          taskTitle: best.taskTitle || null,
+          taskId: best.taskId || null,
+          timestamp: best.timestamp,
+          status: 'in_progress',
+          projectName: best.projectName,
+          projectId: matchProj?.id || null,
+        };
+      }
+    }
+
     // All linked project paths — used for multi-repo git commit lookup
     // Include all repo paths, not just project.path, to catch commits in sub-repos
     const linkedPaths = agent.workspacePath
@@ -252,6 +310,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       effectiveThinking,
       thinkingIsDefault,
       lastActivity,
+      lastKnownActivity,
       currentTask: workerRun ? {
         id: workerRun.id,
         title: workerRun.title,
@@ -274,23 +333,12 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         fetchWorkerSnapshot(),
         Promise.resolve(readNotifications()),
       ]);
-      // Map taskId → most-recent in_progress timestamp (ms) from pending notifications.
-      // Used to suppress terminal statuses that were superseded by a re-queue.
-      // Only suppresses when in_progress timestamp is NEWER than the terminal notification.
-      const inProgressTsMap = {};
-      try {
-        const pendingData = JSON.parse(fs.readFileSync(NOTIFICATIONS_PATH, 'utf8'));
-        for (const n of (pendingData.pending || [])) {
-          if (n.toStatus === 'in_progress' && n.taskId) {
-            const ts = new Date(n.timestamp).getTime();
-            if (!inProgressTsMap[n.taskId] || ts > inProgressTsMap[n.taskId]) {
-              inProgressTsMap[n.taskId] = ts;
-            }
-          }
-        }
-      } catch {}
+      // Map taskId → most-recent in_progress timestamp (ms), and projectName → notification.
+      // inProgressTsMap suppresses terminal statuses superseded by a re-queue.
+      // inProgressNotifMap provides "last known state" fallback when no terminal activity exists.
+      const { inProgressTsMap, inProgressNotifMap } = readPendingInProgressMaps();
       const agentIds = new Set(agents.map(a => a.id));
-      const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg, notifications, agentIds, inProgressTsMap));
+      const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg, notifications, agentIds, inProgressTsMap, inProgressNotifMap));
 
       // Fetch git last commit for agents with no notification activity and a valid workspace.
       // Multi-linked agents (no explicit workspace) check all linked project paths and pick
@@ -440,17 +488,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const workerSnapshot = await fetchWorkerSnapshot();
       const notifications = readNotifications();
       const agentIds = new Set(agents.map(a => a.id));
-      const inProgressTsMap = {};
-      try {
-        const pendingData = JSON.parse(fs.readFileSync(NOTIFICATIONS_PATH, 'utf8'));
-        for (const n of (pendingData.pending || [])) {
-          if (n.toStatus === 'in_progress' && n.taskId) {
-            const ts = new Date(n.timestamp).getTime();
-            if (!inProgressTsMap[n.taskId] || ts > inProgressTsMap[n.taskId]) inProgressTsMap[n.taskId] = ts;
-          }
-        }
-      } catch {}
-      res.json(enrichAgent(agent, workerSnapshot, cfg, notifications, agentIds, inProgressTsMap));
+      const { inProgressTsMap, inProgressNotifMap } = readPendingInProgressMaps();
+      res.json(enrichAgent(agent, workerSnapshot, cfg, notifications, agentIds, inProgressTsMap, inProgressNotifMap));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -489,7 +528,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const workerSnapshot = await fetchWorkerSnapshot();
       const notifications = readNotifications();
       const agentIds = new Set(agents.map(a => a.id));
-      res.json(enrichAgent(agents[idx], workerSnapshot, cfg, notifications, agentIds));
+      const { inProgressTsMap, inProgressNotifMap } = readPendingInProgressMaps();
+      res.json(enrichAgent(agents[idx], workerSnapshot, cfg, notifications, agentIds, inProgressTsMap, inProgressNotifMap));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -526,7 +566,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const workerSnapshot = await fetchWorkerSnapshot();
       const notifications = readNotifications();
       const agentIds = new Set(agents.map(a => a.id));
-      res.status(201).json(enrichAgent(newAgent, workerSnapshot, cfg, notifications, agentIds));
+      const { inProgressTsMap, inProgressNotifMap } = readPendingInProgressMaps();
+      res.status(201).json(enrichAgent(newAgent, workerSnapshot, cfg, notifications, agentIds, inProgressTsMap, inProgressNotifMap));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

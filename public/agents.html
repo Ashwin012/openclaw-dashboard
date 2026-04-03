@@ -564,7 +564,7 @@
 
         const lastActivityRow = !a.currentTask
           ? (() => {
-              // Pick the most recent source across all three: notification, task, git commit
+              // Pick the most recent source across all: notification, task, git commit, last known in_progress
               const candidates = [];
               if (a.lastActivity && a.lastActivity.timestamp)
                 candidates.push({ kind: 'notification', ts: new Date(a.lastActivity.timestamp).getTime(), d: a.lastActivity });
@@ -572,6 +572,8 @@
                 candidates.push({ kind: 'task', ts: new Date(a.projectLastTask.timestamp).getTime(), d: a.projectLastTask });
               if (a.gitLastCommit && a.gitLastCommit.timestamp)
                 candidates.push({ kind: 'git', ts: new Date(a.gitLastCommit.timestamp).getTime(), d: a.gitLastCommit });
+              if (a.lastKnownActivity && a.lastKnownActivity.timestamp)
+                candidates.push({ kind: 'inprogress', ts: new Date(a.lastKnownActivity.timestamp).getTime(), d: a.lastKnownActivity });
               if (!candidates.length) {
                 return `<div class="agent-last-activity"><span style="color:var(--text-muted);font-size:11px;font-style:italic">Aucune activité récente</span></div>`;
               }
@@ -583,7 +585,24 @@
               const best = actionable.length > 0
                 ? actionable.reduce((a, b) => a.ts >= b.ts ? a : b)
                 : candidates.reduce((a, b) => a.ts >= b.ts ? a : b);
-              if (best.kind === 'notification' || best.kind === 'task') {
+              if (best.kind === 'inprogress') {
+                const lk = best.d;
+                const projTag = lk.projectId
+                  ? `<a href="/project.html?id=${encodeURIComponent(lk.projectId)}" class="agent-project-tag" style="font-size:10px;padding:1px 7px">${escapeHtml(lk.projectName || lk.projectId)}</a>`
+                  : (lk.projectName ? `<span style="font-size:10px;color:var(--text-muted)">${escapeHtml(lk.projectName)}</span>` : '');
+                const titleEl = lk.projectId
+                  ? `<a href="/project.html?id=${encodeURIComponent(lk.projectId)}" style="color:var(--text-muted);text-decoration:none;font-style:italic">${escapeHtml(lk.taskTitle || lk.taskId || '?')}</a>`
+                  : `<span style="color:var(--text-muted);font-style:italic">${escapeHtml(lk.taskTitle || lk.taskId || '?')}</span>`;
+                const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lk.taskId || '');
+                const taskIdSpan = lk.taskId && !isUuid ? `<span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(lk.taskId)}</span>` : '';
+                return `<div class="agent-last-activity">
+                  <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--accent)22;color:var(--accent);border:1px solid var(--accent)44;white-space:nowrap">🔄 en cours</span>
+                  ${titleEl}
+                  ${taskIdSpan}
+                  <span style="color:var(--text-muted);font-size:11px" title="${fmtTimestamp(lk.timestamp)}">${timeAgo(lk.timestamp)}</span>
+                  ${projTag}
+                </div>`;
+              } else if (best.kind === 'notification' || best.kind === 'task') {
                 const item = best.d;
                 const statusColor = item.status === 'done' || item.status === 'approved' ? 'var(--green)'
                   : item.status === 'rejected' || item.status === 'failed' ? 'var(--red)'
