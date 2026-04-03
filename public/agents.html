@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agents OpenClaw — Dev Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1e1e2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <style>
+    .home-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .home-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
+    .home-header .clock { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .header-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .btn-nav {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .btn-nav:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
+    .btn-logout-home {
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-logout-home:hover { color: var(--red); border-color: var(--red); }
+    .hamburger-btn {
+      display: none;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 20px;
+      padding: 4px 10px;
+      border-radius: var(--radius);
+      cursor: pointer;
+    }
+
+    .agents-main {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+    }
+
+    .agents-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .agents-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .agents-stats {
+      display: flex;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .agents-stats .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+    }
+
+    .btn-add-agent {
+      padding: 6px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-add-agent:hover { background: var(--accent); color: var(--bg); }
+
+    .agents-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Agent Card */
+    .agent-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .agent-card-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border-muted, var(--border));
+    }
+
+    .agent-status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .agent-status-dot.active { background: var(--green); box-shadow: 0 0 6px rgba(63, 185, 80, 0.4); }
+    .agent-status-dot.idle   { background: var(--yellow); box-shadow: 0 0 6px rgba(210, 153, 34, 0.4); }
+    .agent-status-dot.down   { background: var(--text-muted); }
+
+    .agent-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent);
+      flex: 1;
+    }
+
+    .agent-id-badge {
+      font-size: 11px;
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      padding: 2px 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-muted);
+    }
+
+    .agent-status-label {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 12px;
+    }
+    .agent-status-label.active { background: rgba(63, 185, 80, 0.15); color: var(--green); border: 1px solid rgba(63, 185, 80, 0.3); }
+    .agent-status-label.idle   { background: rgba(210, 153, 34, 0.15); color: var(--yellow); border: 1px solid rgba(210, 153, 34, 0.3); }
+    .agent-status-label.down   { background: rgba(139, 148, 158, 0.15); color: var(--text-muted); border: 1px solid rgba(139, 148, 158, 0.3); }
+
+    .agent-card-body {
+      padding: 14px 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .agent-field {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .agent-field-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    .agent-field-value {
+      font-size: 13px;
+      color: var(--text);
+      word-break: break-all;
+    }
+
+    .agent-field-value.mono {
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .agent-card-footer {
+      padding: 10px 20px;
+      border-top: 1px solid var(--border-muted, var(--border));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .agent-projects {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .agent-project-tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      background: rgba(88, 166, 255, 0.1);
+      color: var(--accent);
+      border: 1px solid rgba(88, 166, 255, 0.25);
+      border-radius: 4px;
+      text-decoration: none;
+    }
+    .agent-project-tag:hover { background: rgba(88, 166, 255, 0.2); }
+
+    .agent-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-agent-action {
+      padding: 4px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-agent-action:hover { background: var(--bg-hover, var(--bg-surface)); }
+    .btn-agent-action.danger { color: var(--red); border-color: var(--red); }
+    .btn-agent-action.danger:hover { background: var(--red); color: #fff; }
+
+    .agent-current-task {
+      font-size: 12px;
+      padding: 8px 20px;
+      background: rgba(63, 185, 80, 0.06);
+      border-top: 1px solid var(--border-muted, var(--border));
+      color: var(--text-muted);
+    }
+    .agent-current-task strong { color: var(--green); }
+
+    /* Modal */
+    .agent-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+    }
+    .agent-modal-overlay.open { display: flex; }
+
+    .agent-modal-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 90%;
+      max-width: 500px;
+      padding: 24px;
+    }
+
+    .agent-modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .agent-form-group {
+      margin-bottom: 14px;
+    }
+
+    .agent-form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .agent-form-group input,
+    .agent-form-group select {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+
+    .agent-form-group input:focus,
+    .agent-form-group select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .agent-modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .btn-modal-cancel {
+      padding: 6px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .btn-modal-save {
+      padding: 6px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: var(--bg);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-modal-save:hover { opacity: 0.9; }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 768px) {
+      .header-nav { display: none; }
+      .hamburger-btn { display: block; }
+      .agent-card-body { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="home-header">
+    <div class="logo">OpenClaw</div>
+    <nav class="header-nav">
+      <a href="/home.html" class="btn-nav">Accueil</a>
+      <a href="/dev" class="btn-nav">Projets Dev</a>
+      <a href="/agents.html" class="btn-nav" style="border-color: var(--accent); color: var(--accent);">Agents</a>
+      <a href="/royal-heights.html" class="btn-nav">Royal Heights</a>
+      <a href="/synapcoin-marketing.html" class="btn-nav">SynapCoin</a>
+      <a href="/synaphive-marketing.html" class="btn-nav">SynapHive</a>
+      <a href="/profile.html" class="btn-nav">Profil</a>
+      <button class="btn-logout-home" id="logoutBtn">Deconnexion</button>
+    </nav>
+    <button class="hamburger-btn" id="hamburgerBtn">&#9776;</button>
+    <div class="clock" id="clock">--:--:--</div>
+  </header>
+
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="/home.html" class="btn-nav">Accueil</a>
+    <a href="/dev" class="btn-nav">Projets Dev</a>
+    <a href="/agents.html" class="btn-nav">Agents</a>
+    <a href="/royal-heights.html" class="btn-nav">Royal Heights</a>
+    <a href="/synapcoin-marketing.html" class="btn-nav">SynapCoin</a>
+    <a href="/synaphive-marketing.html" class="btn-nav">SynapHive</a>
+    <a href="/profile.html" class="btn-nav">Profil</a>
+    <button class="btn-logout-home" id="logoutBtnMobile">Deconnexion</button>
+  </div>
+
+  <main class="agents-main">
+    <div class="agents-header">
+      <div>
+        <div class="agents-title">Agents OpenClaw</div>
+        <div class="agents-stats" id="agentsStats"></div>
+      </div>
+      <button class="btn-add-agent" id="btnAddAgent">+ Nouvel agent</button>
+    </div>
+    <div class="agents-grid" id="agentsGrid">
+      <div class="empty-state">Chargement...</div>
+    </div>
+  </main>
+
+  <!-- Add/Edit Modal -->
+  <div class="agent-modal-overlay" id="agentModal">
+    <div class="agent-modal-box">
+      <div class="agent-modal-title" id="modalTitle">Nouvel agent</div>
+      <form id="agentForm">
+        <input type="hidden" id="formMode" value="create">
+        <input type="hidden" id="formOriginalId" value="">
+        <div class="agent-form-group">
+          <label for="formId">ID</label>
+          <input type="text" id="formId" placeholder="mon-agent" required>
+        </div>
+        <div class="agent-form-group">
+          <label for="formName">Nom</label>
+          <input type="text" id="formName" placeholder="Mon Agent">
+        </div>
+        <div class="agent-form-group">
+          <label for="formEngine">Engine</label>
+          <select id="formEngine">
+            <option value="claude">Claude</option>
+            <option value="codex">Codex</option>
+            <option value="ollama">Ollama</option>
+          </select>
+        </div>
+        <div class="agent-form-group">
+          <label for="formModel">Model</label>
+          <input type="text" id="formModel" placeholder="claude-sonnet-4-6">
+        </div>
+        <div class="agent-form-group">
+          <label for="formWorkspace">Workspace Path</label>
+          <input type="text" id="formWorkspace" placeholder="/home/openclaw/projects/...">
+        </div>
+        <div class="agent-modal-actions">
+          <button type="button" class="btn-modal-cancel" id="btnCancelModal">Annuler</button>
+          <button type="submit" class="btn-modal-save">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div class="agent-modal-overlay" id="deleteModal">
+    <div class="agent-modal-box">
+      <div class="agent-modal-title">Supprimer l'agent</div>
+      <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
+        Confirmer la suppression de l'agent <strong id="deleteAgentName" style="color: var(--red);"></strong> ?
+        Il sera aussi retire des projets associes.
+      </p>
+      <div class="agent-modal-actions">
+        <button type="button" class="btn-modal-cancel" id="btnCancelDelete">Annuler</button>
+        <button type="button" class="btn-modal-save" id="btnConfirmDelete" style="background: var(--red); border-color: var(--red);">Supprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script>
+    let agents = [];
+    let deleteTargetId = null;
+
+    function renderStats() {
+      const total = agents.length;
+      const active = agents.filter(a => a.statusKind === 'active').length;
+      const idle = agents.filter(a => a.statusKind === 'idle').length;
+      const down = agents.filter(a => a.statusKind === 'down').length;
+      document.getElementById('agentsStats').innerHTML =
+        `<span class="stat-pill"><span style="color:var(--text)">${total}</span> total</span>` +
+        `<span class="stat-pill"><span style="color:var(--green)">${active}</span> actifs</span>` +
+        `<span class="stat-pill"><span style="color:var(--yellow)">${idle}</span> idle</span>` +
+        `<span class="stat-pill"><span style="color:var(--text-muted)">${down}</span> down</span>`;
+    }
+
+    function renderAgents() {
+      const grid = document.getElementById('agentsGrid');
+      if (!agents.length) {
+        grid.innerHTML = '<div class="empty-state">Aucun agent configure</div>';
+        renderStats();
+        return;
+      }
+
+      grid.innerHTML = agents.map(a => {
+        const sk = a.statusKind || 'down';
+        const projectTags = (a.linkedProjects || []).map(p =>
+          `<a href="/project.html?id=${encodeURIComponent(p.id)}" class="agent-project-tag">${escapeHtml(p.name)}</a>`
+        ).join('');
+
+        const taskRow = a.currentTask
+          ? `<div class="agent-current-task"><strong>Tache active:</strong> ${escapeHtml(a.currentTask.title || a.currentTask.id)}</div>`
+          : '';
+
+        return `<div class="agent-card">
+          <div class="agent-card-header">
+            <div class="agent-status-dot ${sk}"></div>
+            <div class="agent-name">${escapeHtml(a.name)}</div>
+            <span class="agent-id-badge">${escapeHtml(a.id)}</span>
+            <span class="agent-status-label ${sk}">${escapeHtml(a.statusLabel || sk)}</span>
+          </div>
+          <div class="agent-card-body">
+            <div class="agent-field">
+              <div class="agent-field-label">Engine</div>
+              <div class="agent-field-value">${escapeHtml(a.engine || '-')}</div>
+            </div>
+            <div class="agent-field">
+              <div class="agent-field-label">Model</div>
+              <div class="agent-field-value mono">${escapeHtml(a.model || '-')}</div>
+            </div>
+            <div class="agent-field">
+              <div class="agent-field-label">Workspace</div>
+              <div class="agent-field-value mono">${escapeHtml(a.workspacePath || '-')}${a.workspaceExists === false ? ' <span style="color:var(--red)">(absent)</span>' : ''}</div>
+            </div>
+          </div>
+          ${taskRow}
+          <div class="agent-card-footer">
+            <div class="agent-projects">${projectTags || '<span style="font-size:11px;color:var(--text-muted)">Aucun projet</span>'}</div>
+            <div class="agent-actions">
+              <button class="btn-agent-action" onclick="openEditModal('${escapeHtml(a.id)}')">Modifier</button>
+              <button class="btn-agent-action danger" onclick="openDeleteModal('${escapeHtml(a.id)}')">Supprimer</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+      renderStats();
+    }
+
+    async function loadAgents() {
+      try {
+        const res = await fetch('/api/agents');
+        if (!res.ok) throw new Error('Erreur chargement agents');
+        agents = await res.json();
+        renderAgents();
+      } catch (err) {
+        document.getElementById('agentsGrid').innerHTML = `<div class="empty-state" style="color:var(--red)">Erreur: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    // Modal logic
+    const modal = document.getElementById('agentModal');
+    const deleteModalEl = document.getElementById('deleteModal');
+
+    document.getElementById('btnAddAgent').addEventListener('click', () => {
+      document.getElementById('formMode').value = 'create';
+      document.getElementById('formOriginalId').value = '';
+      document.getElementById('modalTitle').textContent = 'Nouvel agent';
+      document.getElementById('formId').value = '';
+      document.getElementById('formId').disabled = false;
+      document.getElementById('formName').value = '';
+      document.getElementById('formEngine').value = 'claude';
+      document.getElementById('formModel').value = 'claude-sonnet-4-6';
+      document.getElementById('formWorkspace').value = '';
+      modal.classList.add('open');
+    });
+
+    function openEditModal(agentId) {
+      const a = agents.find(x => x.id === agentId);
+      if (!a) return;
+      document.getElementById('formMode').value = 'edit';
+      document.getElementById('formOriginalId').value = a.id;
+      document.getElementById('modalTitle').textContent = 'Modifier ' + a.name;
+      document.getElementById('formId').value = a.id;
+      document.getElementById('formId').disabled = true;
+      document.getElementById('formName').value = a.name || '';
+      document.getElementById('formEngine').value = a.engine || 'claude';
+      document.getElementById('formModel').value = a.model || '';
+      document.getElementById('formWorkspace').value = a.workspacePath || '';
+      modal.classList.add('open');
+    }
+
+    function openDeleteModal(agentId) {
+      const a = agents.find(x => x.id === agentId);
+      if (!a) return;
+      deleteTargetId = agentId;
+      document.getElementById('deleteAgentName').textContent = a.name;
+      deleteModalEl.classList.add('open');
+    }
+
+    document.getElementById('btnCancelModal').addEventListener('click', () => modal.classList.remove('open'));
+    document.getElementById('btnCancelDelete').addEventListener('click', () => deleteModalEl.classList.remove('open'));
+
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
+    deleteModalEl.addEventListener('click', (e) => { if (e.target === deleteModalEl) deleteModalEl.classList.remove('open'); });
+
+    document.getElementById('agentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const mode = document.getElementById('formMode').value;
+      const payload = {
+        id: document.getElementById('formId').value.trim(),
+        name: document.getElementById('formName').value.trim(),
+        engine: document.getElementById('formEngine').value,
+        model: document.getElementById('formModel').value.trim(),
+        workspacePath: document.getElementById('formWorkspace').value.trim()
+      };
+
+      try {
+        let res;
+        if (mode === 'create') {
+          res = await fetch('/api/agents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        } else {
+          const origId = document.getElementById('formOriginalId').value;
+          res = await fetch('/api/agents/' + encodeURIComponent(origId), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        }
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Erreur');
+        }
+        modal.classList.remove('open');
+        showToast(mode === 'create' ? 'Agent cree' : 'Agent mis a jour', 'success');
+        await loadAgents();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    document.getElementById('btnConfirmDelete').addEventListener('click', async () => {
+      if (!deleteTargetId) return;
+      try {
+        const res = await fetch('/api/agents/' + encodeURIComponent(deleteTargetId), { method: 'DELETE' });
+        if (!res.ok) throw new Error('Erreur suppression');
+        deleteModalEl.classList.remove('open');
+        showToast('Agent supprime', 'success');
+        deleteTargetId = null;
+        await loadAgents();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    // Init
+    initCommon(() => {
+      loadAgents();
+      createSmartInterval(loadAgents, 15000);
+    });
+  </script>
+</body>
+</html>

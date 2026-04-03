@@ -128,7 +128,7 @@ async function requireAuthOrBearer(req, res, next) {
 
 const protectedPages = [
   'dashboard.html', 'home.html', 'chat.html', 'profile.html',
-  'project.html', 'royal-heights.html', 'royal-heights-prospection.html',
+  'project.html', 'agents.html', 'royal-heights.html', 'royal-heights-prospection.html',
   'pms-compare.html', 'prospection-rh.html', 'synapcoin-marketing.html', 'synaphive-marketing.html', 'synapcoin-docs.html'
 ];
 
@@ -148,6 +148,9 @@ app.use(authRouter);
 
 const projectRouter = require('./routes/projects')({ config, requireAuth, requireAuthOrBearer });
 app.use(projectRouter);
+
+const agentRouter = require('./routes/agents')({ config, requireAuth });
+app.use(agentRouter);
 
 const { router: chatRouter, setupWebSocket } = require('./routes/chat')({ config, requireAuth, server });
 app.use(chatRouter);

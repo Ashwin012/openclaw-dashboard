@@ -1000,6 +1000,7 @@
     <nav class="header-nav">
       <a href="/home.html" class="btn-nav">🏠 Accueil</a>
       <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
+      <a href="/agents.html" class="btn-nav">Agents</a>
       <a href="/synapcoin-marketing.html" class="btn-nav">⚡ SynapCoin</a>
       <a href="/synaphive-marketing.html" class="btn-nav">🐝 SynapHive</a>
       <a href="/synapcoin-docs.html" class="btn-nav">📄 SC Docs</a>
@@ -1012,6 +1013,7 @@
   <div class="mobile-menu" id="mobileMenu">
     <a href="/home.html" class="btn-nav">🏠 Accueil</a>
     <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
+    <a href="/agents.html" class="btn-nav">Agents</a>
     <a href="/synapcoin-marketing.html" class="btn-nav">⚡ SynapCoin</a>
     <a href="/synaphive-marketing.html" class="btn-nav">🐝 SynapHive</a>
     <a href="/synapcoin-docs.html" class="btn-nav">📄 SC Docs</a>
@@ -1204,7 +1206,7 @@
       }
       if (engine === 'ollama') {
         return [
-          { value: 'qwen3:8b', label: 'qwen3:8b' },
+          { value: 'qwen3:4b', label: 'qwen3:4b' },
           { value: 'custom', label: 'Custom model ID...' },
         ];
       }
@@ -1249,7 +1251,7 @@
       // Reset custom input display
       const customInput = document.getElementById('customModelInput');
       customInput.style.display = 'none';
-      customInput.placeholder = engine === 'ollama' ? 'e.g. qwen3:8b' : engine === 'codex' ? 'e.g. gpt-5.4' : 'e.g. claude-sonnet-4-6';
+      customInput.placeholder = engine === 'ollama' ? 'e.g. qwen3:4b' : engine === 'codex' ? 'e.g. gpt-5.4' : 'e.g. claude-sonnet-4-6';
       syncTopbarModelOptions(engine, null);
       if (shouldRefresh) {
         refreshSessionsForCurrentEngine();
@@ -1550,7 +1552,7 @@
       const selectVal = document.getElementById('modelSelect').value;
       const engine = (document.getElementById('engineSelect') || {}).value || 'claude';
       const model = selectVal === 'custom'
-        ? (document.getElementById('customModelInput').value.trim() || (engine === 'ollama' ? 'qwen3:8b' : 'claude-sonnet-4-6'))
+        ? (document.getElementById('customModelInput').value.trim() || (engine === 'ollama' ? 'qwen3:4b' : 'claude-sonnet-4-6'))
         : selectVal;
 
       try {
