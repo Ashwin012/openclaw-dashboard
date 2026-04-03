@@ -535,8 +535,11 @@
             })()
           : '';
 
-        const lastActivityRow = !a.currentTask && (a.lastActivity || a.gitLastCommit)
+        const lastActivityRow = !a.currentTask
           ? (() => {
+              if (!a.lastActivity && !a.gitLastCommit) {
+                return `<div class="agent-last-activity"><span style="color:var(--text-muted);font-size:11px;font-style:italic">Aucune activité récente</span></div>`;
+              }
               if (a.lastActivity) {
                 const la = a.lastActivity;
                 const statusIcon = la.status === 'review' || la.status === 'done' ? '✓ ' : la.status === 'approved' ? '✓ ' : la.status === 'rejected' ? '✕ ' : la.status === 'failed' ? '✕ ' : '';
@@ -576,7 +579,7 @@
             return `<a href="/project.html?id=${encodeURIComponent(a.workspaceProjectId)}" style="color:var(--accent);text-decoration:none" title="${escapeHtml(a.workspacePath)}">${escapeHtml(a.workspaceProjectName)}</a>${extra}${missing}`;
           }
           const shortPath = escapeHtml(a.workspacePath.split('/').filter(Boolean).slice(-2).join('/') || a.workspacePath);
-          return `<span title="${escapeHtml(a.workspacePath)}">${shortPath}</span>${missing}`;
+          return `<span style="font-family:monospace;font-size:12px" title="${escapeHtml(a.workspacePath)}">${shortPath}</span>${missing}`;
         })();
 
         return `<div class="agent-card">
@@ -602,7 +605,7 @@
             </div>
             <div class="agent-field">
               <div class="agent-field-label">Workspace</div>
-              <div class="agent-field-value mono" title="${escapeHtml(a.workspacePath || '')}">
+              <div class="agent-field-value">
                 ${workspaceHtml}
               </div>
             </div>

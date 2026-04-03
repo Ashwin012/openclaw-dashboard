@@ -39,20 +39,16 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     return 'openrouter';
   }
 
-  function inferWorkspacePath(agentId, cfg) {
-    const project = (cfg.projects || []).find(p => p.id === agentId);
-    return project?.path || '';
-  }
-
   const NOTIFICATIONS_PATH = path.join(__dirname, '..', '.dashboard', 'notifications.json');
   const ACTIVITY_LOG_PATH = path.join(__dirname, '..', '.dashboard', 'activity-log.json');
 
   function readNotifications() {
     // Read persistent activity log first (survives bell clears)
     let log = [];
+    let logExists = false;
     try {
       const raw = JSON.parse(fs.readFileSync(ACTIVITY_LOG_PATH, 'utf8'));
-      if (Array.isArray(raw)) log = raw;
+      if (Array.isArray(raw)) { log = raw; logExists = true; }
     } catch {}
     // Merge any fresh pending notifications not yet in log
     let newEntries = 0;
@@ -65,8 +61,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         }
       }
     } catch {}
-    // Persist so activity survives notifications.json clears (bell)
-    if (newEntries > 0) {
+    // Persist: write when new entries found, or create file if it doesn't exist yet
+    if (newEntries > 0 || !logExists) {
       try { writeJSON(ACTIVITY_LOG_PATH, log); } catch {}
     }
     return log;
@@ -145,22 +141,11 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     const TERMINAL_STATUSES = new Set(['review', 'done', 'approved', 'rejected', 'failed', 'validating']);
     let lastActivity = null;
     if (!workerRun && notifications && notifications.length) {
+      // Collect all project names this agent is associated with
       const projectNamesToSearch = new Set();
-      // The inferred (same-id) project is always "owned" by this agent
       if (inferredProject?.name) projectNamesToSearch.add(inferredProject.name);
-      // For linked projects, only include activity if there's no dedicated agent for that project
-      // (same logic as workerRun matching — avoids showing duplicate activity on secondary agents like "main")
       for (const lp of linkedProjects) {
-        const hasDedicatedAgent = agentIds && agentIds.has(lp.id) && lp.id !== agent.id;
-        if (lp.name && !hasDedicatedAgent) projectNamesToSearch.add(lp.name);
-      }
-      // Fallback only for agents that span multiple projects (e.g. synap-communication, synap-qa).
-      // Single-linked secondary agents fall through to git activity to avoid duplicating
-      // notifications already shown by the dedicated agent for that project.
-      if (!projectNamesToSearch.size && linkedProjects.length > 1) {
-        for (const lp of linkedProjects) {
-          if (lp.name) projectNamesToSearch.add(lp.name);
-        }
+        if (lp.name) projectNamesToSearch.add(lp.name);
       }
 
       if (projectNamesToSearch.size) {
