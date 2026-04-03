@@ -45,14 +45,26 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
   }
 
   const NOTIFICATIONS_PATH = path.join(__dirname, '..', '.dashboard', 'notifications.json');
+  const ACTIVITY_LOG_PATH = path.join(__dirname, '..', '.dashboard', 'activity-log.json');
 
   function readNotifications() {
+    // Read persistent activity log first (survives bell clears)
+    let log = [];
+    try {
+      const raw = JSON.parse(fs.readFileSync(ACTIVITY_LOG_PATH, 'utf8'));
+      if (Array.isArray(raw)) log = raw;
+    } catch {}
+    // Merge any fresh pending notifications not yet in log
     try {
       const data = JSON.parse(fs.readFileSync(NOTIFICATIONS_PATH, 'utf8'));
-      return Array.isArray(data.pending) ? data.pending : [];
-    } catch {
-      return [];
-    }
+      if (Array.isArray(data.pending) && data.pending.length) {
+        const logKeys = new Set(log.map(n => `${n.taskId}|${n.timestamp}`));
+        for (const n of data.pending) {
+          if (!logKeys.has(`${n.taskId}|${n.timestamp}`)) log.push(n);
+        }
+      }
+    } catch {}
+    return log;
   }
 
   function enrichAgent(agent, workerSnapshot, cfg, notifications, agentIds) {
@@ -76,6 +88,13 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     const workspaceSource = agent.workspacePath ? 'explicit' : (inferredProject ? 'inferred' : firstLinkedProject ? 'linked' : 'none');
     let workspaceProjectName = inferredProject?.name || firstLinkedProject?.name || null;
     let workspaceProjectId = inferredProject?.id || firstLinkedProject?.id || null;
+    // gitLookupPath: for agents with multiple linked projects and no explicit workspace,
+    // use the first linked project's path for git history fallback
+    const gitLookupPath = workspacePath || (
+      linkedProjects.length > 0
+        ? ((cfg.projects || []).find(p => p.id === linkedProjects[0].id)?.path || '')
+        : ''
+    );
 
     // For explicit workspace paths, find a matching project by path
     if (agent.workspacePath && !workspaceProjectName) {
@@ -151,6 +170,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       ...agent,
       engine,
       workspacePath,
+      gitLookupPath,
       workspaceExists,
       workspaceSource,
       workspaceProjectName,
@@ -187,10 +207,12 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg, notifications, agentIds));
 
       // Fetch git last commit for agents with no notification activity and a valid workspace
+      // Uses gitLookupPath which covers multi-linked agents that have no explicit workspace
       const pathsToFetch = new Set(
         enriched
-          .filter(a => !a.lastActivity && !a.currentTask && a.workspacePath)
-          .map(a => a.workspacePath)
+          .filter(a => !a.lastActivity && !a.currentTask && (a.workspacePath || a.gitLookupPath))
+          .map(a => a.workspacePath || a.gitLookupPath)
+          .filter(Boolean)
       );
       const gitCommitMap = {};
       await Promise.allSettled(
@@ -212,8 +234,9 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         })
       );
       for (const a of enriched) {
-        if (!a.lastActivity && !a.currentTask && a.workspacePath && gitCommitMap[a.workspacePath]) {
-          a.gitLastCommit = gitCommitMap[a.workspacePath];
+        const lookupPath = a.workspacePath || a.gitLookupPath;
+        if (!a.lastActivity && !a.currentTask && lookupPath && gitCommitMap[lookupPath]) {
+          a.gitLastCommit = gitCommitMap[lookupPath];
         }
       }
 

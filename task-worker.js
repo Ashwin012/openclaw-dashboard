@@ -377,12 +377,27 @@ function resolveTargetRun(query) {
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
+const ACTIVITY_LOG_PATH = path.join(DASHBOARD_DIR, 'activity-log.json');
+const TERMINAL_NOTIFICATION_STATUSES = new Set(['review', 'done', 'approved', 'rejected', 'failed', 'validating', 'queued']);
+
 function addNotification(projectName, taskTitle, taskId, fromStatus, toStatus, message) {
   try {
+    const entry = { projectName, taskTitle, taskId, fromStatus, toStatus, message, timestamp: new Date().toISOString() };
     const data = readJSON(NOTIFICATIONS_PATH, { pending: [] }) || { pending: [] };
     if (!Array.isArray(data.pending)) data.pending = [];
-    data.pending.push({ projectName, taskTitle, taskId, fromStatus, toStatus, message, timestamp: new Date().toISOString() });
+    data.pending.push(entry);
     writeJSON(NOTIFICATIONS_PATH, data);
+    // Persist terminal notifications to rolling activity log (survives bell clears)
+    if (TERMINAL_NOTIFICATION_STATUSES.has(toStatus)) {
+      try {
+        const raw = readJSON(ACTIVITY_LOG_PATH, []);
+        const log = Array.isArray(raw) ? raw : [];
+        log.push(entry);
+        writeJSON(ACTIVITY_LOG_PATH, log.length > 200 ? log.slice(-200) : log);
+      } catch (logErr) {
+        logError('Failed to write activity log', logErr);
+      }
+    }
   } catch (err) {
     logError('Failed to write notification', err);
   }
