@@ -34,7 +34,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
   function inferEngine(model) {
     if (!model) return 'claude';
     const m = model.toLowerCase();
-    if (m.startsWith('anthropic/') || m.startsWith('claude-')) return 'claude';
+    if (m.startsWith('claude-')) return 'claude';      // Direct Anthropic API: claude-opus-4-6, etc.
+    if (m.startsWith('anthropic/')) return 'openrouter'; // OpenRouter format: anthropic/claude-*
     return 'openrouter';
   }
 

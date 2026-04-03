@@ -329,6 +329,20 @@
       font-size: 14px;
     }
 
+    .worker-offline-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background: rgba(139, 148, 158, 0.1);
+      border: 1px solid rgba(139, 148, 158, 0.3);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .worker-offline-banner strong { color: var(--text); }
+
     @media (max-width: 768px) {
       .agent-card-body { grid-template-columns: 1fr; }
     }
@@ -344,6 +358,7 @@
       </div>
       <button class="btn-add-agent" id="btnAddAgent">+ Nouvel agent</button>
     </div>
+    <div id="workerBanner"></div>
     <div class="agents-grid" id="agentsGrid">
       <div class="empty-state">Chargement...</div>
     </div>
@@ -427,15 +442,22 @@
       return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};font-size:11px;font-weight:600;border:1px solid ${color}44">${escapeHtml(thinking)}${suffix}</span>`;
     }
 
-    function getEngineBadge(engine) {
+    function getEngineBadge(engine, model) {
       const map = {
         claude:      { color: 'var(--accent)',  label: 'Claude' },
         openrouter:  { color: 'var(--yellow)',  label: 'OpenRouter' },
         ollama:      { color: 'var(--green)',   label: 'Ollama' },
         codex:       { color: 'var(--purple)',  label: 'Codex' },
       };
-      const e = (engine || 'claude').toLowerCase();
-      const { color, label } = map[e] || { color: 'var(--text-muted)', label: escapeHtml(engine || 'claude') };
+      // If engine is set explicitly, use it; otherwise infer from model prefix
+      let e = (engine || '').toLowerCase();
+      if (!e) {
+        const m = (model || '').toLowerCase();
+        if (m.startsWith('claude-')) e = 'claude';
+        else if (m.startsWith('anthropic/')) e = 'openrouter';
+        else e = 'openrouter';
+      }
+      const { color, label } = map[e] || { color: 'var(--text-muted)', label: escapeHtml(engine || e) };
       return `<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};font-size:11px;font-weight:600;border:1px solid ${color}44">${label}</span>`;
     }
 
@@ -464,8 +486,21 @@
         `<span class="stat-pill" title="Niveau de thinking par défaut (agents.defaults.thinkingDefault)">thinking: <span style="color:${tdColor};font-weight:600">${escapeHtml(td)}</span></span>`;
     }
 
+    function renderWorkerBanner() {
+      const banner = document.getElementById('workerBanner');
+      if (!workerStatus) {
+        banner.innerHTML = `<div class="worker-offline-banner">
+          <span style="font-size:16px">⚠</span>
+          <span><strong>Worker hors ligne</strong> — Impossible de joindre le worker (port 8091). Les statuts affichés (Down) reflètent l'inaccessibilité du worker, pas l'état réel des agents.</span>
+        </div>`;
+      } else {
+        banner.innerHTML = '';
+      }
+    }
+
     function renderAgents() {
       const grid = document.getElementById('agentsGrid');
+      renderWorkerBanner();
       if (!agents.length) {
         grid.innerHTML = '<div class="empty-state">Aucun agent configure</div>';
         renderStats();
@@ -563,7 +598,7 @@
           <div class="agent-card-body">
             <div class="agent-field">
               <div class="agent-field-label">Engine</div>
-              <div class="agent-field-value">${getEngineBadge(a.engine)}</div>
+              <div class="agent-field-value">${getEngineBadge(a.engine, a.model)}</div>
             </div>
             <div class="agent-field">
               <div class="agent-field-label">Model</div>
