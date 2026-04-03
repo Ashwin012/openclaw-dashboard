@@ -11,99 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <style>
-    .home-header {
-      background: var(--bg-surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 20px;
-      height: 56px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .home-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
-    .home-header .clock { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
-    .btn-nav {
-      padding: 5px 12px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text);
-      font-size: 13px;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      white-space: nowrap;
-    }
-    .btn-nav:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
-
-    .btn-logout-home {
-      padding: 5px 12px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 13px;
-      cursor: pointer;
-    }
-    .btn-logout-home:hover { color: var(--red); border-color: var(--red); }
-
-    .header-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-
-    .hamburger-btn {
-      display: none;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-size: 18px;
-      width: 36px;
-      height: 36px;
-      border-radius: var(--radius);
-      cursor: pointer;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .hamburger-btn:hover { background: var(--bg-hover); }
-
-    .mobile-menu {
-      display: none;
-      position: fixed;
-      top: 56px;
-      left: 0;
-      right: 0;
-      background: var(--bg-surface);
-      border-bottom: 1px solid var(--border);
-      z-index: 99;
-      flex-direction: column;
-      padding: 8px 16px 12px;
-      gap: 6px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    }
-    .mobile-menu.open { display: flex; }
-    .mobile-menu .btn-nav {
-      padding: 10px 14px;
-      font-size: 14px;
-      width: 100%;
-      justify-content: flex-start;
-    }
-    .mobile-menu .btn-logout-home {
-      padding: 10px 14px;
-      font-size: 14px;
-      width: 100%;
-      text-align: left;
-    }
-
-    .profile-main {
-      max-width: 480px;
-      margin: 40px auto;
-      padding: 0 20px;
-    }
 
     .section-title {
       font-size: 18px;
@@ -174,12 +82,6 @@
     .toast.error { background: #3d1c1c; color: #f85149; border: 1px solid #f85149; }
 
     @media (max-width: 768px) {
-      .home-header { height: auto; padding: 10px 16px; flex-wrap: wrap; row-gap: 4px; }
-      .home-header .logo { font-size: 1.1rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .home-header .clock { font-size: 12px; width: 100%; order: 2; padding-bottom: 2px; }
-      .header-nav { display: none; }
-      .hamburger-btn { display: inline-flex; }
-      .mobile-menu { top: 72px; }
     }
 
     .passkey-list { list-style: none; padding: 0; margin: 0 0 16px 0; }
@@ -208,34 +110,8 @@
   </style>
 </head>
 <body>
-  <header class="home-header">
-    <div class="logo">◆ Dev Dashboard</div>
-    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
-    <nav class="header-nav">
-      <a href="/home.html" class="btn-nav">🏠 Accueil</a>
-      <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
-      <a href="/agents.html" class="btn-nav">Agents</a>
-      <a href="/synapcoin-marketing.html" class="btn-nav">⚡ SynapCoin</a>
-      <a href="/synaphive-marketing.html" class="btn-nav">🐝 SynapHive</a>
-      <a href="/synapcoin-docs.html" class="btn-nav">📄 SC Docs</a>
-      <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
-      <button class="btn-logout-home" id="logoutBtn">🚪 Déconnexion</button>
-    </nav>
-    <div class="clock" id="clock">--:--:--</div>
-  </header>
-
-  <div class="mobile-menu" id="mobileMenu">
-    <a href="/home.html" class="btn-nav">🏠 Accueil</a>
-    <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
-    <a href="/agents.html" class="btn-nav">Agents</a>
-    <a href="/synapcoin-marketing.html" class="btn-nav">⚡ SynapCoin</a>
-    <a href="/synaphive-marketing.html" class="btn-nav">🐝 SynapHive</a>
-    <a href="/synapcoin-docs.html" class="btn-nav">📄 SC Docs</a>
-    <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
-    <button class="btn-logout-home" id="logoutBtnMobile">🚪 Déconnexion</button>
-  </div>
-
-  <main class="profile-main">
+  <script src="/js/navbar.js"></script>
+<main class="profile-main">
     <div class="section-title" style="margin-top:0;">Clés d'accès</div>
     <div class="card" style="margin-bottom:32px;">
       <ul class="passkey-list" id="passkeyList"></ul>

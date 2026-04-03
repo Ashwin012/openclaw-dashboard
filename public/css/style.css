@@ -82,6 +82,175 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   overflow: hidden;
 }
 
+/* ===== Shared Navbar ===== */
+.home-header {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px 0 20px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.home-header .logo {
+  font-size: 14px;
+  font-weight: 700;
+  flex: 1;
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.2px;
+}
+.home-header .logo a {
+  color: var(--text);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.home-header .logo a:hover { color: var(--text); text-decoration: none; }
+.home-header .logo .logo-icon { color: var(--accent); font-style: normal; }
+.home-header .clock {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.header-nav {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.btn-nav {
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  line-height: 1.4;
+}
+.btn-nav:hover {
+  background: var(--bg-hover);
+  border-color: var(--border);
+  color: var(--text);
+  text-decoration: none;
+}
+.btn-nav.active {
+  background: rgba(88, 166, 255, 0.1);
+  border-color: rgba(88, 166, 255, 0.4);
+  color: var(--accent);
+}
+.btn-nav.active:hover {
+  background: rgba(88, 166, 255, 0.15);
+  color: var(--accent-hover);
+}
+.btn-logout-home {
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-subtle);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn-logout-home:hover { color: var(--red); }
+
+/* Hamburger */
+.hamburger-btn {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 15px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.hamburger-btn:hover { background: var(--bg-hover); color: var(--text); }
+
+/* Mobile dropdown */
+.mobile-menu {
+  display: none;
+  position: fixed;
+  top: 52px;
+  left: 0;
+  right: 0;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  z-index: 99;
+  flex-direction: column;
+  padding: 8px 12px 12px;
+  gap: 3px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.mobile-menu.open { display: flex; }
+.mobile-menu .btn-nav {
+  padding: 9px 12px;
+  font-size: 13px;
+  width: 100%;
+  justify-content: flex-start;
+  border-color: transparent;
+  color: var(--text);
+}
+.mobile-menu .btn-nav:hover { background: var(--bg-hover); border-color: var(--border); }
+.mobile-menu .btn-nav.active { background: rgba(88,166,255,0.1); border-color: rgba(88,166,255,0.4); color: var(--accent); }
+.mobile-menu .btn-logout-home {
+  padding: 9px 12px;
+  font-size: 13px;
+  width: 100%;
+  text-align: left;
+  border-top: 1px solid var(--border-muted);
+  margin-top: 4px;
+  padding-top: 12px;
+  color: var(--text-muted);
+}
+
+/* readonly badge (sales pages) */
+.readonly-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(88,166,255,0.1);
+  border: 1px solid rgba(88,166,255,0.3);
+  color: var(--accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Responsive: show hamburger above 960px breakpoint */
+@media (max-width: 960px) {
+  .header-nav { display: none; }
+  .hamburger-btn { display: inline-flex; }
+  .home-header .clock { display: none; }
+}
+@media (max-width: 480px) {
+  .home-header { height: 48px; padding: 0 12px; }
+  .mobile-menu { top: 48px; }
+}
+
 /* ===== Login Page ===== */
 .login-wrapper {
   min-height: 100vh;

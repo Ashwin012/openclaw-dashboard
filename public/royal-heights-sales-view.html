@@ -7,83 +7,6 @@
   <link rel="stylesheet" href="/css/style.css">
   <style>
     /* ===== Header ===== */
-    .home-header {
-      background: var(--bg-surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 20px;
-      height: 56px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .home-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
-    .home-header .clock { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-    .header-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .btn-nav {
-      padding: 5px 12px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text);
-      font-size: 13px;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      white-space: nowrap;
-    }
-    .btn-nav:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
-    .btn-nav.active {
-      background: rgba(88,166,255,0.1);
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    .readonly-badge {
-      font-size: 12px;
-      background: rgba(63,185,80,0.1);
-      border: 1px solid rgba(63,185,80,0.3);
-      color: #3fb950;
-      border-radius: var(--radius);
-      padding: 3px 10px;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .hamburger-btn {
-      display: none;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-size: 18px;
-      width: 36px;
-      height: 36px;
-      border-radius: var(--radius);
-      cursor: pointer;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .hamburger-btn:hover { background: var(--bg-hover); }
-    .mobile-menu {
-      display: none;
-      position: fixed;
-      top: 56px; left: 0; right: 0;
-      background: var(--bg-surface);
-      border-bottom: 1px solid var(--border);
-      z-index: 99;
-      flex-direction: column;
-      padding: 8px 16px 12px;
-      gap: 6px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    }
-    .mobile-menu.open { display: flex; }
-    .mobile-menu .btn-nav { padding: 10px 14px; font-size: 14px; width: 100%; justify-content: flex-start; }
-
-    /* ===== Page Layout ===== */
-    .rh-main { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
 
     /* ===== Project Header ===== */
     .rh-hero {
@@ -344,12 +267,6 @@
       .stats-breakdown-col:first-child { border-right: none; border-bottom: 1px solid var(--border); }
     }
     @media (max-width: 768px) {
-      .home-header { height: auto; padding: 10px 16px; flex-wrap: wrap; row-gap: 4px; }
-      .home-header .logo { font-size: 1.1rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .home-header .clock { font-size: 12px; width: 100%; order: 3; padding-bottom: 2px; }
-      .header-nav { display: none; }
-      .hamburger-btn { display: inline-flex; }
-      .mobile-menu { top: 72px; }
       .rh-hero { padding: 20px 16px; }
       .rh-hero-title { font-size: 22px; }
       .rh-payment-grid { grid-template-columns: repeat(3, 1fr); }
@@ -366,27 +283,8 @@
   </style>
 </head>
 <body>
-  <header class="home-header">
-    <div class="logo">🏛️ Royal Heights</div>
-    <span class="readonly-badge">👁 Vue lecture seule</span>
-    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
-    <nav class="header-nav">
-      <a href="/sales/royal-heights" class="btn-nav active">🏛️ Projet</a>
-      <a href="/sales/royal-heights/prospection-ia" class="btn-nav">📊 Prospection IA</a>
-      <a href="/sales/royal-heights/prospection" class="btn-nav">📋 Prospection</a>
-      <a href="/sales/royal-heights/russia" class="btn-nav">🇷🇺 Marché Russe</a>
-    </nav>
-    <div class="clock" id="clock">--:--:--</div>
-  </header>
-
-  <div class="mobile-menu" id="mobileMenu">
-    <a href="/sales/royal-heights" class="btn-nav active">🏛️ Projet</a>
-    <a href="/sales/royal-heights/prospection-ia" class="btn-nav">📊 Prospection IA</a>
-    <a href="/sales/royal-heights/prospection" class="btn-nav">📋 Prospection</a>
-    <a href="/sales/royal-heights/russia" class="btn-nav">🇷🇺 Marché Russe</a>
-  </div>
-
-  <main class="rh-main">
+  <script src="/js/navbar.js" data-mode="sales"></script>
+<main class="rh-main">
 
     <!-- Hero / Project Info -->
     <div class="rh-hero">

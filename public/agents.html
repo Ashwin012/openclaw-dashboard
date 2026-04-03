@@ -11,56 +11,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <style>
-    .home-header {
-      background: var(--bg-surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 20px;
-      height: 56px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .home-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
-    .home-header .clock { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-    .header-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .btn-nav {
-      padding: 5px 12px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text);
-      font-size: 13px;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      white-space: nowrap;
-    }
-    .btn-nav:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
-    .btn-logout-home {
-      padding: 5px 12px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 13px;
-      cursor: pointer;
-    }
-    .btn-logout-home:hover { color: var(--red); border-color: var(--red); }
-    .hamburger-btn {
-      display: none;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-size: 20px;
-      padding: 4px 10px;
-      border-radius: var(--radius);
-      cursor: pointer;
-    }
 
     .agents-main {
       max-width: 1000px;
@@ -353,42 +303,13 @@
     }
 
     @media (max-width: 768px) {
-      .header-nav { display: none; }
-      .hamburger-btn { display: block; }
       .agent-card-body { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-
-  <header class="home-header">
-    <div class="logo">OpenClaw</div>
-    <nav class="header-nav">
-      <a href="/home.html" class="btn-nav">Accueil</a>
-      <a href="/dev" class="btn-nav">Projets Dev</a>
-      <a href="/agents.html" class="btn-nav" style="border-color: var(--accent); color: var(--accent);">Agents</a>
-      <a href="/royal-heights.html" class="btn-nav">Royal Heights</a>
-      <a href="/synapcoin-marketing.html" class="btn-nav">SynapCoin</a>
-      <a href="/synaphive-marketing.html" class="btn-nav">SynapHive</a>
-      <a href="/profile.html" class="btn-nav">Profil</a>
-      <button class="btn-logout-home" id="logoutBtn">Deconnexion</button>
-    </nav>
-    <button class="hamburger-btn" id="hamburgerBtn">&#9776;</button>
-    <div class="clock" id="clock">--:--:--</div>
-  </header>
-
-  <div class="mobile-menu" id="mobileMenu">
-    <a href="/home.html" class="btn-nav">Accueil</a>
-    <a href="/dev" class="btn-nav">Projets Dev</a>
-    <a href="/agents.html" class="btn-nav">Agents</a>
-    <a href="/royal-heights.html" class="btn-nav">Royal Heights</a>
-    <a href="/synapcoin-marketing.html" class="btn-nav">SynapCoin</a>
-    <a href="/synaphive-marketing.html" class="btn-nav">SynapHive</a>
-    <a href="/profile.html" class="btn-nav">Profil</a>
-    <button class="btn-logout-home" id="logoutBtnMobile">Deconnexion</button>
-  </div>
-
-  <main class="agents-main">
+  <script src="/js/navbar.js"></script>
+<main class="agents-main">
     <div class="agents-header">
       <div>
         <div class="agents-title">Agents OpenClaw</div>

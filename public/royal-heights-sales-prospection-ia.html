@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
+  <link rel="stylesheet" href="/css/style.css">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Royal Heights — Prospection Dashboard (Vue Vente)</title>
@@ -42,45 +43,6 @@
     ::-webkit-scrollbar-thumb { background: #2A2D3A; border-radius: 3px; }
 
     /* Sales nav bar */
-    .sales-header {
-      background: #1A1D27;
-      border-bottom: 1px solid #2A2D3A;
-      padding: 0 20px;
-      height: 56px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .sales-logo { font-size: 16px; font-weight: 600; color: #E2E8F0; flex: 1; }
-    .sales-clock { font-size: 13px; color: #94A3B8; font-variant-numeric: tabular-nums; }
-    .readonly-badge { font-size: 12px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #10B981; border-radius: 6px; padding: 3px 10px; white-space: nowrap; flex-shrink: 0; }
-    .btn-nav-sales {
-      padding: 5px 12px; border-radius: 6px; border: 1px solid #2A2D3A; background: #1A1D27;
-      color: #E2E8F0; font-size: 13px; cursor: pointer; text-decoration: none;
-      display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
-    }
-    .btn-nav-sales:hover { background: rgba(255,255,255,0.05); color: #E2E8F0; text-decoration: none; }
-    .btn-nav-sales.active { background: rgba(59,130,246,0.1); border-color: #3B82F6; color: #3B82F6; }
-    .header-nav-sales { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .hamburger-btn {
-      display: none; background: transparent; border: 1px solid #2A2D3A; color: #E2E8F0;
-      font-size: 18px; width: 36px; height: 36px; border-radius: 6px; cursor: pointer;
-      align-items: center; justify-content: center; flex-shrink: 0;
-    }
-    .hamburger-btn:hover { background: rgba(255,255,255,0.05); }
-    .mobile-menu-sales {
-      display: none; position: fixed; top: 56px; left: 0; right: 0;
-      background: #1A1D27; border-bottom: 1px solid #2A2D3A; z-index: 99;
-      flex-direction: column; padding: 8px 16px 12px; gap: 6px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    }
-    .mobile-menu-sales.open { display: flex; }
-    .mobile-menu-sales .btn-nav-sales { padding: 10px 14px; font-size: 14px; width: 100%; justify-content: flex-start; }
-
-    * { box-sizing: border-box; max-width: 100%; }
     body { overflow-x: hidden; width: 100%; }
     img, video, iframe, canvas, svg { max-width: 100%; height: auto; }
     .card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -88,12 +50,6 @@
     .table-wrapper, .card-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     pre, code { overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
     @media (max-width: 768px) {
-      .sales-header { height: auto; padding: 10px 16px; flex-wrap: wrap; row-gap: 4px; }
-      .sales-logo { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .sales-clock { width: 100%; order: 3; }
-      .header-nav-sales { display: none; }
-      .hamburger-btn { display: inline-flex; }
-      .mobile-menu-sales { top: 72px; }
       main { padding: 8px !important; }
       .grid { gap: 8px !important; }
       h1 { font-size: 16px !important; }
@@ -102,29 +58,8 @@
   </style>
 </head>
 <body class="min-h-screen text-rh-text">
-
-  <!-- Sales Header -->
-  <div class="sales-header">
-    <div class="sales-logo">🏛️ Royal Heights</div>
-    <span class="readonly-badge">👁 Vue lecture seule</span>
-    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
-    <nav class="header-nav-sales">
-      <a href="/sales/royal-heights" class="btn-nav-sales">🏛️ Projet</a>
-      <a href="/sales/royal-heights/prospection-ia" class="btn-nav-sales">📊 Prospection IA</a>
-      <a href="/sales/royal-heights/prospection" class="btn-nav-sales active">📋 Prospection</a>
-      <a href="/sales/royal-heights/russia" class="btn-nav-sales">🇷🇺 Marché Russe</a>
-    </nav>
-    <div class="sales-clock" id="clock">--:--:--</div>
-  </div>
-
-  <div class="mobile-menu-sales" id="mobileMenu">
-    <a href="/sales/royal-heights" class="btn-nav-sales">🏛️ Projet</a>
-    <a href="/sales/royal-heights/prospection-ia" class="btn-nav-sales">📊 Prospection IA</a>
-    <a href="/sales/royal-heights/prospection" class="btn-nav-sales active">📋 Prospection</a>
-    <a href="/sales/royal-heights/russia" class="btn-nav-sales">🇷🇺 Marché Russe</a>
-  </div>
-
-  <!-- Header -->
+  <script src="/js/navbar.js" data-mode="sales"></script>
+<!-- Header -->
   <header class="border-b border-rh-border px-6 py-4">
     <div class="max-w-7xl mx-auto flex items-center justify-between">
       <div class="flex items-center gap-4">

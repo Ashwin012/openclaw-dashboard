@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+  <link rel="stylesheet" href="/css/style.css">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Royal Heights Mauritius — премиальные апартаменты (Vue Vente)</title>
@@ -19,51 +20,6 @@
         .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 
         /* ===== SALES HEADER ===== */
-        .sales-header {
-            background: var(--navy);
-            padding: 0 24px;
-            height: 56px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            position: sticky;
-            top: 0;
-            z-index: 200;
-            border-bottom: 1px solid rgba(201,169,110,0.2);
-        }
-        .sales-logo { font-size: 16px; font-weight: 600; color: var(--gold); flex: 1; }
-        .sales-clock { font-size: 13px; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; }
-        .readonly-badge-ru { font-size: 12px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #10B981; border-radius: 6px; padding: 3px 10px; white-space: nowrap; flex-shrink: 0; }
-        .btn-nav-sales {
-            padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(201,169,110,0.3);
-            background: transparent; color: rgba(255,255,255,0.8); font-size: 13px; cursor: pointer;
-            text-decoration: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
-        }
-        .btn-nav-sales:hover { background: rgba(201,169,110,0.1); color: var(--gold); text-decoration: none; }
-        .btn-nav-sales.active { background: rgba(201,169,110,0.15); border-color: var(--gold); color: var(--gold); }
-        .header-nav-sales { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-        .hamburger-btn {
-            display: none; background: transparent; border: 1px solid rgba(201,169,110,0.3); color: var(--gold);
-            font-size: 18px; width: 36px; height: 36px; border-radius: 6px; cursor: pointer;
-            align-items: center; justify-content: center; flex-shrink: 0;
-        }
-        .hamburger-btn:hover { background: rgba(201,169,110,0.1); }
-        .mobile-menu-sales {
-            display: none; position: fixed; top: 56px; left: 0; right: 0;
-            background: var(--navy); border-bottom: 1px solid rgba(201,169,110,0.2); z-index: 199;
-            flex-direction: column; padding: 8px 16px 12px; gap: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-        }
-        .mobile-menu-sales.open { display: flex; }
-        .mobile-menu-sales .btn-nav-sales { padding: 10px 14px; font-size: 14px; width: 100%; justify-content: flex-start; }
-
-        /* ===== HERO SECTION ===== */
-        .hero {
-            background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
-            min-height: 90vh;
-            display: flex; align-items: center; justify-content: center;
-            color: var(--white); position: relative; overflow: hidden;
-        }
         .hero::before {
             content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="%23c9a96e" fill-opacity="0.08" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,149.3C960,160,1056,160,1152,138.7C1248,117,1344,75,1392,53.3L1440,32L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') no-repeat bottom;
@@ -134,12 +90,6 @@
         footer p { margin: 8px 0; color: rgba(255,255,255,0.7); }
 
         @media (max-width: 768px) {
-            .sales-header { height: auto; padding: 10px 16px; flex-wrap: wrap; row-gap: 4px; }
-            .sales-logo { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-            .sales-clock { width: 100%; order: 3; }
-            .header-nav-sales { display: none; }
-            .hamburger-btn { display: inline-flex; }
-            .mobile-menu-sales { top: 72px; }
             .hero h1 { font-size: 2rem; }
             .hero p { font-size: 1rem; }
             .ps-grid { grid-template-columns: 1fr; gap: 40px; }
@@ -152,28 +102,7 @@
     </style>
 </head>
 <body>
-
-  <!-- Sales Header -->
-  <div class="sales-header">
-    <div class="sales-logo">🏛️ Royal Heights</div>
-    <span class="readonly-badge-ru">👁 Vue lecture seule</span>
-    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
-    <nav class="header-nav-sales">
-      <a href="/sales/royal-heights" class="btn-nav-sales">🏛️ Projet</a>
-      <a href="/sales/royal-heights/prospection-ia" class="btn-nav-sales">📊 Prospection IA</a>
-      <a href="/sales/royal-heights/prospection" class="btn-nav-sales">📋 Prospection</a>
-      <a href="/sales/royal-heights/russia" class="btn-nav-sales active">🇷🇺 Marché Russe</a>
-    </nav>
-    <div class="sales-clock" id="clock">--:--:--</div>
-  </div>
-
-  <div class="mobile-menu-sales" id="mobileMenu">
-    <a href="/sales/royal-heights" class="btn-nav-sales">🏛️ Projet</a>
-    <a href="/sales/royal-heights/prospection-ia" class="btn-nav-sales">📊 Prospection IA</a>
-    <a href="/sales/royal-heights/prospection" class="btn-nav-sales">📋 Prospection</a>
-    <a href="/sales/royal-heights/russia" class="btn-nav-sales active">🇷🇺 Marché Russe</a>
-  </div>
-
+  <script src="/js/navbar.js" data-mode="sales"></script>
 <!-- HERO -->
 <section class="hero">
     <div class="hero-content">
