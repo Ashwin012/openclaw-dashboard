@@ -150,13 +150,12 @@
 
     document.body.insertAdjacentHTML('afterbegin', html);
 
-    // Self-contained behavior: only wire up if common.js isn't loaded
-    if (typeof window.setupHamburgerMenu !== 'function') {
-      setupBehavior(isSales);
-    }
+    // Always wire up behavior from here — set flag so common.js skips duplicates
+    setupBehavior(isSales);
+    window.__navbarReady = true;
   }
 
-  /** Wire up hamburger menu, logout, and clock when common.js is absent */
+  /** Wire up hamburger menu, logout, and clock — sets __navbarReady to prevent common.js duplication */
   function setupBehavior(isSales) {
     var hamburgerBtn = document.getElementById('hamburgerBtn');
     var mobileMenu = document.getElementById('mobileMenu');
@@ -181,7 +180,8 @@
       });
       if (backdrop) backdrop.addEventListener('click', closeMenu);
       document.addEventListener('click', function (e) {
-        if (!mobileMenu.contains(e.target) && e.target !== hamburgerBtn) closeMenu();
+        if (mobileMenu.classList.contains('open') &&
+            !mobileMenu.contains(e.target) && e.target !== hamburgerBtn) closeMenu();
       });
       mobileMenu.querySelectorAll('.btn-nav').forEach(function (link) {
         link.addEventListener('click', closeMenu);
@@ -207,19 +207,28 @@
       if (btnMobile) btnMobile.addEventListener('click', doLogout);
     }
 
-    // Clock (Mauritius timezone)
-    function updateClock() {
-      var el = document.getElementById('clock');
-      if (!el) return;
-      var now = new Date();
-      var mu = new Date(now.toLocaleString('en-US', { timeZone: 'Indian/Mauritius' }));
-      var hh = String(mu.getHours()).padStart(2, '0');
-      var mm = String(mu.getMinutes()).padStart(2, '0');
-      var ss = String(mu.getSeconds()).padStart(2, '0');
-      el.textContent = '\u{1F1F2}\u{1F1FA} ' + hh + ':' + mm + ':' + ss;
+    // Clock (Mauritius timezone) — pauses when tab is hidden
+    var clockEl = document.getElementById('clock');
+    if (clockEl) {
+      function updateClock() {
+        var now = new Date();
+        var mu = new Date(now.toLocaleString('en-US', { timeZone: 'Indian/Mauritius' }));
+        var hh = String(mu.getHours()).padStart(2, '0');
+        var mm = String(mu.getMinutes()).padStart(2, '0');
+        var ss = String(mu.getSeconds()).padStart(2, '0');
+        clockEl.textContent = '\u{1F1F2}\u{1F1FA} ' + hh + ':' + mm + ':' + ss;
+      }
+      var clockTimer = setInterval(updateClock, 1000);
+      updateClock();
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+          clearInterval(clockTimer);
+        } else {
+          updateClock();
+          clockTimer = setInterval(updateClock, 1000);
+        }
+      });
     }
-    updateClock();
-    setInterval(updateClock, 1000);
   }
 
   if (document.readyState === 'loading') {

@@ -128,8 +128,11 @@ function createSmartInterval(fn, intervalMs) {
 
 // Initialize common UI on every page
 function initCommon(callback) {
-  setupLogout();
-  setupHamburgerMenu();
-  startClock();
+  // navbar.js sets __navbarReady after wiring up hamburger, logout, and clock
+  if (!window.__navbarReady) {
+    setupLogout();
+    setupHamburgerMenu();
+    startClock();
+  }
   requireAuth(callback);
 }
