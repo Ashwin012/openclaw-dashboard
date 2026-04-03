@@ -546,7 +546,10 @@
               }
               if (a.lastActivity) {
                 const la = a.lastActivity;
-                const statusColor = la.status === 'review' || la.status === 'done' || la.status === 'approved' ? 'var(--green)' : la.status === 'rejected' || la.status === 'failed' ? 'var(--red)' : 'var(--text-muted)';
+                const statusColor = la.status === 'done' || la.status === 'approved' ? 'var(--green)'
+                  : la.status === 'rejected' || la.status === 'failed' ? 'var(--red)'
+                  : la.status === 'review' || la.status === 'validating' ? 'var(--yellow)'
+                  : 'var(--text-muted)';
                 const statusBadge = `<span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;white-space:nowrap" title="${escapeHtml(la.message || la.status)}">${escapeHtml(la.status)}</span>`;
                 const projTag = la.projectName
                   ? (la.projectId
@@ -706,7 +709,7 @@
       document.getElementById('formName').value = a.name || '';
       document.getElementById('formEngine').value = a.engineIsInferred ? '' : (a.engine || '');
       document.getElementById('formModel').value = a.model || '';
-      document.getElementById('formWorkspace').value = a.workspacePath || '';
+      document.getElementById('formWorkspace').value = a.workspaceSource === 'explicit' ? (a.workspacePath || '') : '';
       modal.classList.add('open');
     }
 
