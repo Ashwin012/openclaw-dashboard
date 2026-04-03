@@ -394,6 +394,16 @@
           <input type="text" id="formModel" placeholder="claude-sonnet-4-6">
         </div>
         <div class="agent-form-group">
+          <label for="formThinking">Thinking</label>
+          <select id="formThinking">
+            <option value="">Auto (défaut global)</option>
+            <option value="auto">auto</option>
+            <option value="low">low</option>
+            <option value="medium">medium</option>
+            <option value="high">high</option>
+          </select>
+        </div>
+        <div class="agent-form-group">
           <label for="formWorkspace">Workspace Path</label>
           <input type="text" id="formWorkspace" placeholder="/home/openclaw/projects/...">
         </div>
@@ -455,7 +465,8 @@
         codex:       { color: 'var(--purple)',  label: 'Codex' },
       };
       const { color, label } = map[e] || { color: 'var(--text-muted)', label: escapeHtml(engine || e) };
-      return `<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};font-size:11px;font-weight:600;border:1px solid ${color}44">${label}</span>`;
+      const autoSuffix = isInferred ? ` <span style="opacity:0.5;font-size:10px;font-weight:400">auto</span>` : '';
+      return `<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};font-size:11px;font-weight:600;border:1px solid ${color}44">${label}${autoSuffix}</span>`;
     }
 
     function renderStats() {
@@ -676,6 +687,7 @@
       document.getElementById('formName').value = '';
       document.getElementById('formEngine').value = '';
       document.getElementById('formModel').value = 'claude-sonnet-4-6';
+      document.getElementById('formThinking').value = '';
       document.getElementById('formWorkspace').value = '';
       modal.classList.add('open');
     });
@@ -691,6 +703,7 @@
       document.getElementById('formName').value = a.name || '';
       document.getElementById('formEngine').value = a.engineIsInferred ? '' : (a.engine || '');
       document.getElementById('formModel').value = a.model || '';
+      document.getElementById('formThinking').value = a.thinkingIsDefault ? '' : (a.effectiveThinking || '');
       document.getElementById('formWorkspace').value = a.workspaceSource === 'explicit' ? (a.workspacePath || '') : '';
       modal.classList.add('open');
     }
@@ -717,6 +730,7 @@
         name: document.getElementById('formName').value.trim(),
         engine: document.getElementById('formEngine').value,
         model: document.getElementById('formModel').value.trim(),
+        thinking: document.getElementById('formThinking').value,
         workspacePath: document.getElementById('formWorkspace').value.trim()
       };
 

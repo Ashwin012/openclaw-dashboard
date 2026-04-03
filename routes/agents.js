@@ -80,7 +80,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     return log;
   }
 
-  function enrichAgent(agent, workerSnapshot, cfg, notifications, agentIds) {
+  function enrichAgent(agent, workerSnapshot, cfg, notifications, agentIds, inProgressTaskIds) {
     const engine = agent.engine || inferEngine(agent.model);
 
     // Find which projects reference this agent (needed for workspace fallback)
@@ -170,7 +170,9 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       if (projectNamesToSearch.size) {
         const matching = notifications.filter(n =>
           projectNamesToSearch.has(n.projectName) && TERMINAL_STATUSES.has(n.toStatus) &&
-          !activeTaskIds.has(n.taskId)
+          !activeTaskIds.has(n.taskId) &&
+          // Exclude terminal notifications superseded by a more recent in_progress for the same task
+          !(inProgressTaskIds && n.taskId && inProgressTaskIds.has(n.taskId))
         );
         if (matching.length) {
           const sorted = [...matching].sort((a, b) =>
@@ -260,8 +262,17 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         fetchWorkerSnapshot(),
         Promise.resolve(readNotifications()),
       ]);
+      // Task IDs that are currently in_progress (from pending notifications) —
+      // used to suppress showing stale terminal status for tasks that were re-started
+      const inProgressTaskIds = new Set();
+      try {
+        const pendingData = JSON.parse(fs.readFileSync(NOTIFICATIONS_PATH, 'utf8'));
+        for (const n of (pendingData.pending || [])) {
+          if (n.toStatus === 'in_progress' && n.taskId) inProgressTaskIds.add(n.taskId);
+        }
+      } catch {}
       const agentIds = new Set(agents.map(a => a.id));
-      const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg, notifications, agentIds));
+      const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg, notifications, agentIds, inProgressTaskIds));
 
       // Fetch git last commit for agents with no notification activity and a valid workspace.
       // Multi-linked agents (no explicit workspace) check all linked project paths and pick
@@ -419,7 +430,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const idx = agents.findIndex(a => a.id === req.params.id);
       if (idx === -1) return res.status(404).json({ error: 'Agent not found' });
 
-      const { name, engine, model, workspacePath } = req.body;
+      const { name, engine, model, workspacePath, thinking } = req.body;
       if (name !== undefined) agents[idx].name = String(name).trim();
       if (engine !== undefined) {
         const engineVal = String(engine).trim();
@@ -428,6 +439,12 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       }
       if (model !== undefined) agents[idx].model = String(model).trim();
       if (workspacePath !== undefined) agents[idx].workspacePath = String(workspacePath).trim();
+      if (thinking !== undefined) {
+        const thinkingVal = String(thinking).trim();
+        const validThinking = ['auto', 'low', 'medium', 'high'];
+        if (thinkingVal && validThinking.includes(thinkingVal)) agents[idx].thinking = thinkingVal;
+        else delete agents[idx].thinking;
+      }
 
       cfg.openclawAgents = agents;
       writeJSON(CONFIG_PATH, cfg);
@@ -449,7 +466,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     try {
       const cfg = reloadConfig();
       const agents = Array.isArray(cfg.openclawAgents) ? cfg.openclawAgents : [];
-      const { id, name, engine, model, workspacePath } = req.body;
+      const { id, name, engine, model, workspacePath, thinking } = req.body;
 
       if (!id || !String(id).trim()) return res.status(400).json({ error: 'id is required' });
       const agentId = String(id).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
@@ -463,6 +480,9 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       };
       const engineVal = (engine || '').trim();
       if (engineVal) newAgent.engine = engineVal;
+      const thinkingVal = (thinking || '').trim();
+      const validThinking = ['auto', 'low', 'medium', 'high'];
+      if (thinkingVal && validThinking.includes(thinkingVal)) newAgent.thinking = thinkingVal;
 
       agents.push(newAgent);
       cfg.openclawAgents = agents;
