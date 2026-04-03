@@ -15,7 +15,8 @@
     { icon: '🏠', label: 'Accueil',       href: '/home.html' },
     { icon: '🔧', label: 'Dev',           href: '/dev' },
     { icon: '🤖', label: 'Agents',        href: '/agents.html' },
-    { icon: '🏛️', label: 'Royal Heights', href: '/royal-heights.html' },
+    { icon: '🏛️', label: 'Royal Heights', href: '/royal-heights.html',
+      subPaths: ['/royal-heights-prospection.html', '/royal-heights-russia.html'] },
     { icon: '⚡', label: 'SynapCoin',     href: '/synapcoin-marketing.html' },
     { icon: '🐝', label: 'SynapHive',     href: '/synaphive-marketing.html' },
     { icon: '📄', label: 'SC Docs',       href: '/synapcoin-docs.html' },
@@ -29,8 +30,9 @@
     { icon: '🇷🇺', label: 'Marché Russe',   href: '/sales/royal-heights/russia' },
   ];
 
-  function isActive(href) {
+  function isActive(item) {
     var path = window.location.pathname;
+    var href = typeof item === 'string' ? item : item.href;
     if (href === '/dev') {
       return path === '/dev' || path.startsWith('/dev/');
     }
@@ -40,6 +42,7 @@
     if (href === '/sales/royal-heights') {
       return path === '/sales/royal-heights' || path === '/sales/royal-heights/';
     }
+    if (item.subPaths && item.subPaths.indexOf(path) !== -1) return true;
     return path === href;
   }
 
@@ -49,8 +52,9 @@
 
   function buildLinks(items) {
     return items.map(function (item) {
-      var active = isActive(item.href) ? ' active' : '';
-      return '<a href="' + escAttr(item.href) + '" class="btn-nav' + active + '" title="' + escAttr(item.label) + '">' +
+      var active = isActive(item) ? ' active' : '';
+      var ariaCurrent = active ? ' aria-current="page"' : '';
+      return '<a href="' + escAttr(item.href) + '" class="btn-nav' + active + '"' + ariaCurrent + ' title="' + escAttr(item.label) + '">' +
         item.icon + ' ' + escAttr(item.label) + '</a>';
     }).join('');
   }

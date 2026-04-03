@@ -60,13 +60,22 @@ function setupHamburgerMenu() {
   const hamburgerBtn = document.getElementById('hamburgerBtn');
   const mobileMenu = document.getElementById('mobileMenu');
   if (!hamburgerBtn || !mobileMenu) return;
+  function closeMenu() {
+    mobileMenu.classList.remove('open');
+    hamburgerBtn.setAttribute('aria-expanded', 'false');
+  }
   hamburgerBtn.addEventListener('click', e => {
     e.stopPropagation();
-    mobileMenu.classList.toggle('open');
+    const isOpen = mobileMenu.classList.toggle('open');
+    hamburgerBtn.setAttribute('aria-expanded', String(isOpen));
   });
   document.addEventListener('click', e => {
-    if (!mobileMenu.contains(e.target) && e.target !== hamburgerBtn) {
-      mobileMenu.classList.remove('open');
+    if (!mobileMenu.contains(e.target) && e.target !== hamburgerBtn) closeMenu();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && mobileMenu.classList.contains('open')) {
+      closeMenu();
+      hamburgerBtn.focus();
     }
   });
 }

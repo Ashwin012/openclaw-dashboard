@@ -6,77 +6,6 @@
   <title>Royal Heights — Suivi Prospection</title>
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    /* ===== Header (identical to royal-heights.html) ===== */
-    .home-header {
-      background: var(--bg-surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 20px;
-      height: 56px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .home-header .logo { font-size: 16px; font-weight: 600; flex: 1; }
-    .home-header .clock { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-    .header-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .btn-nav {
-      padding: 5px 12px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text);
-      font-size: 13px;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      white-space: nowrap;
-    }
-    .btn-nav:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
-    .btn-logout-home {
-      padding: 5px 12px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 13px;
-      cursor: pointer;
-    }
-    .btn-logout-home:hover { color: var(--red); border-color: var(--red); }
-    .hamburger-btn {
-      display: none;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-size: 18px;
-      width: 36px; height: 36px;
-      border-radius: var(--radius);
-      cursor: pointer;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .hamburger-btn:hover { background: var(--bg-hover); }
-    .mobile-menu {
-      display: none;
-      position: fixed;
-      top: 56px; left: 0; right: 0;
-      background: var(--bg-surface);
-      border-bottom: 1px solid var(--border);
-      z-index: 99;
-      flex-direction: column;
-      padding: 8px 16px 12px;
-      gap: 6px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    }
-    .mobile-menu.open { display: flex; }
-    .mobile-menu .btn-nav { padding: 10px 14px; font-size: 14px; width: 100%; justify-content: flex-start; }
-    .mobile-menu .btn-logout-home { padding: 10px 14px; font-size: 14px; width: 100%; text-align: left; }
-
     /* ===== Page Layout ===== */
     .rh-main { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
 
@@ -461,12 +390,6 @@
 
     /* ===== Responsive ===== */
     @media (max-width: 768px) {
-      .home-header { height: auto; padding: 10px 16px; flex-wrap: wrap; row-gap: 4px; }
-      .home-header .logo { font-size: 1.1rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .home-header .clock { font-size: 12px; width: 100%; order: 2; padding-bottom: 2px; }
-      .header-nav { display: none; }
-      .hamburger-btn { display: inline-flex; }
-      .mobile-menu { top: 72px; }
       .form-grid { grid-template-columns: 1fr; }
       .rh-stats { grid-template-columns: repeat(2, 1fr); }
       .pipeline-container { grid-template-columns: repeat(2, 1fr); }
@@ -611,29 +534,7 @@
   </style>
 </head>
 <body>
-  <header class="home-header" id="mainHeader">
-    <div class="logo">◆ Dev Dashboard</div>
-    <span id="readonlyBadge" style="display:none;font-size:12px;background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:#3fb950;border-radius:var(--radius);padding:3px 10px">👁 Vue lecture seule</span>
-    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>
-    <nav class="header-nav" id="mainNav">
-      <a href="/home.html" class="btn-nav">🏠 Accueil</a>
-      <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
-      <a href="/royal-heights.html" class="btn-nav">🏛️ Royal Heights</a>
-      <a href="/royal-heights-prospection.html" class="btn-nav" style="background:rgba(88,166,255,0.1);border-color:var(--accent);color:var(--accent)">📊 Prospection</a>
-      <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
-      <button class="btn-logout-home" id="logoutBtn">🚪 Déconnexion</button>
-    </nav>
-    <div class="clock" id="clock">--:--:--</div>
-  </header>
-
-  <div class="mobile-menu" id="mobileMenu">
-    <a href="/home.html" class="btn-nav">🏠 Accueil</a>
-    <a href="/dev" class="btn-nav">🔧 Projets Dev</a>
-    <a href="/royal-heights.html" class="btn-nav">🏛️ Royal Heights</a>
-    <a href="/royal-heights-prospection.html" class="btn-nav">📊 Prospection</a>
-    <a href="/profile.html" class="btn-nav">⚙️ Profil</a>
-    <button class="btn-logout-home" id="logoutBtnMobile">🚪 Déconnexion</button>
-  </div>
+  <script src="/js/navbar.js"></script>
 
   <main class="rh-main">
 
@@ -1457,11 +1358,17 @@
 
     function applyReadOnlyMode() {
       if (!isReadOnlyMode) return;
-      // Show readonly badge
-      const badge = document.getElementById('readonlyBadge');
-      if (badge) badge.style.display = '';
-      // Hide main nav (sales users shouldn't see dev nav)
-      const nav = document.getElementById('mainNav');
+      // Inject readonly badge into the shared navbar
+      const header = document.getElementById('appNavbar');
+      if (header) {
+        const badge = document.createElement('span');
+        badge.className = 'readonly-badge';
+        badge.textContent = '👁 Vue lecture seule';
+        const logo = header.querySelector('.logo');
+        if (logo) logo.insertAdjacentElement('afterend', badge);
+      }
+      // Hide nav links (sales users shouldn't see dev nav)
+      const nav = document.querySelector('.header-nav');
       if (nav) nav.style.display = 'none';
       const mobileMenu = document.getElementById('mobileMenu');
       if (mobileMenu) mobileMenu.style.display = 'none';
