@@ -55,6 +55,7 @@
 </head>
 <body class="min-h-screen text-sh-text">
   <script src="/js/navbar.js"></script>
+  <script src="/js/common.js"></script>
 
   <!-- Header -->
   <header class="border-b border-sh-border px-6 py-4">
@@ -702,13 +703,8 @@
     document.getElementById('activity-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeActivityModal(); });
     document.getElementById('community-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeCommunityModal(); });
 
-    // ===== UTILS =====
-    function escHtml(str) {
-      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
     // ===== INIT =====
-    loadAll();
+    requireAuth(() => { loadAll(); });
   </script>
 </body>
 </html>

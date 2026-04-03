@@ -73,6 +73,7 @@
 </head>
 <body class="min-h-screen text-rh-text">
   <script src="/js/navbar.js"></script>
+  <script src="/js/common.js"></script>
 
   <!-- Header -->
   <header class="border-b border-rh-border px-6 py-4">
@@ -897,7 +898,7 @@
     });
 
     // ===== INIT =====
-    init();
+    requireAuth(() => { init(); });
   </script>
 </body>
 </html>
