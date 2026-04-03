@@ -44,8 +44,16 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
 
   function enrichAgent(agent, workerSnapshot, cfg) {
     const engine = agent.engine || inferEngine(agent.model);
-    const workspacePath = agent.workspacePath || inferWorkspacePath(agent.id, cfg);
+
+    // Workspace: explicit > inferred from matching project
+    const inferredProject = !agent.workspacePath
+      ? (cfg.projects || []).find(p => p.id === agent.id) || null
+      : null;
+    const workspacePath = agent.workspacePath || inferredProject?.path || '';
     const workspaceExists = workspacePath ? fs.existsSync(workspacePath) : false;
+    const workspaceSource = agent.workspacePath ? 'explicit' : (inferredProject ? 'inferred' : 'none');
+    const workspaceProjectName = inferredProject?.name || null;
+
     // Match by agentId (explicit) or projectId (convention: agent id often equals project id)
     const workerRun = Array.isArray(workerSnapshot?.tasks)
       ? workerSnapshot.tasks.find(t => t.agentId === agent.id || t.projectId === agent.id) || null
@@ -70,11 +78,19 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     const effectiveThinking = agent.thinking || thinkingDefault;
     const thinkingIsDefault = !agent.thinking;
 
+    // Resolve project name for active task link
+    const taskProjectId = workerRun?.projectId || null;
+    const taskProject = taskProjectId
+      ? (cfg.projects || []).find(p => p.id === taskProjectId) || null
+      : null;
+
     return {
       ...agent,
       engine,
       workspacePath,
       workspaceExists,
+      workspaceSource,
+      workspaceProjectName,
       statusKind,
       statusLabel,
       linkedProjects,
@@ -83,7 +99,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       currentTask: workerRun ? {
         id: workerRun.id,
         title: workerRun.title,
-        projectId: workerRun.projectId,
+        projectId: taskProjectId,
+        projectName: taskProject?.name || taskProjectId,
         startedAt: workerRun.startedAt || null,
         durationMin: workerRun.durationMin || 0
       } : null

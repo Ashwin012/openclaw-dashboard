@@ -389,6 +389,18 @@
       return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};font-size:11px;font-weight:600;border:1px solid ${color}44">${escapeHtml(thinking)}${suffix}</span>`;
     }
 
+    function getEngineBadge(engine) {
+      const map = {
+        claude:      { color: 'var(--accent)',  label: 'Claude' },
+        openrouter:  { color: 'var(--yellow)',  label: 'OpenRouter' },
+        ollama:      { color: 'var(--green)',   label: 'Ollama' },
+        codex:       { color: 'var(--purple)',  label: 'Codex' },
+      };
+      const e = (engine || 'claude').toLowerCase();
+      const { color, label } = map[e] || { color: 'var(--text-muted)', label: escapeHtml(engine || 'claude') };
+      return `<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};font-size:11px;font-weight:600;border:1px solid ${color}44">${label}</span>`;
+    }
+
     function renderStats() {
       const total = agents.length;
       const active = agents.filter(a => a.statusKind === 'active').length;
@@ -423,7 +435,8 @@
           ? (() => {
               const t = a.currentTask;
               const dur = t.durationMin > 0 ? ` <span style="color:var(--text-muted)">${t.durationMin}min</span>` : '';
-              const proj = t.projectId ? ` <a href="/project.html?id=${encodeURIComponent(t.projectId)}" style="color:var(--accent);text-decoration:none;font-size:11px">[${escapeHtml(t.projectId)}]</a>` : '';
+              const projLabel = t.projectName || t.projectId;
+              const proj = t.projectId ? ` <a href="/project.html?id=${encodeURIComponent(t.projectId)}" style="color:var(--accent);text-decoration:none;font-size:11px">[${escapeHtml(projLabel)}]</a>` : '';
               return `<div class="agent-current-task"><strong>Tâche active:</strong> ${escapeHtml(t.title || t.id)}${proj}${dur}</div>`;
             })()
           : '';
@@ -438,7 +451,7 @@
           <div class="agent-card-body">
             <div class="agent-field">
               <div class="agent-field-label">Engine</div>
-              <div class="agent-field-value">${escapeHtml(a.engine || 'claude')}</div>
+              <div class="agent-field-value">${getEngineBadge(a.engine)}</div>
             </div>
             <div class="agent-field">
               <div class="agent-field-label">Model</div>
@@ -450,7 +463,17 @@
             </div>
             <div class="agent-field">
               <div class="agent-field-label">Workspace</div>
-              <div class="agent-field-value mono" title="${escapeHtml(a.workspacePath || '')}">${a.workspacePath ? escapeHtml(a.workspacePath.split('/').pop() || a.workspacePath) : '<span style="color:var(--text-muted)">—</span>'}${a.workspacePath && a.workspaceExists === false ? ' <span style="color:var(--red)" title="Chemin introuvable">(absent)</span>' : ''}</div>
+              <div class="agent-field-value mono" title="${escapeHtml(a.workspacePath || '')}">
+                ${(() => {
+                  if (!a.workspacePath) return '<span style="color:var(--text-muted)">—</span>';
+                  const label = a.workspaceSource === 'inferred' && a.workspaceProjectName
+                    ? escapeHtml(a.workspaceProjectName)
+                    : escapeHtml(a.workspacePath.split('/').filter(Boolean).slice(-2).join('/') || a.workspacePath);
+                  const missing = a.workspaceExists === false ? ' <span style="color:var(--red)" title="Chemin introuvable">(absent)</span>' : '';
+                  const inferred = a.workspaceSource === 'inferred' ? ' <span style="color:var(--text-muted);font-size:10px">(inféré)</span>' : '';
+                  return label + inferred + missing;
+                })()}
+              </div>
             </div>
           </div>
           ${taskRow}
