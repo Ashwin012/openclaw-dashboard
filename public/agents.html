@@ -541,7 +541,7 @@
 
         const lastActivityRow = !a.currentTask
           ? (() => {
-              if (!a.lastActivity && !a.gitLastCommit) {
+              if (!a.lastActivity && !a.projectLastTask && !a.gitLastCommit) {
                 return `<div class="agent-last-activity"><span style="color:var(--text-muted);font-size:11px;font-style:italic">Aucune activité récente</span></div>`;
               }
               if (a.lastActivity) {
@@ -558,6 +558,25 @@
                   <span style="color:${statusColor}">${escapeHtml(la.taskTitle || la.taskId || '?')}</span>
                   ${la.taskId ? `<span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(la.taskId)}</span>` : ''}
                   <span style="color:var(--text-muted);font-size:11px">${timeAgo(la.timestamp)}</span>
+                  ${projTag}
+                </div>`;
+              } else if (a.projectLastTask) {
+                const pt = a.projectLastTask;
+                const statusColor = pt.status === 'done' || pt.status === 'approved' ? 'var(--green)'
+                  : pt.status === 'rejected' || pt.status === 'failed' ? 'var(--red)'
+                  : pt.status === 'review' || pt.status === 'validating' ? 'var(--yellow)'
+                  : 'var(--text-muted)';
+                const statusBadge = `<span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;white-space:nowrap">${escapeHtml(pt.status)}</span>`;
+                const projTag = pt.projectName
+                  ? (pt.projectId
+                      ? `<a href="/project.html?id=${encodeURIComponent(pt.projectId)}" style="color:var(--accent);text-decoration:none;font-size:10px">[${escapeHtml(pt.projectName)}]</a>`
+                      : `<span style="color:var(--text-muted);font-size:10px">[${escapeHtml(pt.projectName)}]</span>`)
+                  : '';
+                return `<div class="agent-last-activity">
+                  ${statusBadge}
+                  <span style="color:${statusColor}">${escapeHtml(pt.taskTitle || pt.taskId || '?')}</span>
+                  ${pt.taskId ? `<span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(pt.taskId)}</span>` : ''}
+                  <span style="color:var(--text-muted);font-size:11px">${timeAgo(pt.timestamp)}</span>
                   ${projTag}
                 </div>`;
               } else {

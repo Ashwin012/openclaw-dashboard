@@ -36,10 +36,12 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     const m = model.toLowerCase();
     if (m.startsWith('claude-')) return 'claude';        // Direct Anthropic API: claude-opus-4-6, etc.
     if (m.includes('/')) return 'openrouter';            // provider/model format → OpenRouter
-    // Local model family patterns (no provider prefix = likely Ollama)
-    if (m.startsWith('qwen') || m.startsWith('llama') || m.startsWith('mistral') ||
+    if (m.includes(':')) return 'ollama';                // model:tag = Ollama format (e.g. qwen:7b)
+    // Bare local model family names without hyphens = Ollama (e.g. 'qwen', 'llama3', 'mistral')
+    // Models with hyphens (e.g. 'qwen3.6-plus-free') are OpenRouter-hosted
+    if (!m.includes('-') && (m.startsWith('qwen') || m.startsWith('llama') || m.startsWith('mistral') ||
         m.startsWith('gemma') || m.startsWith('phi') || m.startsWith('deepseek') ||
-        m.startsWith('codestral') || m.startsWith('starcoder') || m.includes(':')) return 'ollama';
+        m.startsWith('codestral') || m.startsWith('starcoder'))) return 'ollama';
     return 'openrouter';
   }
 
@@ -306,6 +308,69 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
             ? (cfg.projects || []).find(p => p.path === bestPath || (p.repos || []).some(r => r.path === bestPath))
             : null;
           a.gitLastCommit = { ...best, projectName: gitProject?.name || null, projectId: gitProject?.id || null };
+        }
+      }
+
+      // Read project .claude/tasks.json for recent task activity (richer than git commits alone)
+      const TASK_DONE_STATUSES = new Set(['done', 'review', 'approved', 'rejected', 'failed', 'validating']);
+      const workerActiveTaskIds = new Set((workerSnapshot?.tasks || []).map(t => t.id));
+      const taskPathsToFetch = new Set();
+      for (const a of enriched) {
+        if (a.lastActivity || a.currentTask) continue;
+        const agentPaths = (a.linkedPaths && a.linkedPaths.length)
+          ? a.linkedPaths
+          : (a.workspacePath ? [a.workspacePath] : (a.gitLookupPath ? [a.gitLookupPath] : []));
+        for (const p of agentPaths) taskPathsToFetch.add(p);
+      }
+      const projectTaskMap = {};
+      await Promise.allSettled(
+        Array.from(taskPathsToFetch).map(async (p) => {
+          try {
+            const tasksPath = path.join(p, '.claude', 'tasks.json');
+            const data = JSON.parse(fs.readFileSync(tasksPath, 'utf8'));
+            const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+            const candidates = tasks.filter(t =>
+              TASK_DONE_STATUSES.has(t.status) && (t.updatedAt || t.completedAt) && !workerActiveTaskIds.has(t.id)
+            );
+            if (!candidates.length) return;
+            const latest = candidates.reduce((best, t) =>
+              new Date(t.updatedAt || t.completedAt) > new Date(best.updatedAt || best.completedAt) ? t : best
+            );
+            projectTaskMap[p] = {
+              taskTitle: latest.title || latest.id,
+              taskId: latest.id,
+              status: latest.status,
+              timestamp: latest.updatedAt || latest.completedAt,
+            };
+          } catch { /* ignore: file may not exist */ }
+        })
+      );
+      for (const a of enriched) {
+        if (a.lastActivity || a.currentTask) continue;
+        const agentPaths = (a.linkedPaths && a.linkedPaths.length)
+          ? a.linkedPaths
+          : (a.workspacePath ? [a.workspacePath] : (a.gitLookupPath ? [a.gitLookupPath] : []));
+        let bestTask = null;
+        let bestTaskPath = null;
+        for (const p of agentPaths) {
+          const t = projectTaskMap[p];
+          if (!t) continue;
+          if (!bestTask || new Date(t.timestamp) > new Date(bestTask.timestamp)) {
+            bestTask = t;
+            bestTaskPath = p;
+          }
+        }
+        if (bestTask) {
+          const taskProject = bestTaskPath
+            ? (cfg.projects || []).find(proj =>
+                proj.path === bestTaskPath || (proj.repos || []).some(r => r.path === bestTaskPath)
+              )
+            : null;
+          a.projectLastTask = {
+            ...bestTask,
+            projectName: taskProject?.name || null,
+            projectId: taskProject?.id || null,
+          };
         }
       }
 
