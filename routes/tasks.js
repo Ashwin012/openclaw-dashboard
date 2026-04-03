@@ -129,12 +129,12 @@ module.exports = function createTaskRoutes({ config, requireAuth, requireAuthOrB
     const task = tasks[idx];
     const updates = req.body;
 
-    const allowed = ['title', 'description', 'status', 'priority', 'assignee', 'tags', 'engine', 'technicalAgent', 'coderAgent', 'coderPrompt', 'prompt', 'initPrompt', 'coderInitPrompt', 'model', 'fallbackModel', 'commitSha', 'deployedCommit', 'reviewRequestedAt', 'deployedAt', 'lastCoderCommit', 'lastCoderSummary', 'lastCoderEngine', 'lastCoderModel', 'metadata'];
+    const allowed = ['title', 'description', 'status', 'priority', 'assignee', 'tags', 'engine', 'technicalAgent', 'coderAgent', 'coderPrompt', 'prompt', 'initPrompt', 'coderInitPrompt', 'model', 'fallbackModel', 'commitSha', 'deployedCommit', 'reviewRequestedAt', 'deployedAt', 'validatedAt', 'lastCoderCommit', 'lastCoderSummary', 'lastCoderEngine', 'lastCoderModel', 'metadata'];
     for (const field of allowed) {
       if (updates[field] !== undefined) {
         if (field === 'tags' && !Array.isArray(updates[field])) {
           task[field] = updates[field] ? updates[field].split(',').map(t => t.trim()).filter(Boolean) : [];
-        } else if (['model', 'fallbackModel', 'engine', 'technicalAgent', 'coderAgent', 'commitSha', 'deployedCommit', 'reviewRequestedAt', 'deployedAt', 'lastCoderCommit', 'lastCoderSummary', 'lastCoderEngine', 'lastCoderModel'].includes(field) && typeof updates[field] === 'string') {
+        } else if (['model', 'fallbackModel', 'engine', 'technicalAgent', 'coderAgent', 'commitSha', 'deployedCommit', 'reviewRequestedAt', 'deployedAt', 'validatedAt', 'lastCoderCommit', 'lastCoderSummary', 'lastCoderEngine', 'lastCoderModel'].includes(field) && typeof updates[field] === 'string') {
           task[field] = updates[field].trim();
         } else if (['coderPrompt', 'prompt', 'initPrompt', 'coderInitPrompt'].includes(field)) {
           task.coderPrompt = trimmedString(updates[field], '');

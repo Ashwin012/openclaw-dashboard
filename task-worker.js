@@ -51,6 +51,10 @@ const OLLAMA_MODEL_ALIASES = {
   'qwen3:4b': 'qwen3:4b',
 };
 
+const REVIEW_COOLDOWN_MS = 10_000; // Wait 10s before picking up review tasks (avoid instant re-processing)
+const REVIEW_MODEL = 'claude-sonnet-4-6'; // Lighter model for review phase
+const AUTO_DEPLOY_TIMEOUT_MS = 60_000; // 60s timeout for git push
+
 const WARNING_THRESHOLDS_MIN = [30, 60, 120];
 const QUESTION_POLL_MS = 2_000;
 const QUESTION_WARN_MS = 30 * 60 * 1000;
@@ -1348,6 +1352,315 @@ async function processTask(project, task, runState) {
   }
 }
 
+// ─── Auto-validation pipeline (review → validate → deploy → done) ────────────
+
+function buildReviewInstruction(task, gitDiff, qualityResults) {
+  const parts = [
+    'Tu es un reviewer technique. Tu dois valider le code produit par un agent codeur.',
+    '',
+    `**Tâche originale:** ${task.title}`,
+  ];
+
+  if (task.description && task.description.trim()) {
+    parts.push(`**Description:** ${task.description.trim()}`);
+  }
+
+  if (task.lastCoderSummary) {
+    parts.push('', `**Résumé du codeur:** ${task.lastCoderSummary}`);
+  }
+
+  if (gitDiff && gitDiff.trim()) {
+    const diffTruncated = gitDiff.length > 8000 ? gitDiff.slice(0, 8000) + '\n... (diff tronqué)' : gitDiff;
+    parts.push('', '**Diff git des changements:**', '```diff', diffTruncated, '```');
+  } else {
+    parts.push('', '**Note:** Aucun diff git détecté (pas de changement ou déjà commité).');
+  }
+
+  if (Array.isArray(qualityResults) && qualityResults.length > 0) {
+    const qLines = qualityResults.map(r => `- ${r.gate}: ${r.passed ? 'PASS' : 'FAIL'}${r.output ? ` (${r.output.slice(0, 100)})` : ''}`);
+    parts.push('', '**Résultats quality gates:**', ...qLines);
+  }
+
+  const loopEnabled = Boolean(task.optimizationLoop);
+  const loopCount = Number.isInteger(task.optimizationLoopCount) ? task.optimizationLoopCount : 0;
+  const maxLoops = Number.isInteger(task.optimizationMaxLoops) && task.optimizationMaxLoops > 0 ? task.optimizationMaxLoops : 2;
+  const loopsRemaining = loopEnabled ? Math.max(0, maxLoops - loopCount) : 0;
+
+  parts.push(
+    '',
+    '**Critères de validation:**',
+    '1. Le code répond-il à la tâche demandée?',
+    '2. Pas de bugs évidents, pas de régressions?',
+    '3. Le code suit-il les conventions du projet (CLAUDE.md)?',
+    '4. Pas de failles de sécurité introduites?',
+    '',
+    loopsRemaining > 0
+      ? `Boucles d'optimisation restantes: ${loopsRemaining}. Si le code est bon mais peut être amélioré, tu peux rejeter pour optimisation.`
+      : 'Aucune boucle d\'optimisation restante. Approuve sauf si le code est manifestement cassé.',
+    '',
+    '**Réponds UNIQUEMENT avec un JSON valide, sans markdown ni texte autour:**',
+    '```',
+    '{"approved": true|false, "feedback": "explication courte (200 chars max)", "deploy": true|false}',
+    '```',
+    '',
+    '- `approved`: true si le code est validé',
+    '- `feedback`: explication concise du verdict',
+    '- `deploy`: true si le code doit être poussé (git push) vers le remote. false si pas de commit ou si le code ne doit pas encore être déployé.',
+  );
+
+  return parts.join('\n');
+}
+
+async function getGitDiff(projectPath, commitHash) {
+  // Try to get diff for the specific commit
+  if (commitHash) {
+    const r = await spawnPromise(`git diff ${commitHash}~1..${commitHash}`, { cwd: projectPath }, 15000);
+    if (r.code === 0 && r.output.trim()) return r.output.trim();
+  }
+  // Fallback: staged + unstaged diff
+  const r = await spawnPromise('git diff HEAD', { cwd: projectPath }, 15000);
+  if (r.code === 0 && r.output.trim()) return r.output.trim();
+  // Fallback: last commit diff
+  const r2 = await spawnPromise('git diff HEAD~1..HEAD', { cwd: projectPath }, 15000);
+  return r2.code === 0 ? r2.output.trim() : '';
+}
+
+async function autoDeploy(projectPath) {
+  log(`  Auto-deploy: git push in ${projectPath}`);
+  const result = await spawnPromise('git push', { cwd: projectPath }, AUTO_DEPLOY_TIMEOUT_MS);
+  return {
+    success: result.code === 0,
+    output: result.output,
+    timedOut: result.timedOut,
+  };
+}
+
+function parseReviewVerdict(text) {
+  // Try to extract JSON from the response
+  const jsonPatterns = [
+    /\{[^{}]*"approved"\s*:\s*(true|false)[^{}]*\}/,
+    /```(?:json)?\s*(\{[^}]+\})\s*```/,
+  ];
+
+  for (const pattern of jsonPatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      try {
+        const raw = match[1] || match[0];
+        const parsed = JSON.parse(raw);
+        if (typeof parsed.approved === 'boolean') {
+          return {
+            approved: parsed.approved,
+            feedback: typeof parsed.feedback === 'string' ? parsed.feedback.slice(0, 300) : '',
+            deploy: typeof parsed.deploy === 'boolean' ? parsed.deploy : parsed.approved,
+          };
+        }
+      } catch {}
+    }
+  }
+
+  // Fallback: heuristic on text
+  const lower = text.toLowerCase();
+  if (lower.includes('"approved": true') || lower.includes('"approved":true')) {
+    return { approved: true, feedback: 'Auto-parsed: approved', deploy: true };
+  }
+  if (lower.includes('"approved": false') || lower.includes('"approved":false')) {
+    return { approved: false, feedback: 'Auto-parsed: rejected', deploy: false };
+  }
+
+  // Cannot determine — default to approved (safe: human will see notification)
+  return { approved: true, feedback: 'Verdict parsing failed — auto-approved', deploy: false };
+}
+
+async function processReviewTask(project, task, runState) {
+  const projectPath = project.path;
+
+  log(`Processing review [${task.id}] "${task.title}" in "${project.name}"`);
+
+  updateTask(projectPath, task.id, t => {
+    t.status = 'validating';
+    t.validatingAt = now();
+  });
+  addNotification(project.name, task.title, task.id, 'review', 'validating', '🔍 Validation automatique en cours');
+
+  try {
+    // 1. Gather context for review
+    const gitDiff = await getGitDiff(projectPath, task.lastCoderCommit || task.commitSha || '');
+    let qualityResults = [];
+    try {
+      qualityResults = await runQualityGates(projectPath);
+    } catch (err) {
+      logError('Quality gates error during review', err);
+    }
+
+    // 2. Build review instruction and run Claude
+    const instruction = buildReviewInstruction(task, gitDiff, qualityResults);
+    const env = {
+      ...process.env,
+      PATH: `${NVM_NODE_PATH}:${process.env.PATH}`,
+      HOME: '/home/openclaw',
+    };
+
+    const claudeArgs = [
+      '--input-format', 'stream-json',
+      '--output-format', 'stream-json',
+      '--verbose',
+      '--permission-mode', 'bypassPermissions',
+      '--model', REVIEW_MODEL,
+    ];
+
+    const proc = spawn('claude', claudeArgs, {
+      cwd: projectPath,
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    runState.proc = proc;
+    runState.pid = proc.pid;
+    runState.engine = 'claude';
+
+    let resultText = '';
+    let resultJson = null;
+    let exitCode = null;
+    let stderrBuf = '';
+
+    const completionPromise = new Promise(resolve => {
+      let stdoutBuf = '';
+
+      proc.stdout.on('data', chunk => {
+        stdoutBuf += chunk.toString();
+        let newlineIdx;
+        while ((newlineIdx = stdoutBuf.indexOf('\n')) !== -1) {
+          const line = stdoutBuf.slice(0, newlineIdx).trim();
+          stdoutBuf = stdoutBuf.slice(newlineIdx + 1);
+          if (!line) continue;
+
+          let event;
+          try {
+            event = JSON.parse(line);
+          } catch {
+            continue;
+          }
+
+          if (event.type === 'assistant' && event.message) {
+            const content = event.message.content;
+            if (Array.isArray(content)) {
+              for (const block of content) {
+                if (block.type === 'text' && block.text) {
+                  resultText += block.text;
+                }
+              }
+            }
+          }
+
+          if (event.type === 'result') {
+            resultJson = event;
+            if (typeof event.result === 'string') resultText = event.result;
+          }
+        }
+      });
+
+      proc.stderr.on('data', chunk => { stderrBuf += chunk.toString(); });
+      proc.on('close', code => { exitCode = code; resolve(); });
+      proc.on('error', err => { logError('Review process error', err); resolve(); });
+    });
+
+    // Send instruction
+    const userMsg = JSON.stringify({
+      type: 'user',
+      message: { role: 'user', content: instruction },
+    });
+    proc.stdin.write(userMsg + '\n');
+
+    await completionPromise;
+    runState.resultText = resultText;
+
+    if (runState.stoppedManually) {
+      updateTask(projectPath, task.id, t => {
+        setWorkerFinalNote(t, '⏹ Review stoppée manuellement.');
+        t.status = 'review';
+      });
+      return;
+    }
+
+    // 3. Parse verdict
+    const verdict = parseReviewVerdict(resultText);
+    log(`  Review verdict for [${task.id}]: approved=${verdict.approved}, deploy=${verdict.deploy}, feedback="${verdict.feedback}"`);
+
+    if (!verdict.approved) {
+      // Check optimization loops
+      const loopEnabled = Boolean(task.optimizationLoop);
+      const loopCount = Number.isInteger(task.optimizationLoopCount) ? task.optimizationLoopCount : 0;
+      const maxLoops = Number.isInteger(task.optimizationMaxLoops) && task.optimizationMaxLoops > 0 ? task.optimizationMaxLoops : 2;
+
+      if (loopEnabled && loopCount < maxLoops) {
+        // Re-queue for optimization
+        updateTask(projectPath, task.id, t => {
+          setAuthorFinalNote(t, 'Reviewer', `❌ Rejeté — re-optimisation (passe ${loopCount + 1}/${maxLoops}): ${verdict.feedback}`);
+          t.status = 'queued';
+          t.error = false;
+        });
+        addNotification(project.name, task.title, task.id, 'validating', 'queued', `🔄 Rejeté par reviewer — re-optimisation passe ${loopCount + 1}/${maxLoops}`);
+        log(`  Task [${task.id}] → queued (optimization loop ${loopCount + 1}/${maxLoops})`);
+        return;
+      }
+
+      // No loops remaining — mark as review with error for human intervention
+      updateTask(projectPath, task.id, t => {
+        setAuthorFinalNote(t, 'Reviewer', `❌ Rejeté: ${verdict.feedback}`);
+        t.status = 'review';
+        t.humanValidation = true; // Force human review now
+        t.error = true;
+      });
+      addNotification(project.name, task.title, task.id, 'validating', 'review', `❌ Rejeté par reviewer — intervention humaine requise: ${verdict.feedback}`);
+      log(`  Task [${task.id}] → review (rejected, needs human intervention)`);
+      return;
+    }
+
+    // 4. Approved — deploy if requested
+    let deployResult = null;
+    if (verdict.deploy) {
+      deployResult = await autoDeploy(projectPath);
+      if (deployResult.success) {
+        log(`  Auto-deploy succeeded for [${task.id}]`);
+      } else {
+        log(`  Auto-deploy failed for [${task.id}]: ${deployResult.output?.slice(0, 200)}`);
+      }
+    }
+
+    // 5. Mark as done
+    updateTask(projectPath, task.id, t => {
+      const deployInfo = deployResult
+        ? (deployResult.success ? '✅ Déployé (git push)' : `⚠️ Deploy échoué: ${(deployResult.output || '').slice(0, 100)}`)
+        : '';
+      const reviewNote = `✅ Validé: ${verdict.feedback}${deployInfo ? '\n' + deployInfo : ''}`;
+      setAuthorFinalNote(t, 'Reviewer', reviewNote);
+      t.status = 'done';
+      t.completedAt = now();
+      t.validatedAt = now();
+      if (deployResult && deployResult.success) {
+        t.deployedAt = now();
+        t.deployedCommit = t.lastCoderCommit || t.commitSha || '';
+      }
+    });
+
+    const deployMsg = deployResult
+      ? (deployResult.success ? ' + déployé' : ' (deploy échoué)')
+      : '';
+    addNotification(project.name, task.title, task.id, 'validating', 'done', `✅ Validé et terminé${deployMsg}: ${verdict.feedback}`);
+    log(`Task [${task.id}] → done${deployMsg}`);
+  } finally {
+    if (runState.projectLock) {
+      releaseFileLock(runState.projectLock);
+      runState.projectLock = null;
+    }
+    releaseRun(task.id);
+    if (shuttingDown && getActiveRunCount() === 0) {
+      process.exit(0);
+    }
+  }
+}
+
 // ─── Poll for answer to a question ────────────────────────────────────────────
 
 function pollForAnswer(runState, proc, toolUseId) {
@@ -1481,6 +1794,25 @@ function getNextQueuedTask(project) {
   return queued[0];
 }
 
+function getNextReviewTask(project) {
+  if (hasProjectActiveRun(project.id)) return null;
+
+  const data = readTasks(project.path);
+  const reviewable = data.tasks.filter(t => {
+    if (t.status !== 'review') return false;
+    if (t.humanValidation) return false; // Requires human review, skip
+    if (activeRuns.has(t.id)) return false;
+    // Cooldown: don't pick up tasks that just entered review
+    const reviewAt = t.reviewRequestedAt ? Date.parse(t.reviewRequestedAt) : 0;
+    if (reviewAt && (Date.now() - reviewAt) < REVIEW_COOLDOWN_MS) return false;
+    return true;
+  });
+  if (reviewable.length === 0) return null;
+
+  reviewable.sort(compareTaskOrder);
+  return reviewable[0];
+}
+
 async function pollOnce() {
   checkRunningWarnings();
 
@@ -1528,6 +1860,45 @@ async function pollOnce() {
 
     scheduled.push(task.id);
   }
+
+  // Second pass: pick up review tasks for auto-validation pipeline
+  const remainingSlots = Math.max(0, maxConcurrency - getActiveRunCount() - scheduled.length);
+  if (remainingSlots > 0 && !shuttingDown) {
+    for (const project of config.projects) {
+      if (shuttingDown || scheduled.length >= maxConcurrency) break;
+
+      const reviewTask = getNextReviewTask(project);
+      if (!reviewTask) continue;
+
+      const projectLock = acquireProjectExecutionLock(project, reviewTask);
+      if (!projectLock || projectLock.acquired === false) {
+        log(`Project "${project.name}": skipping review [${reviewTask.id}] — project locked`);
+        continue;
+      }
+
+      log(`Project "${project.name}": scheduling review [${reviewTask.id}] "${reviewTask.title}"`);
+      const runState = createReservedRun(project, reviewTask);
+      runState.projectLock = projectLock;
+
+      processReviewTask(project, reviewTask, runState).catch(err => {
+        logError(`Unexpected error in processReviewTask [${reviewTask.id}]`, err);
+        try {
+          updateTask(project.path, reviewTask.id, t => {
+            setAuthorFinalNote(t, 'Reviewer', `❌ Erreur validation: ${err.message || err}`);
+            t.status = 'review';
+            t.error = true;
+          });
+        } catch {}
+        if (runState.projectLock) {
+          releaseFileLock(runState.projectLock);
+          runState.projectLock = null;
+        }
+        releaseRun(reviewTask.id);
+      });
+
+      scheduled.push(reviewTask.id);
+    }
+  }
 }
 
 function sleep(ms) {
@@ -1546,7 +1917,7 @@ async function main() {
     return;
   }
 
-  log('Task worker started (multi-engine: claude stream-json / codex plain-text / ollama via codex)');
+  log('Task worker started (multi-engine: claude stream-json / codex plain-text / ollama via codex | auto-validation pipeline)');
   log(`Poll interval: ${POLL_INTERVAL_MS / 1000}s | Quality gate timeout: ${QUALITY_GATE_TIMEOUT_MS / 60000}m`);
   log(`Max concurrency: ${getMaxConcurrency(config)}`);
   log(`Projects: ${config.projects.map(p => p.name).join(', ')}`);

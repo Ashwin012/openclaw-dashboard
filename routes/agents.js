@@ -116,7 +116,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
 
     // Last activity from notifications (only when not currently active)
     // Only consider terminal states — skip in_progress to avoid stale "running" display
-    const TERMINAL_STATUSES = new Set(['review', 'done', 'approved', 'rejected', 'failed']);
+    const TERMINAL_STATUSES = new Set(['review', 'done', 'approved', 'rejected', 'failed', 'validating']);
     let lastActivity = null;
     if (!workerRun && notifications && notifications.length) {
       const projectNamesToSearch = new Set();
