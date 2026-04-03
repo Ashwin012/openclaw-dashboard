@@ -4,6 +4,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
   const path = require('path');
   const http = require('http');
   const { writeJSON } = require('../lib/json-store');
+  const { git } = require('../lib/git');
 
   const CONFIG_PATH = path.join(__dirname, '..', 'config.json');
 
@@ -62,11 +63,11 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       .map(p => ({ id: p.id, name: p.name }));
     const linkedProjectIds = new Set(linkedProjects.map(p => p.id));
 
-    // Workspace: explicit > same-id project (inferred) > first linked project
+    // Workspace: explicit > same-id project (inferred) > first linked project (only if unique)
     const inferredProject = !agent.workspacePath
       ? (cfg.projects || []).find(p => p.id === agent.id) || null
       : null;
-    const firstLinkedProject = !agent.workspacePath && !inferredProject && linkedProjects.length > 0
+    const firstLinkedProject = !agent.workspacePath && !inferredProject && linkedProjects.length === 1
       ? (cfg.projects || []).find(p => p.id === linkedProjects[0].id) || null
       : null;
     const workspacePath = agent.workspacePath || inferredProject?.path || firstLinkedProject?.path || '';
@@ -112,6 +113,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       : null;
 
     // Last activity from notifications (only when not currently active)
+    // Only consider terminal states — skip in_progress to avoid stale "running" display
+    const TERMINAL_STATUSES = new Set(['review', 'done', 'approved', 'rejected', 'failed']);
     let lastActivity = null;
     if (!workerRun && notifications && notifications.length) {
       const projectNamesToSearch = new Set();
@@ -120,7 +123,9 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         if (lp.name) projectNamesToSearch.add(lp.name);
       }
       if (projectNamesToSearch.size) {
-        const matching = notifications.filter(n => projectNamesToSearch.has(n.projectName));
+        const matching = notifications.filter(n =>
+          projectNamesToSearch.has(n.projectName) && TERMINAL_STATUSES.has(n.toStatus)
+        );
         if (matching.length) {
           const sorted = [...matching].sort((a, b) =>
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
@@ -177,6 +182,38 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         Promise.resolve(readNotifications()),
       ]);
       const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg, notifications));
+
+      // Fetch git last commit for agents with no notification activity and a valid workspace
+      const pathsToFetch = new Set(
+        enriched
+          .filter(a => !a.lastActivity && !a.currentTask && a.workspacePath)
+          .map(a => a.workspacePath)
+      );
+      const gitCommitMap = {};
+      await Promise.allSettled(
+        Array.from(pathsToFetch).map(async (p) => {
+          try {
+            const { stdout } = await git(
+              ['log', '-1', '--pretty=format:%H\x1f%s\x1f%aI\x1f%an'], p
+            );
+            const parts = stdout.trim().split('\x1f');
+            if (parts.length >= 3 && parts[0]) {
+              gitCommitMap[p] = {
+                hash: parts[0].substring(0, 8),
+                message: parts[1] || '',
+                timestamp: parts[2] || '',
+                author: parts[3] || ''
+              };
+            }
+          } catch { /* ignore: repo may not exist */ }
+        })
+      );
+      for (const a of enriched) {
+        if (!a.lastActivity && !a.currentTask && a.workspacePath && gitCommitMap[a.workspacePath]) {
+          a.gitLastCommit = gitCommitMap[a.workspacePath];
+        }
+      }
+
       const thinkingDefault = cfg.agents?.defaults?.thinkingDefault || 'auto';
       const workerStatus = workerSnapshot
         ? { running: workerSnapshot.running !== false, count: workerSnapshot.count || 0, maxConcurrency: workerSnapshot.maxConcurrency || null }

@@ -505,26 +505,32 @@
             })()
           : '';
 
-        const lastActivityRow = !a.currentTask && a.lastActivity
+        const lastActivityRow = !a.currentTask && (a.lastActivity || a.gitLastCommit)
           ? (() => {
-              const la = a.lastActivity;
-              const statusIcon = la.status === 'review' || la.status === 'done' ? '✓ ' : la.status === 'in_progress' ? '↻ ' : '';
-              const statusColor = la.status === 'review' || la.status === 'done' ? 'var(--green)' : 'var(--text-muted)';
-              const projTag = la.projectName
-                ? (la.projectId
-                    ? `<a href="/project.html?id=${encodeURIComponent(la.projectId)}" style="color:var(--accent);text-decoration:none;font-size:10px">[${escapeHtml(la.projectName)}]</a>`
-                    : `<span style="color:var(--text-muted);font-size:10px">[${escapeHtml(la.projectName)}]</span>`)
-                : '';
-              const msgSpan = la.message
-                ? `<span style="color:var(--text-muted);font-size:11px" title="${escapeHtml(la.message)}">${escapeHtml(la.message)}</span>`
-                : '';
-              return `<div class="agent-last-activity">
-                <span style="color:${statusColor}">${statusIcon}${escapeHtml(la.taskTitle || la.taskId || '?')}</span>
-                ${la.taskId ? `<span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(la.taskId)}</span>` : ''}
-                <span style="color:var(--text-muted);font-size:11px">${timeAgo(la.timestamp)}</span>
-                ${projTag}
-                ${msgSpan}
-              </div>`;
+              if (a.lastActivity) {
+                const la = a.lastActivity;
+                const statusIcon = la.status === 'review' || la.status === 'done' ? '✓ ' : la.status === 'approved' ? '✓ ' : la.status === 'rejected' ? '✕ ' : la.status === 'failed' ? '✕ ' : '';
+                const statusColor = la.status === 'review' || la.status === 'done' || la.status === 'approved' ? 'var(--green)' : la.status === 'rejected' || la.status === 'failed' ? 'var(--red)' : 'var(--text-muted)';
+                const projTag = la.projectName
+                  ? (la.projectId
+                      ? `<a href="/project.html?id=${encodeURIComponent(la.projectId)}" style="color:var(--accent);text-decoration:none;font-size:10px">[${escapeHtml(la.projectName)}]</a>`
+                      : `<span style="color:var(--text-muted);font-size:10px">[${escapeHtml(la.projectName)}]</span>`)
+                  : '';
+                return `<div class="agent-last-activity">
+                  <span style="color:${statusColor}">${statusIcon}${escapeHtml(la.taskTitle || la.taskId || '?')}</span>
+                  ${la.taskId ? `<span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(la.taskId)}</span>` : ''}
+                  <span style="color:var(--text-muted);font-size:11px">${timeAgo(la.timestamp)}</span>
+                  ${projTag}
+                </div>`;
+              } else {
+                const gc = a.gitLastCommit;
+                return `<div class="agent-last-activity">
+                  <span style="color:var(--text-muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">git</span>
+                  <span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(gc.hash)}</span>
+                  <span style="color:var(--text);font-size:12px">${escapeHtml(gc.message)}</span>
+                  <span style="color:var(--text-muted);font-size:11px">${timeAgo(gc.timestamp)}</span>
+                </div>`;
+              }
             })()
           : '';
 
