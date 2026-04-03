@@ -41,6 +41,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
 
   const NOTIFICATIONS_PATH = path.join(__dirname, '..', '.dashboard', 'notifications.json');
   const ACTIVITY_LOG_PATH = path.join(__dirname, '..', '.dashboard', 'activity-log.json');
+  // Must match TERMINAL_STATUSES used in enrichAgent for display filtering
+  const TERMINAL_STATUSES = new Set(['review', 'done', 'approved', 'rejected', 'failed', 'validating']);
 
   function readNotifications() {
     // Read persistent activity log first (survives bell clears)
@@ -50,14 +52,18 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const raw = JSON.parse(fs.readFileSync(ACTIVITY_LOG_PATH, 'utf8'));
       if (Array.isArray(raw)) { log = raw; logExists = true; }
     } catch {}
-    // Merge any fresh pending notifications not yet in log
+    // Merge any fresh pending terminal notifications not yet in log
+    // Only terminal statuses go here — consistent with task-worker's addNotification()
     let newEntries = 0;
     try {
       const data = JSON.parse(fs.readFileSync(NOTIFICATIONS_PATH, 'utf8'));
       if (Array.isArray(data.pending) && data.pending.length) {
         const logKeys = new Set(log.map(n => `${n.taskId}|${n.timestamp}`));
         for (const n of data.pending) {
-          if (!logKeys.has(`${n.taskId}|${n.timestamp}`)) { log.push(n); newEntries++; }
+          if (TERMINAL_STATUSES.has(n.toStatus) && !logKeys.has(`${n.taskId}|${n.timestamp}`)) {
+            log.push(n);
+            newEntries++;
+          }
         }
       }
     } catch {}
@@ -138,7 +144,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
 
     // Last activity from notifications (only when not currently active)
     // Only consider terminal states — skip in_progress to avoid stale "running" display
-    const TERMINAL_STATUSES = new Set(['review', 'done', 'approved', 'rejected', 'failed', 'validating']);
+    // TERMINAL_STATUSES is defined at module level above readNotifications()
     let lastActivity = null;
     if (!workerRun && notifications && notifications.length) {
       // Collect all project names this agent is associated with
@@ -173,6 +179,13 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
 
     const engineIsInferred = !agent.engine;
 
+    // All linked project paths — used for multi-repo git commit lookup
+    const linkedPaths = agent.workspacePath
+      ? [] // explicit workspace covers it; don't also look at linked project repos
+      : linkedProjects
+          .map(lp => (cfg.projects || []).find(p => p.id === lp.id)?.path)
+          .filter(Boolean);
+
     return {
       ...agent,
       engine,
@@ -184,6 +197,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       workspaceProjectName,
       workspaceProjectId,
       workspaceExtraProjects,
+      linkedPaths,
       statusKind,
       statusLabel,
       linkedProjects,
@@ -215,14 +229,20 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const agentIds = new Set(agents.map(a => a.id));
       const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg, notifications, agentIds));
 
-      // Fetch git last commit for agents with no notification activity and a valid workspace
-      // Uses gitLookupPath which covers multi-linked agents that have no explicit workspace
-      const pathsToFetch = new Set(
-        enriched
-          .filter(a => !a.lastActivity && !a.currentTask && (a.workspacePath || a.gitLookupPath))
-          .map(a => a.workspacePath || a.gitLookupPath)
-          .filter(Boolean)
-      );
+      // Fetch git last commit for agents with no notification activity and a valid workspace.
+      // Multi-linked agents (no explicit workspace) check all linked project paths and pick
+      // the most recent commit across all of them.
+      const pathsToFetch = new Set();
+      for (const a of enriched) {
+        if (a.lastActivity || a.currentTask) continue;
+        if (a.workspacePath) {
+          pathsToFetch.add(a.workspacePath);
+        } else if (a.linkedPaths && a.linkedPaths.length) {
+          for (const p of a.linkedPaths) pathsToFetch.add(p);
+        } else if (a.gitLookupPath) {
+          pathsToFetch.add(a.gitLookupPath);
+        }
+      }
       const gitCommitMap = {};
       await Promise.allSettled(
         Array.from(pathsToFetch).map(async (p) => {
@@ -243,10 +263,19 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         })
       );
       for (const a of enriched) {
-        const lookupPath = a.workspacePath || a.gitLookupPath;
-        if (!a.lastActivity && !a.currentTask && lookupPath && gitCommitMap[lookupPath]) {
-          a.gitLastCommit = gitCommitMap[lookupPath];
+        if (a.lastActivity || a.currentTask) continue;
+        // Collect all paths relevant to this agent
+        const agentPaths = a.workspacePath
+          ? [a.workspacePath]
+          : (a.linkedPaths && a.linkedPaths.length ? a.linkedPaths : (a.gitLookupPath ? [a.gitLookupPath] : []));
+        // Pick the most recent commit across all repos
+        let best = null;
+        for (const p of agentPaths) {
+          const c = gitCommitMap[p];
+          if (!c) continue;
+          if (!best || new Date(c.timestamp) > new Date(best.timestamp)) best = c;
         }
+        if (best) a.gitLastCommit = best;
       }
 
       const thinkingDefault = cfg.agents?.defaults?.thinkingDefault || 'auto';
