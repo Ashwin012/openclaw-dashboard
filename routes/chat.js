@@ -59,7 +59,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
       return VALID_CODEX_MODELS.has(raw) ? raw : 'gpt-5.4';
     }
 
-    return raw || 'qwen3:8b';
+    return raw || 'qwen3:4b';
   }
 
   function isMatchingProjectEngineSession(sess, projectId, engine) {
@@ -255,7 +255,7 @@ module.exports = function createChatRoutes({ config, requireAuth, server }) {
     session.busy = true;
     session.currentResponseText = '';
 
-    const resolvedModel = session.model || (session.engine === 'ollama' ? 'qwen3:8b' : 'gpt-5.4');
+    const resolvedModel = session.model || (session.engine === 'ollama' ? 'qwen3:4b' : 'gpt-5.4');
     const args = session.engineSessionId
       ? ['exec', 'resume', '--json', '--model', resolvedModel]
       : ['exec', '--json', '--model', resolvedModel];

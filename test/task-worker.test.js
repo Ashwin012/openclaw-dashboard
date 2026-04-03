@@ -114,13 +114,13 @@ test('reroutes OpenAI model away from Claude and keeps supported Codex model', (
 test('reroutes local Ollama model away from Claude and keeps explicit local model', () => {
   const resolved = resolveEngineConfig(
     { model: null, fallbackModel: null },
-    { model: 'qwen3:8b', fallbackModel: 'claude-opus-4-6' },
+    { model: 'qwen3:4b', fallbackModel: 'claude-opus-4-6' },
     'claude'
   );
 
   assert.equal(resolved.engine, 'ollama');
   assert.equal(resolved.rerouted, true);
-  assert.equal(resolved.model, 'qwen3:8b');
+  assert.equal(resolved.model, 'qwen3:4b');
   assert.equal(resolved.fallbackModel, null);
   assert.equal(resolved.fallbackModelSource, 'omitted');
 });
@@ -145,9 +145,9 @@ test('keeps supported Codex direct model untouched', () => {
   assert.equal(normalized.source, 'configured');
 });
 
-test('normalizes Ollama qwen3 alias to qwen3:8b', () => {
+test('normalizes Ollama qwen3 alias to qwen3:4b', () => {
   const normalized = normalizeModelForEngine('qwen3', 'ollama');
-  assert.equal(normalized.model, 'qwen3:8b');
+  assert.equal(normalized.model, 'qwen3:4b');
   assert.equal(normalized.source, 'normalized-alias');
   assert.equal(normalized.reason, 'alias_normalized');
 });
@@ -155,13 +155,13 @@ test('normalizes Ollama qwen3 alias to qwen3:8b', () => {
 test('drops fallback model for Ollama because Codex local provider has no fallback flag', () => {
   const normalized = resolveEngineConfig(
     { model: null, fallbackModel: null },
-    { model: 'qwen3:8b', fallbackModel: 'qwen3:14b' },
+    { model: 'qwen3:4b', fallbackModel: 'qwen3:14b' },
     'ollama',
     { allowReroute: false }
   );
 
   assert.equal(normalized.engine, 'ollama');
-  assert.equal(normalized.model, 'qwen3:8b');
+  assert.equal(normalized.model, 'qwen3:4b');
   assert.equal(normalized.fallbackModel, null);
   assert.equal(normalized.fallbackModelSource, 'omitted');
   assert.equal(normalized.fallbackModelReason, 'ollama_via_codex_has_no_fallback_model');

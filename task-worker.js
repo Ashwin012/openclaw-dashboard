@@ -25,7 +25,7 @@ const DEFAULT_MAX_CONCURRENCY = 2;
 const DEFAULT_ENGINE_MODELS = {
   claude: 'claude-sonnet-4-6',
   codex: 'gpt-5.4',
-  ollama: 'qwen3:8b',
+  ollama: 'qwen3:4b',
 };
 const SUPPORTED_CODEX_MODELS = new Set(['default', 'gpt-5.4', 'gpt-5.3-codex']);
 const CLAUDE_MODEL_ALIASES = {
@@ -47,8 +47,8 @@ const CODEX_MODEL_ALIASES = {
   'openai-codex/gpt-5.3-codex': 'gpt-5.3-codex',
 };
 const OLLAMA_MODEL_ALIASES = {
-  qwen3: 'qwen3:8b',
-  'qwen3:8b': 'qwen3:8b',
+  qwen3: 'qwen3:4b',
+  'qwen3:4b': 'qwen3:4b',
 };
 
 const WARNING_THRESHOLDS_MIN = [30, 60, 120];
