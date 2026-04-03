@@ -257,7 +257,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       // the most recent commit across all of them.
       const pathsToFetch = new Set();
       for (const a of enriched) {
-        if (a.lastActivity || a.currentTask) continue;
+        if (a.currentTask) continue;
         // Prefer linkedPaths (covers all repos in multi-repo projects) over single workspacePath
         if (a.linkedPaths && a.linkedPaths.length) {
           for (const p of a.linkedPaths) pathsToFetch.add(p);
@@ -287,7 +287,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         })
       );
       for (const a of enriched) {
-        if (a.lastActivity || a.currentTask) continue;
+        if (a.currentTask) continue;
         // Collect all paths relevant to this agent — prefer linkedPaths for multi-repo coverage
         const agentPaths = (a.linkedPaths && a.linkedPaths.length)
           ? a.linkedPaths
@@ -316,7 +316,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const workerActiveTaskIds = new Set((workerSnapshot?.tasks || []).map(t => t.id));
       const taskPathsToFetch = new Set();
       for (const a of enriched) {
-        if (a.lastActivity || a.currentTask) continue;
+        if (a.currentTask) continue;
         const agentPaths = (a.linkedPaths && a.linkedPaths.length)
           ? a.linkedPaths
           : (a.workspacePath ? [a.workspacePath] : (a.gitLookupPath ? [a.gitLookupPath] : []));
@@ -346,7 +346,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         })
       );
       for (const a of enriched) {
-        if (a.lastActivity || a.currentTask) continue;
+        if (a.currentTask) continue;
         const agentPaths = (a.linkedPaths && a.linkedPaths.length)
           ? a.linkedPaths
           : (a.workspacePath ? [a.workspacePath] : (a.gitLookupPath ? [a.gitLookupPath] : []));
