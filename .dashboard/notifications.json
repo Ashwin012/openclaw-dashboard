@@ -143,6 +143,42 @@
       "toStatus": "review",
       "message": "🔍 Traitement terminé — en attente de review",
       "timestamp": "2026-04-03T10:13:52.365Z"
+    },
+    {
+      "projectName": "SynapHive",
+      "taskTitle": "Remove all Aerodrome references from frontend (0 liquidity)",
+      "taskId": "SH-AERODROME-CLEANUP",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-03T14:10:38.980Z"
+    },
+    {
+      "projectName": "SynapHive",
+      "taskTitle": "Remove all Aerodrome references from frontend (0 liquidity)",
+      "taskId": "SH-AERODROME-CLEANUP",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-03T14:11:28.387Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Improve agents page: show real activity, fix workspace/engine display, link to projects",
+      "taskId": "DASH-AGENTS-001",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-03T18:17:49.608Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Improve agents page: show real activity, fix workspace/engine display, link to projects",
+      "taskId": "DASH-AGENTS-001",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-03T18:35:00.000Z"
     }
   ]
 }

@@ -420,7 +420,12 @@
         ).join('');
 
         const taskRow = a.currentTask
-          ? `<div class="agent-current-task"><strong>Tache active:</strong> ${escapeHtml(a.currentTask.title || a.currentTask.id)}</div>`
+          ? (() => {
+              const t = a.currentTask;
+              const dur = t.durationMin > 0 ? ` <span style="color:var(--text-muted)">${t.durationMin}min</span>` : '';
+              const proj = t.projectId ? ` <a href="/project.html?id=${encodeURIComponent(t.projectId)}" style="color:var(--accent);text-decoration:none;font-size:11px">[${escapeHtml(t.projectId)}]</a>` : '';
+              return `<div class="agent-current-task"><strong>Tâche active:</strong> ${escapeHtml(t.title || t.id)}${proj}${dur}</div>`;
+            })()
           : '';
 
         return `<div class="agent-card">
@@ -433,11 +438,11 @@
           <div class="agent-card-body">
             <div class="agent-field">
               <div class="agent-field-label">Engine</div>
-              <div class="agent-field-value">${escapeHtml(a.engine || '-')}</div>
+              <div class="agent-field-value">${escapeHtml(a.engine || 'claude')}</div>
             </div>
             <div class="agent-field">
               <div class="agent-field-label">Model</div>
-              <div class="agent-field-value mono">${escapeHtml(a.model || '-')}</div>
+              <div class="agent-field-value mono">${escapeHtml((a.model || '-').replace(/^anthropic\//, ''))}</div>
             </div>
             <div class="agent-field">
               <div class="agent-field-label">Thinking</div>
@@ -445,7 +450,7 @@
             </div>
             <div class="agent-field">
               <div class="agent-field-label">Workspace</div>
-              <div class="agent-field-value mono">${escapeHtml(a.workspacePath || '-')}${a.workspaceExists === false ? ' <span style="color:var(--red)">(absent)</span>' : ''}</div>
+              <div class="agent-field-value mono" title="${escapeHtml(a.workspacePath || '')}">${a.workspacePath ? escapeHtml(a.workspacePath.split('/').pop() || a.workspacePath) : '<span style="color:var(--text-muted)">—</span>'}${a.workspacePath && a.workspaceExists === false ? ' <span style="color:var(--red)" title="Chemin introuvable">(absent)</span>' : ''}</div>
             </div>
           </div>
           ${taskRow}

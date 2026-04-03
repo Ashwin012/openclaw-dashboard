@@ -30,42 +30,50 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
     });
   }
 
-  function getThinkingDefault() {
-    const cfg = reloadConfig();
-    return cfg.agents?.defaults?.thinkingDefault || 'auto';
+  function inferEngine(model) {
+    if (!model) return 'claude';
+    const m = model.toLowerCase();
+    if (m.startsWith('anthropic/') || m.startsWith('claude-')) return 'claude';
+    return 'openrouter';
   }
 
-  function enrichAgent(agent, workerSnapshot) {
-    const workspaceExists = agent.workspacePath ? fs.existsSync(agent.workspacePath) : false;
+  function inferWorkspacePath(agentId, cfg) {
+    const project = (cfg.projects || []).find(p => p.id === agentId);
+    return project?.path || '';
+  }
+
+  function enrichAgent(agent, workerSnapshot, cfg) {
+    const engine = agent.engine || inferEngine(agent.model);
+    const workspacePath = agent.workspacePath || inferWorkspacePath(agent.id, cfg);
+    const workspaceExists = workspacePath ? fs.existsSync(workspacePath) : false;
+    // Match by agentId (explicit) or projectId (convention: agent id often equals project id)
     const workerRun = Array.isArray(workerSnapshot?.tasks)
-      ? workerSnapshot.tasks.find(t => t.agentId === agent.id) || null
+      ? workerSnapshot.tasks.find(t => t.agentId === agent.id || t.projectId === agent.id) || null
       : null;
 
     let statusKind = 'down';
     let statusLabel = 'Down';
-    if (workspaceExists && workerRun) {
+    if (workerRun) {
       statusKind = 'active';
       statusLabel = 'Active';
-    } else if (workspaceExists && workerSnapshot) {
+    } else if (workerSnapshot) {
       statusKind = 'idle';
       statusLabel = 'Idle';
-    } else if (workspaceExists) {
-      statusKind = 'down';
-      statusLabel = 'Down';
     }
 
     // Find which projects reference this agent
-    const cfg = reloadConfig();
     const linkedProjects = (cfg.projects || [])
       .filter(p => Array.isArray(p.openclawAgentIds) && p.openclawAgentIds.includes(agent.id))
       .map(p => ({ id: p.id, name: p.name }));
 
-    const thinkingDefault = getThinkingDefault();
+    const thinkingDefault = cfg.agents?.defaults?.thinkingDefault || 'auto';
     const effectiveThinking = agent.thinking || thinkingDefault;
     const thinkingIsDefault = !agent.thinking;
 
     return {
       ...agent,
+      engine,
+      workspacePath,
       workspaceExists,
       statusKind,
       statusLabel,
@@ -76,7 +84,8 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         id: workerRun.id,
         title: workerRun.title,
         projectId: workerRun.projectId,
-        startedAt: workerRun.startedAt || null
+        startedAt: workerRun.startedAt || null,
+        durationMin: workerRun.durationMin || 0
       } : null
     };
   }
@@ -87,7 +96,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const cfg = reloadConfig();
       const agents = Array.isArray(cfg.openclawAgents) ? cfg.openclawAgents : [];
       const workerSnapshot = await fetchWorkerSnapshot();
-      const enriched = agents.map(a => enrichAgent(a, workerSnapshot));
+      const enriched = agents.map(a => enrichAgent(a, workerSnapshot, cfg));
       const thinkingDefault = cfg.agents?.defaults?.thinkingDefault || 'auto';
       res.json({ agents: enriched, defaults: { thinkingDefault } });
     } catch (err) {
@@ -103,7 +112,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       const agent = agents.find(a => a.id === req.params.id);
       if (!agent) return res.status(404).json({ error: 'Agent not found' });
       const workerSnapshot = await fetchWorkerSnapshot();
-      res.json(enrichAgent(agent, workerSnapshot));
+      res.json(enrichAgent(agent, workerSnapshot, cfg));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -130,7 +139,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       Object.assign(config, cfg);
 
       const workerSnapshot = await fetchWorkerSnapshot();
-      res.json(enrichAgent(agents[idx], workerSnapshot));
+      res.json(enrichAgent(agents[idx], workerSnapshot, cfg));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -161,7 +170,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       Object.assign(config, cfg);
 
       const workerSnapshot = await fetchWorkerSnapshot();
-      res.status(201).json(enrichAgent(newAgent, workerSnapshot));
+      res.status(201).json(enrichAgent(newAgent, workerSnapshot, cfg));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

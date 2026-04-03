@@ -148,7 +148,7 @@
         links + logoutMobile +
       '</div>';
 
-    document.body.insertAdjacentHTML('afterbegin', html);
+    document.body.insertAdjacentHTML('afterbegin', html + '<div class="navbar-spacer" style="height:16px"></div>');
 
     // Always wire up behavior from here — set flag so common.js skips duplicates
     setupBehavior(isSales);
