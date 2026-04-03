@@ -443,7 +443,20 @@
       if (diff < 60) return 'il y a moins d\'une minute';
       if (diff < 3600) return `il y a ${Math.floor(diff / 60)}min`;
       if (diff < 86400) return `il y a ${Math.floor(diff / 3600)}h`;
-      return `il y a ${Math.floor(diff / 86400)}j`;
+      const days = Math.floor(diff / 86400);
+      if (days < 7) return `il y a ${days}j`;
+      try {
+        const d = new Date(isoDate);
+        return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      } catch { return `il y a ${days}j`; }
+    }
+
+    function fmtTimestamp(isoDate) {
+      if (!isoDate) return '';
+      try {
+        const d = new Date(isoDate);
+        return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      } catch { return isoDate; }
     }
 
     function getThinkingBadge(thinking, isDefault) {
@@ -538,7 +551,7 @@
         const taskRow = a.currentTask
           ? (() => {
               const t = a.currentTask;
-              const dur = t.durationMin > 0 ? ` <span style="color:var(--text-muted)">${t.durationMin}min</span>` : '';
+              const dur = t.durationMin > 0 ? ` <span style="color:var(--text-muted)" title="${fmtTimestamp(t.startedAt)}">${t.durationMin}min</span>` : (t.startedAt ? ` <span style="color:var(--text-muted);font-size:11px" title="${fmtTimestamp(t.startedAt)}">depuis ${timeAgo(t.startedAt)}</span>` : '');
               const projLabel = t.projectName || t.projectId;
               const proj = t.projectId ? ` <a href="/project.html?id=${encodeURIComponent(t.projectId)}" style="color:var(--accent);text-decoration:none;font-size:11px">[${escapeHtml(projLabel)}]</a>` : '';
               const pending = t.pendingQuestion
@@ -585,12 +598,15 @@
                 const projTag = item.projectId
                   ? `<a href="/project.html?id=${encodeURIComponent(item.projectId)}" class="agent-project-tag" style="font-size:10px;padding:1px 7px">${escapeHtml(item.projectName || item.projectId)}</a>`
                   : (item.projectName ? `<span style="font-size:10px;color:var(--text-muted)">${escapeHtml(item.projectName)}</span>` : '');
+                const titleEl = item.projectId
+                  ? `<a href="/project.html?id=${encodeURIComponent(item.projectId)}" style="color:${statusColor};text-decoration:none">${escapeHtml(item.taskTitle || item.taskId || '?')}</a>`
+                  : `<span style="color:${statusColor}">${escapeHtml(item.taskTitle || item.taskId || '?')}</span>`;
                 return `<div class="agent-last-activity">
                   ${statusBadge}
-                  <span style="color:${statusColor}">${escapeHtml(item.taskTitle || item.taskId || '?')}</span>
+                  ${titleEl}
                   ${taskIdSpan}
                   ${extraReview}
-                  <span style="color:var(--text-muted);font-size:11px">${timeAgo(item.timestamp)}</span>
+                  <span style="color:var(--text-muted);font-size:11px" title="${fmtTimestamp(item.timestamp)}">${timeAgo(item.timestamp)}</span>
                   ${projTag}
                 </div>`;
               } else {
@@ -600,11 +616,14 @@
                   : (gc.projectName ? `<span style="font-size:10px;color:var(--text-muted)">${escapeHtml(gc.projectName)}</span>` : '');
                 const gcAgeDays = (Date.now() - best.ts) / 86400000;
                 const gcMsgColor = gcAgeDays > 7 ? 'var(--text-muted)' : 'var(--text)';
+                const gcTitleEl = gc.projectId
+                  ? `<a href="/project.html?id=${encodeURIComponent(gc.projectId)}" style="color:${gcMsgColor};text-decoration:none;font-size:12px">${escapeHtml(gc.message)}</a>`
+                  : `<span style="color:${gcMsgColor};font-size:12px">${escapeHtml(gc.message)}</span>`;
                 return `<div class="agent-last-activity">
                   <span style="color:var(--text-muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">git</span>
                   <span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(gc.hash)}</span>
-                  <span style="color:${gcMsgColor};font-size:12px">${escapeHtml(gc.message)}</span>
-                  <span style="color:var(--text-muted);font-size:11px">${timeAgo(gc.timestamp)}</span>
+                  ${gcTitleEl}
+                  <span style="color:var(--text-muted);font-size:11px" title="${fmtTimestamp(gc.timestamp)}">${timeAgo(gc.timestamp)}</span>
                   ${gcProjTag}
                 </div>`;
               }

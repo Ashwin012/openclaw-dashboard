@@ -73,8 +73,19 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         }
       }
     } catch {}
-    // Persist: write when new entries found, or create file if it doesn't exist yet
+    // Deduplicate: for entries with a taskId, keep only the most recent per taskId.
+    // Entries without taskId are kept as-is. This prevents unbounded log growth when
+    // the same task cycles through review multiple times.
     if (newEntries > 0 || !logExists) {
+      const byTaskId = {};
+      const noTaskId = [];
+      for (const n of log) {
+        if (!n.taskId) { noTaskId.push(n); continue; }
+        if (!byTaskId[n.taskId] || new Date(n.timestamp) > new Date(byTaskId[n.taskId].timestamp)) {
+          byTaskId[n.taskId] = n;
+        }
+      }
+      log = [...noTaskId, ...Object.values(byTaskId)];
       try { writeJSON(ACTIVITY_LOG_PATH, log); } catch {}
     }
     return log;
