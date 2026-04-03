@@ -534,7 +534,8 @@
               const pending = t.pendingQuestion
                 ? `<div style="margin-top:4px;padding:4px 8px;background:rgba(210,153,34,0.1);border:1px solid rgba(210,153,34,0.3);border-radius:4px;color:var(--yellow);font-size:11px">⚠ En attente: ${escapeHtml(typeof t.pendingQuestion === 'object' ? (t.pendingQuestion.question || JSON.stringify(t.pendingQuestion)) : t.pendingQuestion)}</div>`
                 : '';
-              return `<div class="agent-current-task"><strong>Tâche active:</strong> ${escapeHtml(t.title || t.id)}${proj}${dur}${pending}</div>`;
+              const engineBadge = t.engine ? ` <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--accent)22;color:var(--accent);border:1px solid var(--accent)44;opacity:0.8">${escapeHtml(t.engine)}</span>` : '';
+              return `<div class="agent-current-task"><strong>Tâche active:</strong> ${escapeHtml(t.title || t.id)}${proj}${dur}${engineBadge}${pending}</div>`;
             })()
           : '';
 
@@ -545,15 +546,16 @@
               }
               if (a.lastActivity) {
                 const la = a.lastActivity;
-                const statusIcon = la.status === 'review' || la.status === 'done' ? '✓ ' : la.status === 'approved' ? '✓ ' : la.status === 'rejected' ? '✕ ' : la.status === 'failed' ? '✕ ' : '';
                 const statusColor = la.status === 'review' || la.status === 'done' || la.status === 'approved' ? 'var(--green)' : la.status === 'rejected' || la.status === 'failed' ? 'var(--red)' : 'var(--text-muted)';
+                const statusBadge = `<span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;white-space:nowrap" title="${escapeHtml(la.message || la.status)}">${escapeHtml(la.status)}</span>`;
                 const projTag = la.projectName
                   ? (la.projectId
                       ? `<a href="/project.html?id=${encodeURIComponent(la.projectId)}" style="color:var(--accent);text-decoration:none;font-size:10px">[${escapeHtml(la.projectName)}]</a>`
                       : `<span style="color:var(--text-muted);font-size:10px">[${escapeHtml(la.projectName)}]</span>`)
                   : '';
                 return `<div class="agent-last-activity">
-                  <span style="color:${statusColor}">${statusIcon}${escapeHtml(la.taskTitle || la.taskId || '?')}</span>
+                  ${statusBadge}
+                  <span style="color:${statusColor}">${escapeHtml(la.taskTitle || la.taskId || '?')}</span>
                   ${la.taskId ? `<span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(la.taskId)}</span>` : ''}
                   <span style="color:var(--text-muted);font-size:11px">${timeAgo(la.timestamp)}</span>
                   ${projTag}
@@ -563,11 +565,13 @@
                 const gcProjTag = gc.projectId
                   ? `<a href="/project.html?id=${encodeURIComponent(gc.projectId)}" style="color:var(--accent);text-decoration:none;font-size:10px">[${escapeHtml(gc.projectName)}]</a>`
                   : (gc.projectName ? `<span style="color:var(--text-muted);font-size:10px">[${escapeHtml(gc.projectName)}]</span>` : '');
+                const gcAgeDays = (Date.now() - new Date(gc.timestamp).getTime()) / 86400000;
+                const gcMsgColor = gcAgeDays > 7 ? 'var(--text-muted)' : 'var(--text)';
                 const gcAuthor = gc.author ? ` <span style="color:var(--text-muted);font-size:10px" title="Auteur du commit">${escapeHtml(gc.author)}</span>` : '';
                 return `<div class="agent-last-activity">
                   <span style="color:var(--text-muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">git</span>
                   <span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(gc.hash)}</span>
-                  <span style="color:var(--text);font-size:12px">${escapeHtml(gc.message)}</span>
+                  <span style="color:${gcMsgColor};font-size:12px">${escapeHtml(gc.message)}</span>
                   ${gcAuthor}
                   <span style="color:var(--text-muted);font-size:11px">${timeAgo(gc.timestamp)}</span>
                   ${gcProjTag}
