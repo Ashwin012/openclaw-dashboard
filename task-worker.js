@@ -531,6 +531,33 @@ function spawnPromise(cmd, opts, timeoutMs) {
   });
 }
 
+function spawnPromiseWithStdin(cmd, args, stdinData, opts, timeoutMs) {
+  return new Promise(resolve => {
+    const proc = spawn(cmd, args, { ...opts, shell: false });
+    let stdout = '';
+    let stderr = '';
+    proc.stdout && proc.stdout.on('data', d => { stdout += d.toString(); });
+    proc.stderr && proc.stderr.on('data', d => { stderr += d.toString(); });
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      proc.kill('SIGTERM');
+    }, timeoutMs);
+    proc.on('close', code => {
+      clearTimeout(timer);
+      resolve({ code: timedOut ? -1 : code, output: [stdout, stderr].filter(Boolean).join('\n').trim(), timedOut });
+    });
+    proc.on('error', err => {
+      clearTimeout(timer);
+      resolve({ code: -1, output: err.message, timedOut: false });
+    });
+    if (stdinData != null) {
+      proc.stdin.write(stdinData);
+      proc.stdin.end();
+    }
+  });
+}
+
 async function runQualityGates(projectPath) {
   const results = [];
   const gitCheckPath = path.join(projectPath, 'gitCheck-docker.sh');
@@ -1430,16 +1457,16 @@ function buildReviewInstruction(task, gitDiff, qualityResults) {
 }
 
 async function getGitDiff(projectPath, commitHash) {
-  // Try to get diff for the specific commit
-  if (commitHash) {
-    const r = await spawnPromise(`git diff ${commitHash}~1..${commitHash}`, { cwd: projectPath }, 15000);
+  // Try to get diff for the specific commit (validate hash to prevent injection)
+  if (commitHash && /^[0-9a-f]{7,40}$/i.test(commitHash)) {
+    const r = await spawnPromiseWithStdin('git', ['diff', `${commitHash}~1..${commitHash}`], null, { cwd: projectPath }, 15000);
     if (r.code === 0 && r.output.trim()) return r.output.trim();
   }
   // Fallback: staged + unstaged diff
-  const r = await spawnPromise('git diff HEAD', { cwd: projectPath }, 15000);
+  const r = await spawnPromiseWithStdin('git', ['diff', 'HEAD'], null, { cwd: projectPath }, 15000);
   if (r.code === 0 && r.output.trim()) return r.output.trim();
   // Fallback: last commit diff
-  const r2 = await spawnPromise('git diff HEAD~1..HEAD', { cwd: projectPath }, 15000);
+  const r2 = await spawnPromiseWithStdin('git', ['diff', 'HEAD~1..HEAD'], null, { cwd: projectPath }, 15000);
   return r2.code === 0 ? r2.output.trim() : '';
 }
 
@@ -1567,13 +1594,12 @@ async function processReviewTask(project, task, runState) {
     try {
       resultText = await callAnthropicReviewAPI(instruction, REVIEW_MODEL);
     } catch (apiErr) {
-      // API call failed — fall back to claude -p one-shot
+      // API call failed — fall back to claude -p one-shot (stdin pipe, no shell interpolation)
       log(`  Review API call failed: ${apiErr.message} — falling back to claude -p`);
       const env = { ...process.env, PATH: `${NVM_NODE_PATH}:${process.env.PATH}`, HOME: '/home/openclaw' };
-      const cliResult = await spawnPromise(
-        `echo ${JSON.stringify(instruction).replace(/'/g, "'\''")} | claude -p --model ${REVIEW_MODEL} --output-format text`,
-        { cwd: projectPath, env },
-        MAX_REVIEW_DURATION_MS
+      const cliResult = await spawnPromiseWithStdin(
+        'claude', ['-p', '--model', REVIEW_MODEL, '--output-format', 'text'],
+        instruction, { cwd: projectPath, env }, MAX_REVIEW_DURATION_MS
       );
       resultText = cliResult.output || '';
       if (cliResult.timedOut) {
@@ -1662,6 +1688,15 @@ async function processReviewTask(project, task, runState) {
       : '';
     addNotification(project.name, task.title, task.id, 'validating', 'done', `✅ Validé et terminé${deployMsg}: ${verdict.feedback}`);
     log(`Task [${task.id}] → done${deployMsg}`);
+  } catch (err) {
+    logError(`Review pipeline crashed for [${task.id}]`, err);
+    updateTask(projectPath, task.id, t => {
+      setWorkerFinalNote(t, `⚠️ Erreur validation: ${(err.message || String(err)).slice(0, 200)}`);
+      t.status = 'review';
+      t.humanValidation = true;
+      t.error = true;
+    });
+    addNotification(project.name, task.title, task.id, 'validating', 'review', `⚠️ Erreur validation — intervention humaine requise`);
   } finally {
     if (runState.projectLock) {
       releaseFileLock(runState.projectLock);
