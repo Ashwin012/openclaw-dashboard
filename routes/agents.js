@@ -287,8 +287,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         if (best) proj.gitLastCommit = best;
       }
 
-      // OpenClaw agents with linked project names (filter stale refs)
-      const ocAgentIds = new Set((cfg.openclawAgents || []).map(a => a.id));
+      // OpenClaw agents with linked project names
       const openclawAgents = Array.isArray(cfg.openclawAgents) ? cfg.openclawAgents.map(agent => {
         const linkedProjects = projects.filter(p =>
           Array.isArray(p.openclawAgentIds) && p.openclawAgentIds.includes(agent.id)
@@ -301,14 +300,6 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
           linkedProjects: linkedProjects.map(p => ({ id: p.id, name: p.name })),
         };
       }) : [];
-
-      // Strip stale openclawAgentIds from enriched projects (defensive)
-      for (const proj of enriched) {
-        const origProject = projects.find(p => p.id === proj.id);
-        if (origProject && Array.isArray(origProject.openclawAgentIds)) {
-          proj.openclawAgentIds = origProject.openclawAgentIds.filter(id => ocAgentIds.has(id));
-        }
-      }
 
       const workerStatus = workerSnapshot
         ? { running: workerSnapshot.running !== false, count: workerSnapshot.count || 0, maxConcurrency: workerSnapshot.maxConcurrency || null }
