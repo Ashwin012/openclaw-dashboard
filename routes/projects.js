@@ -1,9 +1,39 @@
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
 const { git, validateBranchName, validateHash } = require('../lib/git');
 const { readJSON, writeJSON } = require('../lib/json-store');
 const { DEFAULT_ENGINE_MODELS } = require('../task-worker');
+
+const execFileAsync = promisify(execFile);
+
+// ===== Docker helpers =====
+
+function findDockerComposePath(project) {
+  const candidates = [project.path];
+  if (project.repos) {
+    for (const repo of project.repos) {
+      if (repo.name === 'docker') candidates.unshift(repo.path);
+    }
+  }
+  for (const dir of candidates) {
+    for (const file of ['docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml']) {
+      if (fs.existsSync(path.join(dir, file))) return dir;
+    }
+  }
+  return null;
+}
+
+async function dockerCompose(args, cwd) {
+  const { stdout, stderr } = await execFileAsync('docker', ['compose', ...args], {
+    cwd,
+    maxBuffer: 10 * 1024 * 1024,
+    timeout: 60000
+  });
+  return { stdout, stderr };
+}
 
 // ===== Helper functions =====
 
@@ -1118,6 +1148,57 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
       res.json({ ok: true, engine });
     } catch (err) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/projects/:id/docker — Docker compose status
+  router.get('/api/projects/:id/docker', requireAuth, async (req, res) => {
+    const project = config.projects.find(p => p.id === req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const composePath = findDockerComposePath(project);
+    if (!composePath) return res.json({ available: false });
+
+    try {
+      const { stdout } = await dockerCompose(['ps', '--format', 'json'], composePath);
+      const lines = stdout.trim().split('\n').filter(l => l.trim());
+      const containers = lines.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+      const running = containers.some(c => c.State === 'running');
+      res.json({ available: true, running, containers });
+    } catch {
+      res.json({ available: true, running: false, containers: [] });
+    }
+  });
+
+  // POST /api/projects/:id/docker/start — docker compose up -d
+  router.post('/api/projects/:id/docker/start', requireAuth, async (req, res) => {
+    const project = config.projects.find(p => p.id === req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const composePath = findDockerComposePath(project);
+    if (!composePath) return res.status(400).json({ error: 'No docker-compose file found' });
+
+    try {
+      const { stdout, stderr } = await dockerCompose(['up', '-d'], composePath);
+      res.json({ ok: true, output: stdout || stderr });
+    } catch (err) {
+      res.status(500).json({ error: err.stderr || err.message });
+    }
+  });
+
+  // POST /api/projects/:id/docker/stop — docker compose down
+  router.post('/api/projects/:id/docker/stop', requireAuth, async (req, res) => {
+    const project = config.projects.find(p => p.id === req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const composePath = findDockerComposePath(project);
+    if (!composePath) return res.status(400).json({ error: 'No docker-compose file found' });
+
+    try {
+      const { stdout, stderr } = await dockerCompose(['down'], composePath);
+      res.json({ ok: true, output: stdout || stderr });
+    } catch (err) {
+      res.status(500).json({ error: err.stderr || err.message });
     }
   });
 

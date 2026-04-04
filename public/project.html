@@ -15,6 +15,15 @@
     /* ===== Navbar ===== */
     }
 
+    /* Docker toggle */
+    .ph-docker-toggle { display: inline-flex; align-items: center; gap: 6px; }
+    .docker-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .docker-dot-on { background: var(--green, #3fb950); box-shadow: 0 0 6px var(--green, #3fb950); }
+    .docker-dot-off { background: var(--red, #f85149); box-shadow: 0 0 6px var(--red, #f85149); }
+    .docker-dot-loading { background: var(--yellow, #d29922); animation: docker-pulse 1s infinite; }
+    @keyframes docker-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .ph-btn-docker { font-size: 12px; padding: 4px 10px; }
+
     /* Description truncation in expanded card */
     .task-desc-truncated {
       white-space: pre-wrap;
@@ -783,6 +792,54 @@
     }
 
 async function gitPull() {      const btn = document.getElementById("pullBtn");      if (btn) { btn.disabled = true; btn.textContent = "Pulling..."; }      try {        const res = await fetch(`/api/projects/${projectId}/pull`, { method: "POST" });        const data = await res.json();        if (res.ok) {          showToast(`Pull OK: ${data.output || "Up to date"}`);          setTimeout(() => location.reload(), 1500);        } else {          showToast(data.error || "Pull failed", "error");          if (btn) { btn.disabled = false; btn.textContent = "Pull"; }        }      } catch (err) {        showToast(err.message, "error");        if (btn) { btn.disabled = false; btn.textContent = "Pull"; }      }    }
+
+    // ===== Docker toggle =====
+    let dockerRunning = false;
+
+    async function loadDockerStatus() {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/docker`);
+        const data = await res.json();
+        const wrap = document.getElementById('dockerToggleWrap');
+        if (!wrap) return;
+        if (!data.available) { wrap.style.display = 'none'; return; }
+        wrap.style.display = 'inline-flex';
+        dockerRunning = data.running;
+        updateDockerUI();
+      } catch { /* ignore */ }
+    }
+
+    function updateDockerUI() {
+      const dot = document.getElementById('dockerDot');
+      const btn = document.getElementById('dockerToggleBtn');
+      if (!dot || !btn) return;
+      dot.className = 'docker-dot ' + (dockerRunning ? 'docker-dot-on' : 'docker-dot-off');
+      btn.textContent = dockerRunning ? 'Docker Stop' : 'Docker Start';
+    }
+
+    async function toggleDocker() {
+      const btn = document.getElementById('dockerToggleBtn');
+      const dot = document.getElementById('dockerDot');
+      if (!btn) return;
+      const action = dockerRunning ? 'stop' : 'start';
+      btn.disabled = true;
+      btn.textContent = dockerRunning ? 'Stopping...' : 'Starting...';
+      dot.className = 'docker-dot docker-dot-loading';
+      try {
+        const res = await fetch(`/api/projects/${projectId}/docker/${action}`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          dockerRunning = !dockerRunning;
+          showToast(`Docker ${action === 'start' ? 'started' : 'stopped'}`);
+        } else {
+          showToast(data.error || `Docker ${action} failed`, 'error');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+      btn.disabled = false;
+      updateDockerUI();
+    }
     async function pushCommits() {
       const btn = document.getElementById('pushBtn');
       if (btn) { btn.disabled = true; btn.textContent = 'Pushing...'; }
@@ -834,6 +891,10 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
             </select>
             <button onclick="gitPull()" class="ph-btn ph-btn-pull" id="pullBtn">Pull</button>
             <button onclick="openConfigModal()" class="ph-btn ph-btn-config" title="Edit project config">&#9881;</button>
+            <div id="dockerToggleWrap" class="ph-docker-toggle" style="display:none">
+              <span id="dockerDot" class="docker-dot docker-dot-off"></span>
+              <button id="dockerToggleBtn" onclick="toggleDocker()" class="ph-btn ph-btn-docker" title="Toggle Docker">Docker</button>
+            </div>
             <div class="ph-engine">
               <select id="engineSelect" onchange="onEngineChange()" class="ph-select">
                 <option value="claude" ${data.engine !== 'codex' && data.engine !== 'ollama' ? 'selected' : ''}>Claude Code</option>
@@ -1727,6 +1788,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         renderPage(data);
         loadRepos();
         loadBranches();
+        loadDockerStatus();
       } catch (err) {
         document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">&#10060;</div><h3>Failed to load</h3><p>${escapeHtml(err.message)}</p></div>`;
       }
