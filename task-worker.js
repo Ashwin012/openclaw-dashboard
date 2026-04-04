@@ -51,11 +51,13 @@ const OLLAMA_MODEL_ALIASES = {
   'qwen3:4b': 'qwen3:4b',
 };
 
-const REVIEW_COOLDOWN_MS = 10_000; // Wait 10s before picking up review tasks (avoid instant re-processing)
+const REVIEW_COOLDOWN_MS = 30_000; // Wait 30s before picking up review tasks (avoid instant re-processing)
 const REVIEW_MODEL = 'claude-sonnet-4-6'; // Lighter model for review phase
 const REVIEW_API_TIMEOUT_MS = 120_000; // 2min timeout for review API call (was 13+ min via CLI)
 const AUTO_DEPLOY_TIMEOUT_MS = 60_000; // 60s timeout for git push
 
+const MAX_TASK_DURATION_MS = 3 * 60 * 60 * 1000; // 3 hour hard timeout for any task
+const MAX_REVIEW_DURATION_MS = 10 * 60 * 1000; // 10 min hard timeout for review/validation
 const WARNING_THRESHOLDS_MIN = [30, 60, 120];
 const QUESTION_POLL_MS = 2_000;
 const QUESTION_WARN_MS = 30 * 60 * 1000;
@@ -1389,7 +1391,7 @@ function buildReviewInstruction(task, gitDiff, qualityResults) {
     const diffTruncated = gitDiff.length > 8000 ? gitDiff.slice(0, 8000) + '\n... (diff tronqué)' : gitDiff;
     parts.push('', '**Diff git des changements:**', '```diff', diffTruncated, '```');
   } else {
-    parts.push('', '**Note:** Aucun diff git détecté (pas de changement ou déjà commité).');
+    parts.push('', '**⚠️ ATTENTION: Aucun diff git détecté.** Si aucun changement n\'a été fait, rejette la tâche. Ne valide que si le résumé du codeur confirme clairement que des changements ont été faits et commités.');
   }
 
   if (Array.isArray(qualityResults) && qualityResults.length > 0) {
@@ -1442,7 +1444,13 @@ async function getGitDiff(projectPath, commitHash) {
 }
 
 async function autoDeploy(projectPath) {
-  log(`  Auto-deploy: git push in ${projectPath}`);
+  log(`  Auto-deploy: git pull --rebase then push in ${projectPath}`);
+  // Pull first to avoid push rejection if remote has advanced
+  const pull = await spawnPromise('git pull --rebase --autostash', { cwd: projectPath }, AUTO_DEPLOY_TIMEOUT_MS);
+  if (pull.code !== 0 && !pull.output.includes('Already up to date')) {
+    log(`  Auto-deploy: pull --rebase failed: ${pull.output.slice(0, 200)}`);
+    // Try push anyway (might work if remote hasn't changed)
+  }
   const result = await spawnPromise('git push', { cwd: projectPath }, AUTO_DEPLOY_TIMEOUT_MS);
   return {
     success: result.code === 0,
@@ -1484,8 +1492,8 @@ function parseReviewVerdict(text) {
     return { approved: false, feedback: 'Auto-parsed: rejected', deploy: false };
   }
 
-  // Cannot determine — default to approved (safe: human will see notification)
-  return { approved: true, feedback: 'Verdict parsing failed — auto-approved', deploy: false };
+  // Cannot determine — default to REJECTED (safe: never auto-approve unparseable verdicts)
+  return { approved: false, feedback: 'Verdict parsing failed — rejected for safety', deploy: false };
 }
 
 async function callAnthropicReviewAPI(instruction, model) {
@@ -1553,8 +1561,26 @@ async function processReviewTask(project, task, runState) {
     // 2. Build review instruction and call Anthropic API directly (lightweight, no CLI spawn)
     const instruction = buildReviewInstruction(task, gitDiff, qualityResults);
     runState.engine = 'api';
+    runState.pid = process.pid; // For status reporting
 
-    const resultText = await callAnthropicReviewAPI(instruction, REVIEW_MODEL);
+    let resultText;
+    try {
+      resultText = await callAnthropicReviewAPI(instruction, REVIEW_MODEL);
+    } catch (apiErr) {
+      // API call failed — fall back to claude -p one-shot
+      log(`  Review API call failed: ${apiErr.message} — falling back to claude -p`);
+      const env = { ...process.env, PATH: `${NVM_NODE_PATH}:${process.env.PATH}`, HOME: '/home/openclaw' };
+      const cliResult = await spawnPromise(
+        `echo ${JSON.stringify(instruction).replace(/'/g, "'\''")} | claude -p --model ${REVIEW_MODEL} --output-format text`,
+        { cwd: projectPath, env },
+        MAX_REVIEW_DURATION_MS
+      );
+      resultText = cliResult.output || '';
+      if (cliResult.timedOut) {
+        log(`  Review CLI fallback also timed out for [${task.id}]`);
+        resultText = '{"approved": false, "feedback": "Review timed out", "deploy": false}';
+      }
+    }
     runState.resultText = resultText;
 
     if (runState.stoppedManually) {
@@ -1587,15 +1613,20 @@ async function processReviewTask(project, task, runState) {
         return;
       }
 
-      // No loops remaining — mark as review with error for human intervention
+      // Loop limit reached or no loop configured — mark as review for human intervention
+      const loopLimitMsg = loopEnabled && loopCount >= maxLoops
+        ? `⛔ Limite de boucles d'optimisation atteinte (${loopCount}/${maxLoops}) — intervention humaine requise: ${verdict.feedback}`
+        : `❌ Rejeté par reviewer — intervention humaine requise: ${verdict.feedback}`;
       updateTask(projectPath, task.id, t => {
-        setAuthorFinalNote(t, 'Reviewer', `❌ Rejeté: ${verdict.feedback}`);
+        setAuthorFinalNote(t, 'Reviewer', loopEnabled && loopCount >= maxLoops
+          ? `⛔ Limite de boucles atteinte (${loopCount}/${maxLoops}): ${verdict.feedback}`
+          : `❌ Rejeté: ${verdict.feedback}`);
         t.status = 'review';
         t.humanValidation = true; // Force human review now
         t.error = true;
       });
-      addNotification(project.name, task.title, task.id, 'validating', 'review', `❌ Rejeté par reviewer — intervention humaine requise: ${verdict.feedback}`);
-      log(`  Task [${task.id}] → review (rejected, needs human intervention)`);
+      addNotification(project.name, task.title, task.id, 'validating', 'review', loopLimitMsg);
+      log(`  Task [${task.id}] → review (${loopEnabled && loopCount >= maxLoops ? `loop limit ${loopCount}/${maxLoops}` : 'rejected, needs human intervention'})`);
       return;
     }
 
@@ -1698,7 +1729,21 @@ function pollForAnswer(runState, proc, toolUseId) {
 
 function checkRunningWarnings() {
   for (const runState of activeRuns.values()) {
-    const elapsedMin = Math.floor((Date.now() - runState.startTime.getTime()) / 60_000);
+    const elapsedMs = Date.now() - runState.startTime.getTime();
+    const elapsedMin = Math.floor(elapsedMs / 60_000);
+
+    // Hard timeout: kill tasks that exceed maximum duration
+    const maxDuration = runState.engine === 'api' ? MAX_REVIEW_DURATION_MS : MAX_TASK_DURATION_MS;
+    if (elapsedMs > maxDuration && !runState.stoppedManually) {
+      const label = runState.engine === 'api' ? 'review' : 'task';
+      log(`  ⏰ Hard timeout: ${label} [${runState.taskId}] exceeded ${Math.round(maxDuration / 60000)}min — killing`);
+      runState.stoppedManually = true;
+      try { runState.proc && runState.proc.kill('SIGTERM'); } catch {}
+      addNotification(runState.projectName, runState.taskTitle, runState.taskId, 'in_progress', 'review',
+        `⏰ Timeout: ${label} tué après ${elapsedMin} minutes`);
+      continue;
+    }
+
     for (const threshold of WARNING_THRESHOLDS_MIN) {
       if (elapsedMin >= threshold && !runState.warned.has(threshold)) {
         runState.warned.add(threshold);
@@ -1768,7 +1813,29 @@ function getNextQueuedTask(project) {
   const data = readTasks(project.path);
   const queued = data.tasks.filter(t => {
     if (t.status !== 'queued' && t.status !== 'pending') return false;
-    return !activeRuns.has(t.id);
+    if (activeRuns.has(t.id)) return false;
+    // Skip tasks that have exhausted their optimization loops — move them to review
+    if (t.optimizationLoop) {
+      const loopCount = Number.isInteger(t.optimizationLoopCount) ? t.optimizationLoopCount : 0;
+      const maxLoops = Number.isInteger(t.optimizationMaxLoops) && t.optimizationMaxLoops > 0 ? t.optimizationMaxLoops : 10;
+      if (loopCount >= maxLoops) {
+        log(`  Task [${t.id}] — optimization loop limit reached (${loopCount}/${maxLoops}), moving to review`);
+        const taskTitle = t.title || t.id;
+        try {
+          updateTask(project.path, t.id, u => {
+            u.status = 'review';
+            u.humanValidation = true;
+            u.error = true;
+          });
+          addNotification(project.name, taskTitle, t.id, 'queued', 'review',
+            `⛔ Limite de boucles d'optimisation atteinte (${loopCount}/${maxLoops}) — intervention humaine requise`);
+        } catch (err) {
+          logError(`Failed to move loop-exhausted task [${t.id}] to review`, err);
+        }
+        return false;
+      }
+    }
+    return true;
   });
   if (queued.length === 0) return null;
 
@@ -1844,10 +1911,12 @@ async function pollOnce() {
   }
 
   // Second pass: pick up review tasks for auto-validation pipeline
-  const remainingSlots = Math.max(0, maxConcurrency - getActiveRunCount() - scheduled.length);
+  const totalScheduled = getActiveRunCount() + scheduled.length;
+  const remainingSlots = Math.max(0, maxConcurrency - totalScheduled);
   if (remainingSlots > 0 && !shuttingDown) {
+    let reviewScheduled = 0;
     for (const project of config.projects) {
-      if (shuttingDown || scheduled.length >= maxConcurrency) break;
+      if (shuttingDown || (getActiveRunCount() + scheduled.length) >= maxConcurrency) break;
 
       const reviewTask = getNextReviewTask(project);
       if (!reviewTask) continue;
@@ -1887,6 +1956,54 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+
+// ─── Zombie task recovery (on startup) ────────────────────────────────────────
+
+function recoverZombieTasks() {
+  const config = loadConfig();
+  let recovered = 0;
+  for (const project of config.projects) {
+    const data = readTasks(project.path);
+    let changed = false;
+    for (const task of data.tasks) {
+      if (task.status === 'in_progress') {
+        log(`Recovering zombie task [${task.id}] in "${project.name}": in_progress → queued`);
+        task.status = 'queued';
+        task.updatedAt = now();
+        task.error = false;
+        addNote(task, 'Worker', '🔄 Recovered from zombie in_progress state after worker restart');
+        changed = true;
+        recovered++;
+      } else if (task.status === 'validating') {
+        log(`Recovering zombie task [${task.id}] in "${project.name}": validating → review`);
+        task.status = 'review';
+        task.updatedAt = now();
+        addNote(task, 'Worker', '🔄 Recovered from zombie validating state after worker restart');
+        changed = true;
+        recovered++;
+      }
+    }
+    if (changed) {
+      writeTasks(project.path, data);
+    }
+  }
+  if (recovered > 0) {
+    log(`Recovered ${recovered} zombie task(s) at startup`);
+  }
+  // Clean stale project locks
+  try {
+    const lockFiles = require('fs').readdirSync(WORKER_LOCKS_DIR).filter(f => f.startsWith('project-'));
+    for (const lockFile of lockFiles) {
+      const lockPath = require('path').join(WORKER_LOCKS_DIR, lockFile);
+      const lockData = readLockFile(lockPath);
+      if (lockData && !isProcessAlive(lockData.pid)) {
+        try { require('fs').unlinkSync(lockPath); } catch {}
+        log(`Cleaned stale project lock: ${lockFile}`);
+      }
+    }
+  } catch {}
+}
+
 async function main() {
   const config = loadConfig();
   const instanceLock = acquireWorkerInstanceLock();
@@ -1899,6 +2016,7 @@ async function main() {
     return;
   }
 
+  recoverZombieTasks();
   log('Task worker started (multi-engine: claude stream-json / codex plain-text / ollama via codex | auto-validation pipeline)');
   log(`Poll interval: ${POLL_INTERVAL_MS / 1000}s | Quality gate timeout: ${QUALITY_GATE_TIMEOUT_MS / 60000}m`);
   log(`Max concurrency: ${getMaxConcurrency(config)}`);
