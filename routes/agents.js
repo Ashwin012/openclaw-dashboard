@@ -276,10 +276,24 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         if (best) proj.gitLastCommit = best;
       }
 
+      // OpenClaw agents with linked project names
+      const openclawAgents = Array.isArray(cfg.openclawAgents) ? cfg.openclawAgents.map(agent => {
+        const linkedProjects = projects.filter(p =>
+          Array.isArray(p.openclawAgentIds) && p.openclawAgentIds.includes(agent.id)
+        );
+        return {
+          id: agent.id,
+          name: agent.name,
+          model: agent.model || null,
+          thinking: agent.thinking || null,
+          linkedProjects: linkedProjects.map(p => ({ id: p.id, name: p.name })),
+        };
+      }) : [];
+
       const workerStatus = workerSnapshot
         ? { running: workerSnapshot.running !== false, count: workerSnapshot.count || 0, maxConcurrency: workerSnapshot.maxConcurrency || null }
         : null;
-      res.json({ projects: enriched, workerStatus });
+      res.json({ projects: enriched, openclawAgents, workerStatus });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

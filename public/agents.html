@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Instances Claude Code — Dev Dashboard</title>
+  <title>Agents — Dev Dashboard</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#1e1e2e">
@@ -202,8 +202,79 @@
       font-size: 14px;
     }
 
+    /* OpenClaw Agents Section */
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 32px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title .section-count {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 2px 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .oc-agent-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .oc-agent-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      min-width: 180px;
+    }
+
+    .oc-agent-model {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 8px;
+      background: var(--accent)22;
+      color: var(--accent);
+      border: 1px solid var(--accent)44;
+    }
+
+    .oc-agent-thinking {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 8px;
+      background: var(--purple)22;
+      color: var(--purple);
+      border: 1px solid var(--purple)44;
+    }
+
+    .oc-agent-projects {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+    .oc-agent-projects a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .oc-agent-projects a:hover { text-decoration: underline; }
+
     @media (max-width: 768px) {
       .agent-card-body { grid-template-columns: 1fr; }
+      .oc-agent-card { flex-direction: column; align-items: flex-start; }
+      .oc-agent-projects { margin-left: 0; }
     }
   </style>
 </head>
@@ -212,12 +283,19 @@
 <main class="agents-main">
     <div class="agents-header">
       <div>
-        <div class="agents-title">Instances Claude Code</div>
+        <div class="agents-title">Agents</div>
         <div class="agents-stats" id="agentsStats"></div>
       </div>
     </div>
+
+    <div class="section-title">Agents VPS (Claude Code) <span class="section-count" id="vpsCount">0</span></div>
     <div id="workerBanner"></div>
     <div class="agents-grid" id="agentsGrid">
+      <div class="empty-state">Chargement...</div>
+    </div>
+
+    <div class="section-title">Agents OpenClaw <span class="section-count" id="ocCount">0</span></div>
+    <div class="agents-grid" id="ocAgentsGrid">
       <div class="empty-state">Chargement...</div>
     </div>
   </main>
@@ -225,6 +303,7 @@
   <script src="/js/common.js"></script>
   <script>
     let projects = [];
+    let openclawAgents = [];
     let workerStatus = null;
 
     function timeAgo(isoDate) {
@@ -271,7 +350,10 @@
         `<span class="stat-pill"><span style="color:var(--text)">${total}</span> projets</span>` +
         `<span class="stat-pill"><span style="color:var(--green)">${active}</span> actifs</span>` +
         `<span class="stat-pill"><span style="color:var(--yellow)">${idle}</span> idle</span>` +
+        `<span class="stat-pill"><span style="color:var(--purple)">${openclawAgents.length}</span> agents</span>` +
         slotsPill;
+      document.getElementById('vpsCount').textContent = total;
+      document.getElementById('ocCount').textContent = openclawAgents.length;
     }
 
     function renderWorkerBanner() {
@@ -401,14 +483,36 @@
       renderStats();
     }
 
+    function renderOpenclawAgents() {
+      const grid = document.getElementById('ocAgentsGrid');
+      if (!openclawAgents.length) {
+        grid.innerHTML = '<div class="empty-state">Aucun agent configuré</div>';
+        return;
+      }
+      grid.innerHTML = openclawAgents.map(a => {
+        const modelShort = (a.model || '').replace('claude-', '').replace('-4-6', ' 4.6');
+        const projectLinks = (a.linkedProjects || []).map(p =>
+          `<a href="/project.html?id=${encodeURIComponent(p.id)}">${escapeHtml(p.name)}</a>`
+        ).join(', ') || '<span style="font-style:italic">non assigné</span>';
+        return `<div class="oc-agent-card">
+          <span class="oc-agent-name">${escapeHtml(a.name)}</span>
+          ${a.model ? `<span class="oc-agent-model">${escapeHtml(modelShort)}</span>` : ''}
+          ${a.thinking ? `<span class="oc-agent-thinking">thinking: ${escapeHtml(a.thinking)}</span>` : ''}
+          <span class="oc-agent-projects">${projectLinks}</span>
+        </div>`;
+      }).join('');
+    }
+
     async function loadProjects() {
       try {
         const res = await fetch('/api/agents');
         if (!res.ok) throw new Error('Erreur chargement');
         const data = await res.json();
         projects = Array.isArray(data.projects) ? data.projects : [];
+        openclawAgents = Array.isArray(data.openclawAgents) ? data.openclawAgents : [];
         workerStatus = data.workerStatus || null;
         renderProjects();
+        renderOpenclawAgents();
       } catch (err) {
         document.getElementById('agentsGrid').innerHTML = `<div class="empty-state" style="color:var(--red)">Erreur: ${escapeHtml(err.message)}</div>`;
       }
