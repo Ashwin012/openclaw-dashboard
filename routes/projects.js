@@ -11,7 +11,9 @@ const execFileAsync = promisify(execFile);
 
 // ===== Docker helpers =====
 
+const _dockerPathCache = new Map();
 function findDockerComposePath(project) {
+  if (_dockerPathCache.has(project.id)) return _dockerPathCache.get(project.id);
   const candidates = [project.path];
   if (project.repos) {
     for (const repo of project.repos) {
@@ -20,9 +22,13 @@ function findDockerComposePath(project) {
   }
   for (const dir of candidates) {
     for (const file of ['docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml']) {
-      if (fs.existsSync(path.join(dir, file))) return dir;
+      if (fs.existsSync(path.join(dir, file))) {
+        _dockerPathCache.set(project.id, dir);
+        return dir;
+      }
     }
   }
+  _dockerPathCache.set(project.id, null);
   return null;
 }
 
@@ -1170,8 +1176,12 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
     }
   });
 
-  // POST /api/projects/:id/docker/start — docker compose up -d
-  router.post('/api/projects/:id/docker/start', requireAuth, async (req, res) => {
+  // POST /api/projects/:id/docker/:action — docker compose start/stop
+  const DOCKER_ACTIONS = { start: ['up', '-d'], stop: ['down'] };
+  router.post('/api/projects/:id/docker/:action', requireAuth, async (req, res) => {
+    const args = DOCKER_ACTIONS[req.params.action];
+    if (!args) return res.status(400).json({ error: 'Invalid action' });
+
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
@@ -1179,23 +1189,7 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
     if (!composePath) return res.status(400).json({ error: 'No docker-compose file found' });
 
     try {
-      const { stdout, stderr } = await dockerCompose(['up', '-d'], composePath);
-      res.json({ ok: true, output: stdout || stderr });
-    } catch (err) {
-      res.status(500).json({ error: err.stderr || err.message });
-    }
-  });
-
-  // POST /api/projects/:id/docker/stop — docker compose down
-  router.post('/api/projects/:id/docker/stop', requireAuth, async (req, res) => {
-    const project = config.projects.find(p => p.id === req.params.id);
-    if (!project) return res.status(404).json({ error: 'Project not found' });
-
-    const composePath = findDockerComposePath(project);
-    if (!composePath) return res.status(400).json({ error: 'No docker-compose file found' });
-
-    try {
-      const { stdout, stderr } = await dockerCompose(['down'], composePath);
+      const { stdout, stderr } = await dockerCompose(args, composePath);
       res.json({ ok: true, output: stdout || stderr });
     } catch (err) {
       res.status(500).json({ error: err.stderr || err.message });

@@ -829,7 +829,6 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         const res = await fetch(`/api/projects/${projectId}/docker/${action}`, { method: 'POST' });
         const data = await res.json();
         if (res.ok) {
-          dockerRunning = !dockerRunning;
           showToast(`Docker ${action === 'start' ? 'started' : 'stopped'}`);
         } else {
           showToast(data.error || `Docker ${action} failed`, 'error');
@@ -838,7 +837,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         showToast(err.message, 'error');
       }
       btn.disabled = false;
-      updateDockerUI();
+      loadDockerStatus();
     }
     async function pushCommits() {
       const btn = document.getElementById('pushBtn');
