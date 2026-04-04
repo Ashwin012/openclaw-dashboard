@@ -70,32 +70,6 @@
       "autoDeploy": false
     },
     {
-      "id": "stho",
-      "name": "STHO",
-      "repos": [
-        {
-          "name": "api",
-          "path": "/home/openclaw/projects/stho/api"
-        },
-        {
-          "name": "web",
-          "path": "/home/openclaw/projects/stho/web"
-        },
-        {
-          "name": "infra",
-          "path": "/home/openclaw/projects/stho/infra"
-        }
-      ],
-      "path": "/home/openclaw/projects/stho/api",
-      "description": "STHO Global Platform",
-      "testUrl": "http://158.69.1.160:3002",
-      "stagingUrl": "https://app.staging.thestho.com/",
-      "prodUrl": "https://thestho.com/",
-      "githubUrl": "https://github.com/STHO-Global/stho-api",
-      "engine": "claude",
-      "autoDeploy": false
-    },
-    {
       "id": "openclaw-dashboard",
       "name": "OpenClaw Dashboard",
       "repos": [
