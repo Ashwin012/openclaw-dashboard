@@ -1395,6 +1395,7 @@ body.menu-open { overflow: hidden; }
 .col-queued { background: #cba6f7; }
 .col-in_progress { background: var(--accent); }
 .col-review { background: #fab387; }
+.col-validating { background: var(--yellow); }
 .col-done { background: var(--green); }
 .col-blocked { background: var(--red); }
 

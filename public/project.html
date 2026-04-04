@@ -251,6 +251,7 @@
                 <option value="queued">Queued</option>
                 <option value="in_progress">In Progress</option>
                 <option value="review">Review</option>
+                <option value="validating">Validating</option>
                 <option value="done">Done</option>
                 <option value="blocked">Blocked</option>
               </select>
@@ -933,6 +934,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
                 <option value="queued">Queued</option>
                 <option value="in_progress">In Progress</option>
                 <option value="review">Review</option>
+                <option value="validating">Validating</option>
                 <option value="done">Done</option>
                 <option value="blocked">Blocked</option>
               </select>
@@ -1233,6 +1235,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         { id: 'queued', label: '⏳ Queued/Pending' },
         { id: 'in_progress', label: 'In Progress' },
         { id: 'review', label: '🔍 Review' },
+        { id: 'validating', label: '✅ Validating' },
         { id: 'done', label: 'Done' },
         { id: 'blocked', label: 'Blocked' }
       ];
@@ -1318,7 +1321,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       document.getElementById('tdm-title').textContent = task.title;
 
       const statusColors = { todo: '#6e7681', queued: '#bc8cff', in_progress: '#58a6ff', review: '#fab387', validating: '#d29922', done: '#3fb950', blocked: '#f85149' };
-      const statusLabels = { todo: 'Todo', queued: 'Queued', in_progress: 'In Progress', review: 'Review', done: 'Done', blocked: 'Blocked' };
+      const statusLabels = { todo: 'Todo', queued: 'Queued', in_progress: 'In Progress', review: 'Review', validating: 'Validating', done: 'Done', blocked: 'Blocked' };
       const sc = statusColors[task.status] || '#6e7681';
       const prioBadge = `<span class="priority-badge prio-${task.priority}">${task.priority}</span>`;
       const statusBadge = `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${sc}22;color:${sc};border:1px solid ${sc}44">${statusLabels[task.status] || task.status}</span>`;
