@@ -95,6 +95,10 @@ app.get('/spotify-auth.html', (req, res) => res.sendFile(path.join(__dirname, 'p
 // Royal Heights prospection data (JSON)
 app.use("/data/rh", express.static(path.join(__dirname, "public", "data", "rh")));
 
+// ===== Internal Webhook Routes (no auth, localhost only) =====
+const webhookRouter = require("./routes/webhook")({ config });
+app.use(webhookRouter);
+
 // ===== Session middleware =====
 
 app.use(session({
