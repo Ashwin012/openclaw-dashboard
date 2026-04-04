@@ -523,6 +523,39 @@ function enrichProject(config, project, projectState, workerSnapshot) {
     workerRun
   });
 
+  // Claude Code Plan/Code status (replaces old OpenClaw agent display)
+  let planStatus = 'idle';
+  let codeStatus = 'idle';
+  if (!workerSnapshot) {
+    planStatus = 'down';
+    codeStatus = 'down';
+  } else if (workerRun) {
+    codeStatus = 'active';
+  }
+
+  // Find last completed task from .claude/tasks.json for activity line
+  const REVIEW_LIKE = new Set(['done', 'review', 'approved', 'rejected', 'failed', 'validating']);
+  const completedTasks = tasks.filter(t => REVIEW_LIKE.has(t.status) && (t.updatedAt || t.completedAt));
+  let lastTask = null;
+  if (completedTasks.length) {
+    const latest = completedTasks.reduce((best, t) =>
+      safeDateValue(t.updatedAt || t.completedAt) > safeDateValue(best.updatedAt || best.completedAt) ? t : best
+    );
+    lastTask = {
+      title: latest.title || latest.id,
+      status: latest.status,
+      timestamp: latest.updatedAt || latest.completedAt
+    };
+  }
+
+  const claudeCodeStatus = {
+    planStatus,
+    codeStatus,
+    currentTask: workerRun ? { id: workerRun.id, title: workerRun.title } : null,
+    lastTask,
+    pendingReviewCount: tasks.filter(t => t.status === 'review').length
+  };
+
   return {
     ...projectState,
     taskCount: tasks.filter(task => task.status !== 'done').length,
@@ -530,6 +563,7 @@ function enrichProject(config, project, projectState, workerSnapshot) {
     agents: projectAgents,
     projectAgents,
     taskAgents,
+    claudeCodeStatus,
     currentStatus
   };
 }

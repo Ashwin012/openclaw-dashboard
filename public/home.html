@@ -1662,9 +1662,42 @@
       return { label: 'À faire', bg: 'rgba(63,185,80,0.14)', color: 'var(--green)' };
     }
 
-    function renderProjectAgents(agents) {
+    function renderClaudeCodeStatus(cc) {
+      if (!cc) return '';
+      function dot(status) {
+        if (status === 'active') return { color: 'var(--accent)', bg: 'rgba(88,166,255,0.14)', border: 'rgba(88,166,255,0.33)', label: 'Actif' };
+        if (status === 'down') return { color: 'var(--red)', bg: 'rgba(248,81,73,0.14)', border: 'rgba(248,81,73,0.33)', label: 'Down' };
+        return { color: 'var(--text-muted)', bg: 'rgba(139,148,158,0.14)', border: 'rgba(139,148,158,0.33)', label: 'Idle' };
+      }
+      const plan = dot(cc.planStatus);
+      const code = dot(cc.codeStatus);
+      const taskLine = cc.currentTask
+        ? `<span style="font-size:10px;color:var(--text-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(cc.currentTask.title)}">${escHtml(cc.currentTask.title)}</span>`
+        : cc.lastTask
+          ? `<span style="font-size:10px;color:var(--text-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(cc.lastTask.title)}">${escHtml(cc.lastTask.status)}: ${escHtml(cc.lastTask.title)}</span>`
+          : '';
+      const reviewBadge = cc.pendingReviewCount > 0
+        ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:999px;background:rgba(188,140,255,0.14);color:var(--purple);font-size:10px;font-weight:600;border:1px solid rgba(188,140,255,0.33)">${cc.pendingReviewCount} review</span>`
+        : '';
+      return `
+        <span style="display:inline-flex;align-items:center;gap:8px;padding:5px 9px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border)">
+          <span style="display:inline-flex;align-items:center;gap:4px">
+            <span style="width:7px;height:7px;border-radius:50%;background:${plan.color}"></span>
+            <span style="font-size:10px;color:${plan.color};font-weight:600">Plan</span>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:4px">
+            <span style="width:7px;height:7px;border-radius:50%;background:${code.color}"></span>
+            <span style="font-size:10px;color:${code.color};font-weight:600">Code</span>
+          </span>
+          ${reviewBadge}
+        </span>
+        ${taskLine}
+      `;
+    }
+
+    function renderProjectAgents(agents, claudeCodeStatus) {
       if (!Array.isArray(agents) || !agents.length) {
-        return '<span style="font-size:11px;color:var(--text-muted)">Aucun agent OpenClaw rattaché</span>';
+        return renderClaudeCodeStatus(claudeCodeStatus);
       }
       return agents.slice(0, 3).map(agent => {
         const runtimeKind = agent.runtimeStatus || agent.statusKind;
@@ -1722,7 +1755,7 @@
               <span style="font-size:11px;color:var(--text-muted)">${escHtml(p.currentStatus?.summary || '')}</span>
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-              ${renderProjectAgents(p.agents)}
+              ${renderProjectAgents(p.agents, p.claudeCodeStatus)}
             </div>
             <div class="dev-card-stats">
               <span>📤 ${p.unpushedCount || 0} non poussés</span>

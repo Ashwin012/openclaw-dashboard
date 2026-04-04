@@ -364,9 +364,29 @@
       return { bg: 'rgba(63,185,80,0.14)', color: 'var(--green)' };
     }
 
+    function renderClaudeCodePills() {
+      const cc = projectData?.claudeCodeStatus;
+      if (!cc) return '';
+      function dot(status) {
+        if (status === 'active') return { color: 'var(--accent)', label: 'Actif' };
+        if (status === 'down') return { color: 'var(--red)', label: 'Down' };
+        return { color: 'var(--text-muted)', label: 'Idle' };
+      }
+      const plan = dot(cc.planStatus);
+      const code = dot(cc.codeStatus);
+      return `
+        <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:rgba(139,148,158,0.14);border:1px solid ${plan.color}33;font-size:11px;color:${plan.color}">
+          ${cc.planStatus === 'active' ? '●' : '○'} Plan · ${escapeHtml(plan.label)}
+        </span>
+        <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:rgba(139,148,158,0.14);border:1px solid ${code.color}33;font-size:11px;color:${code.color}">
+          ${cc.codeStatus === 'active' ? '●' : '○'} Code · ${escapeHtml(code.label)}
+        </span>
+      `;
+    }
+
     function renderProjectAgents(agents) {
       if (!Array.isArray(agents) || !agents.length) {
-        return '<span style="font-size:12px;color:var(--text-muted)">Aucun agent OpenClaw rattaché.</span>';
+        return renderClaudeCodePills();
       }
       return agents.map(agent => {
         const runtimeKind = agent.runtimeStatus || agent.statusKind || 'idle';
@@ -465,11 +485,27 @@
         : (Array.isArray(projectData?.agents) ? projectData.agents : []);
       const taskAgents = Array.isArray(projectData?.taskAgents) ? projectData.taskAgents : [];
 
+      const cc = projectData?.claudeCodeStatus;
+      const ccPlanDot = cc?.planStatus === 'active' ? 'var(--accent)' : cc?.planStatus === 'down' ? 'var(--red)' : 'var(--text-muted)';
+      const ccCodeDot = cc?.codeStatus === 'active' ? 'var(--accent)' : cc?.codeStatus === 'down' ? 'var(--red)' : 'var(--text-muted)';
+      const ccTaskLine = cc?.currentTask
+        ? `<p style="margin-top:8px;font-size:12px;color:var(--text-muted)">En cours : ${escapeHtml(cc.currentTask.title)}</p>`
+        : cc?.lastTask
+          ? `<p style="margin-top:8px;font-size:12px;color:var(--text-muted)">${escapeHtml(cc.lastTask.status)} : ${escapeHtml(cc.lastTask.title)}</p>`
+          : '';
       const emptyProjectAgentsHtml = `
         <div class="empty-state" style="padding:40px;margin-bottom:${taskAgents.length ? '16px' : '0'}">
-          <div class="icon">&#129302;</div>
-          <h3>Aucun agent OpenClaw rattaché</h3>
-          <p>Le projet n'a pas encore de rattachement explicite vers un agent OpenClaw.</p>
+          <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px">
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:${ccPlanDot}">
+              <span style="width:8px;height:8px;border-radius:50%;background:${ccPlanDot}"></span> Plan
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:${ccCodeDot}">
+              <span style="width:8px;height:8px;border-radius:50%;background:${ccCodeDot}"></span> Code
+            </span>
+          </div>
+          <h3>Claude Code</h3>
+          <p>Instances Plan et Code gérées par le worker.</p>
+          ${ccTaskLine}
         </div>`;
 
       const projectAgentsHtml = projectAgents.length ? (() => {
