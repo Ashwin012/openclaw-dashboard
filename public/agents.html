@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agents OpenClaw — Dev Dashboard</title>
+  <title>Instances Claude Code — Dev Dashboard</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#1e1e2e">
@@ -38,6 +38,7 @@
       gap: 12px;
       font-size: 13px;
       color: var(--text-muted);
+      flex-wrap: wrap;
     }
 
     .agents-stats .stat-pill {
@@ -50,25 +51,13 @@
       border-radius: 20px;
     }
 
-    .btn-add-agent {
-      padding: 6px 16px;
-      border-radius: var(--radius);
-      border: 1px solid var(--accent);
-      background: transparent;
-      color: var(--accent);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .btn-add-agent:hover { background: var(--accent); color: var(--bg); }
-
     .agents-grid {
       display: flex;
       flex-direction: column;
       gap: 14px;
     }
 
-    /* Agent Card */
+    /* Project Card */
     .agent-card {
       background: var(--bg-surface);
       border: 1px solid var(--border);
@@ -84,15 +73,9 @@
       border-bottom: 1px solid var(--border-muted, var(--border));
     }
 
-    .agent-status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
+    .agent-card-header a {
+      text-decoration: none;
     }
-    .agent-status-dot.active { background: var(--green); box-shadow: 0 0 6px rgba(63, 185, 80, 0.4); }
-    .agent-status-dot.idle   { background: var(--yellow); box-shadow: 0 0 6px rgba(210, 153, 34, 0.4); }
-    .agent-status-dot.down   { background: var(--text-muted); }
 
     .agent-name {
       font-size: 16px;
@@ -101,15 +84,7 @@
       flex: 1;
     }
 
-    .agent-id-badge {
-      font-size: 11px;
-      font-family: 'SFMono-Regular', Consolas, monospace;
-      padding: 2px 8px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--text-muted);
-    }
+    .agent-name:hover { text-decoration: underline; }
 
     .agent-status-label {
       font-size: 12px;
@@ -124,33 +99,39 @@
     .agent-card-body {
       padding: 14px 20px;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 10px;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
     }
 
-    .agent-field {
+    .instance-col {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 6px;
     }
 
-    .agent-field-label {
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-muted);
-    }
-
-    .agent-field-value {
+    .instance-col-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-size: 13px;
+      font-weight: 600;
       color: var(--text);
-      word-break: break-all;
     }
 
-    .agent-field-value.mono {
-      font-family: 'SFMono-Regular', Consolas, monospace;
-      font-size: 12px;
+    .instance-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .instance-dot.active { background: var(--green); box-shadow: 0 0 6px rgba(63, 185, 80, 0.4); }
+    .instance-dot.idle   { background: var(--yellow); box-shadow: 0 0 6px rgba(210, 153, 34, 0.4); }
+    .instance-dot.down   { background: var(--text-muted); }
+
+    .instance-activity {
+      font-size: 11px;
+      color: var(--text-muted);
+      padding-left: 16px;
     }
 
     .agent-card-footer {
@@ -163,42 +144,6 @@
       flex-wrap: wrap;
     }
 
-    .agent-projects {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .agent-project-tag {
-      font-size: 11px;
-      padding: 2px 8px;
-      background: rgba(88, 166, 255, 0.1);
-      color: var(--accent);
-      border: 1px solid rgba(88, 166, 255, 0.25);
-      border-radius: 4px;
-      text-decoration: none;
-    }
-    .agent-project-tag:hover { background: rgba(88, 166, 255, 0.2); }
-
-    .agent-actions {
-      display: flex;
-      gap: 6px;
-    }
-
-    .btn-agent-action {
-      padding: 4px 12px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text);
-      font-size: 12px;
-      cursor: pointer;
-    }
-    .btn-agent-action:hover { background: var(--bg-hover, var(--bg-surface)); }
-    .btn-agent-action.danger { color: var(--red); border-color: var(--red); }
-    .btn-agent-action.danger:hover { background: var(--red); color: #fff; }
-
     .agent-current-task {
       font-size: 12px;
       padding: 8px 20px;
@@ -207,17 +152,6 @@
       color: var(--text-muted);
     }
     .agent-current-task strong { color: var(--green); }
-
-    .agent-last-activity {
-      font-size: 12px;
-      padding: 6px 20px;
-      border-top: 1px solid var(--border-muted, var(--border));
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
 
     .agent-pending-badge {
       font-size: 10px;
@@ -235,99 +169,17 @@
       50% { opacity: 0.65; }
     }
 
-    /* Modal */
-    .agent-modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      z-index: 200;
-      justify-content: center;
-      align-items: center;
-    }
-    .agent-modal-overlay.open { display: flex; }
-
-    .agent-modal-box {
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      width: 90%;
-      max-width: 500px;
-      padding: 24px;
-    }
-
-    .agent-modal-title {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 16px;
-      color: var(--text);
-    }
-
-    .agent-form-group {
-      margin-bottom: 14px;
-    }
-
-    .agent-form-group label {
-      display: block;
-      font-size: 12px;
+    .review-badge {
+      font-size: 11px;
       font-weight: 600;
-      color: var(--text-muted);
-      margin-bottom: 4px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(210, 153, 34, 0.12);
+      color: var(--yellow);
+      border: 1px solid rgba(210, 153, 34, 0.3);
+      text-decoration: none;
     }
-
-    .agent-form-group input,
-    .agent-form-group select {
-      width: 100%;
-      padding: 8px 12px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text);
-      font-size: 13px;
-      box-sizing: border-box;
-    }
-
-    .agent-form-group input:focus,
-    .agent-form-group select:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .agent-modal-actions {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-      margin-top: 20px;
-    }
-
-    .btn-modal-cancel {
-      padding: 6px 16px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 13px;
-      cursor: pointer;
-    }
-
-    .btn-modal-save {
-      padding: 6px 16px;
-      border-radius: var(--radius);
-      border: 1px solid var(--accent);
-      background: var(--accent);
-      color: var(--bg);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .btn-modal-save:hover { opacity: 0.9; }
-
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: var(--text-muted);
-      font-size: 14px;
-    }
+    .review-badge:hover { background: rgba(210, 153, 34, 0.22); }
 
     .worker-offline-banner {
       display: flex;
@@ -343,6 +195,13 @@
     }
     .worker-offline-banner strong { color: var(--text); }
 
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
     @media (max-width: 768px) {
       .agent-card-body { grid-template-columns: 1fr; }
     }
@@ -353,10 +212,9 @@
 <main class="agents-main">
     <div class="agents-header">
       <div>
-        <div class="agents-title">Agents OpenClaw</div>
+        <div class="agents-title">Instances Claude Code</div>
         <div class="agents-stats" id="agentsStats"></div>
       </div>
-      <button class="btn-add-agent" id="btnAddAgent">+ Nouvel agent</button>
     </div>
     <div id="workerBanner"></div>
     <div class="agents-grid" id="agentsGrid">
@@ -364,78 +222,10 @@
     </div>
   </main>
 
-  <!-- Add/Edit Modal -->
-  <div class="agent-modal-overlay" id="agentModal">
-    <div class="agent-modal-box">
-      <div class="agent-modal-title" id="modalTitle">Nouvel agent</div>
-      <form id="agentForm">
-        <input type="hidden" id="formMode" value="create">
-        <input type="hidden" id="formOriginalId" value="">
-        <div class="agent-form-group">
-          <label for="formId">ID</label>
-          <input type="text" id="formId" placeholder="mon-agent" required>
-        </div>
-        <div class="agent-form-group">
-          <label for="formName">Nom</label>
-          <input type="text" id="formName" placeholder="Mon Agent">
-        </div>
-        <div class="agent-form-group">
-          <label for="formEngine">Engine</label>
-          <select id="formEngine">
-            <option value="">Auto (inféré du modèle)</option>
-            <option value="claude">Claude</option>
-            <option value="openrouter">OpenRouter</option>
-            <option value="ollama">Ollama</option>
-            <option value="codex">Codex</option>
-          </select>
-        </div>
-        <div class="agent-form-group">
-          <label for="formModel">Model</label>
-          <input type="text" id="formModel" placeholder="claude-sonnet-4-6">
-        </div>
-        <div class="agent-form-group">
-          <label for="formThinking">Thinking</label>
-          <select id="formThinking">
-            <option value="">Auto (défaut global)</option>
-            <option value="auto">auto</option>
-            <option value="low">low</option>
-            <option value="medium">medium</option>
-            <option value="high">high</option>
-          </select>
-        </div>
-        <div class="agent-form-group">
-          <label for="formWorkspace">Workspace Path</label>
-          <input type="text" id="formWorkspace" placeholder="/home/openclaw/projects/...">
-        </div>
-        <div class="agent-modal-actions">
-          <button type="button" class="btn-modal-cancel" id="btnCancelModal">Annuler</button>
-          <button type="submit" class="btn-modal-save">Enregistrer</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Delete Confirm Modal -->
-  <div class="agent-modal-overlay" id="deleteModal">
-    <div class="agent-modal-box">
-      <div class="agent-modal-title">Supprimer l'agent</div>
-      <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
-        Confirmer la suppression de l'agent <strong id="deleteAgentName" style="color: var(--red);"></strong> ?
-        Il sera aussi retire des projets associes.
-      </p>
-      <div class="agent-modal-actions">
-        <button type="button" class="btn-modal-cancel" id="btnCancelDelete">Annuler</button>
-        <button type="button" class="btn-modal-save" id="btnConfirmDelete" style="background: var(--red); border-color: var(--red);">Supprimer</button>
-      </div>
-    </div>
-  </div>
-
   <script src="/js/common.js"></script>
   <script>
-    let agents = [];
-    let agentDefaults = { thinkingDefault: 'auto' };
+    let projects = [];
     let workerStatus = null;
-    let deleteTargetId = null;
 
     function timeAgo(isoDate) {
       if (!isoDate) return '';
@@ -459,39 +249,16 @@
       } catch { return isoDate; }
     }
 
-    function getThinkingBadge(thinking, isDefault) {
-      const colors = { auto: 'var(--text-muted)', low: 'var(--text-muted)', medium: 'var(--yellow)', high: 'var(--purple)' };
-      const color = colors[thinking] || 'var(--text-muted)';
-      const suffix = isDefault ? ' <span style="font-size:10px;opacity:0.6">(défaut)</span>' : '';
-      return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};font-size:11px;font-weight:600;border:1px solid ${color}44">${escapeHtml(thinking)}${suffix}</span>`;
-    }
-
-    function getEngineBadge(engine, model, isInferred) {
-      const e = (engine || '').toLowerCase();
-      const m = (model || '').toLowerCase();
-      // Claude model routed via OpenRouter (anthropic/ prefix = OpenRouter format)
-      const isClaudeViaOR = e === 'openrouter' && (m.startsWith('anthropic/') || (!m.includes('/') && m.startsWith('claude-')));
-      const map = {
-        claude:      { color: 'var(--accent)',  label: 'Claude' },
-        api:         { color: 'var(--accent)',  label: 'API' },
-        openrouter:  { color: 'var(--yellow)',  label: isClaudeViaOR ? 'Claude · OR' : 'OpenRouter' },
-        ollama:      { color: 'var(--green)',   label: 'Ollama' },
-        codex:       { color: 'var(--purple)',  label: 'Codex' },
-      };
-      const { color, label } = map[e] || { color: 'var(--text-muted)', label: escapeHtml(engine || e) };
-      // Don't show 'auto' for claude — the claude- model prefix is unambiguous
-      const autoSuffix = (isInferred && e !== 'claude') ? ` <span style="opacity:0.5;font-size:10px;font-weight:400">auto</span>` : '';
-      return `<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};font-size:11px;font-weight:600;border:1px solid ${color}44">${label}${autoSuffix}</span>`;
+    function getOverallStatus(p) {
+      if (p.codeStatus === 'active' || p.planStatus === 'active') return 'active';
+      if (p.codeStatus === 'idle' || p.planStatus === 'idle') return 'idle';
+      return 'down';
     }
 
     function renderStats() {
-      const total = agents.length;
-      const active = agents.filter(a => a.statusKind === 'active').length;
-      const idle = agents.filter(a => a.statusKind === 'idle').length;
-      const down = agents.filter(a => a.statusKind === 'down').length;
-      const td = agentDefaults.thinkingDefault || 'auto';
-      const tdColors = { auto: 'var(--text-muted)', low: 'var(--text-muted)', medium: 'var(--yellow)', high: 'var(--purple)' };
-      const tdColor = tdColors[td] || 'var(--text-muted)';
+      const total = projects.length;
+      const active = projects.filter(p => getOverallStatus(p) === 'active').length;
+      const idle = projects.filter(p => getOverallStatus(p) === 'idle').length;
       let slotsPill = '';
       if (workerStatus) {
         const slotsColor = workerStatus.count >= (workerStatus.maxConcurrency || Infinity) ? 'var(--red)' : workerStatus.count > 0 ? 'var(--yellow)' : 'var(--green)';
@@ -501,362 +268,155 @@
         slotsPill = `<span class="stat-pill"><span style="color:var(--text-muted)">worker offline</span></span>`;
       }
       document.getElementById('agentsStats').innerHTML =
-        `<span class="stat-pill"><span style="color:var(--text)">${total}</span> agents</span>` +
+        `<span class="stat-pill"><span style="color:var(--text)">${total}</span> projets</span>` +
         `<span class="stat-pill"><span style="color:var(--green)">${active}</span> actifs</span>` +
         `<span class="stat-pill"><span style="color:var(--yellow)">${idle}</span> idle</span>` +
-        `<span class="stat-pill"><span style="color:var(--text-muted)">${down}</span> down</span>` +
-        slotsPill +
-        `<span class="stat-pill" title="Niveau de thinking par défaut (agents.defaults.thinkingDefault)">thinking: <span style="color:${tdColor};font-weight:600">${escapeHtml(td)}</span></span>`;
+        slotsPill;
     }
 
     function renderWorkerBanner() {
       const banner = document.getElementById('workerBanner');
       if (!workerStatus) {
         banner.innerHTML = `<div class="worker-offline-banner">
-          <span style="font-size:16px">⚠</span>
-          <span><strong>Worker hors ligne</strong> — Impossible de joindre le worker (port 8091). Les statuts affichés (Down) reflètent l'inaccessibilité du worker, pas l'état réel des agents.</span>
+          <span style="font-size:16px">&#9888;</span>
+          <span><strong>Worker hors ligne</strong> — Impossible de joindre le worker (port 8091). Les statuts affichés reflètent l'inaccessibilité du worker.</span>
         </div>`;
       } else {
         banner.innerHTML = '';
       }
     }
 
-    function renderAgents() {
+    function buildActivityLine(p) {
+      // Pick most recent activity source
+      const candidates = [];
+      if (p.lastActivity && p.lastActivity.timestamp)
+        candidates.push({ kind: 'notification', ts: new Date(p.lastActivity.timestamp).getTime(), d: p.lastActivity });
+      if (p.projectLastTask && p.projectLastTask.timestamp)
+        candidates.push({ kind: 'task', ts: new Date(p.projectLastTask.timestamp).getTime(), d: p.projectLastTask });
+      if (p.gitLastCommit && p.gitLastCommit.timestamp)
+        candidates.push({ kind: 'git', ts: new Date(p.gitLastCommit.timestamp).getTime(), d: p.gitLastCommit });
+      if (p.lastKnownActivity && p.lastKnownActivity.timestamp)
+        candidates.push({ kind: 'inprogress', ts: new Date(p.lastKnownActivity.timestamp).getTime(), d: p.lastKnownActivity });
+      if (!candidates.length) return '<span style="font-style:italic">Aucune activité</span>';
+
+      const ACTIONABLE = new Set(['review', 'validating']);
+      const actionable = candidates.filter(c =>
+        (c.kind === 'notification' || c.kind === 'task') && ACTIONABLE.has(c.d.status)
+      );
+      const best = actionable.length > 0
+        ? actionable.reduce((a, b) => a.ts >= b.ts ? a : b)
+        : candidates.reduce((a, b) => a.ts >= b.ts ? a : b);
+
+      if (best.kind === 'inprogress') {
+        const lk = best.d;
+        return `<span style="color:var(--accent)">en cours</span> ${escapeHtml(lk.taskTitle || '?')} <span style="font-size:10px" title="${fmtTimestamp(lk.timestamp)}">${timeAgo(lk.timestamp)}</span>`;
+      } else if (best.kind === 'notification' || best.kind === 'task') {
+        const item = best.d;
+        const statusColor = item.status === 'done' || item.status === 'approved' ? 'var(--green)'
+          : item.status === 'rejected' || item.status === 'failed' ? 'var(--red)'
+          : item.status === 'review' || item.status === 'validating' ? 'var(--yellow)'
+          : 'var(--text-muted)';
+        const commitEl = item.commitSha ? ` <span style="font-family:monospace;font-size:10px">${escapeHtml(item.commitSha)}</span>` : '';
+        return `<span style="color:${statusColor};font-weight:600">${escapeHtml(item.status)}</span> ${escapeHtml(item.taskTitle || '?')}${commitEl} <span style="font-size:10px" title="${fmtTimestamp(item.timestamp)}">${timeAgo(item.timestamp)}</span>`;
+      } else {
+        const gc = best.d;
+        return `<span style="font-weight:600">git</span> <span style="font-family:monospace;font-size:10px">${escapeHtml(gc.hash)}</span> ${escapeHtml(gc.message)} <span style="font-size:10px" title="${fmtTimestamp(gc.timestamp)}">${timeAgo(gc.timestamp)}</span>`;
+      }
+    }
+
+    function renderProjects() {
       const grid = document.getElementById('agentsGrid');
       renderWorkerBanner();
-      if (!agents.length) {
-        grid.innerHTML = '<div class="empty-state">Aucun agent configure</div>';
+      if (!projects.length) {
+        grid.innerHTML = '<div class="empty-state">Aucun projet configuré</div>';
         renderStats();
         return;
       }
 
-      const statusOrder = { active: 0, idle: 1, down: 2 };
-      const sorted = [...agents].sort((a, b) => {
-        // Agents awaiting an answer bubble to the very top
+      // Sort: active > has reviews > idle > down
+      const sorted = [...projects].sort((a, b) => {
         const aPending = a.currentTask?.pendingQuestion ? 1 : 0;
         const bPending = b.currentTask?.pendingQuestion ? 1 : 0;
         if (aPending !== bPending) return bPending - aPending;
-        const sa = statusOrder[a.statusKind] ?? 3;
-        const sb = statusOrder[b.statusKind] ?? 3;
+        const statusOrder = { active: 0, idle: 1, down: 2 };
+        const sa = statusOrder[getOverallStatus(a)] ?? 3;
+        const sb = statusOrder[getOverallStatus(b)] ?? 3;
         if (sa !== sb) return sa - sb;
+        const ra = a.pendingReviewCount || 0;
+        const rb = b.pendingReviewCount || 0;
+        if (ra !== rb) return rb - ra;
         return (a.name || '').localeCompare(b.name || '');
       });
 
-      grid.innerHTML = sorted.map(a => {
-        const sk = a.statusKind || 'down';
-        const projectTags = (a.linkedProjects || []).map(p =>
-          `<a href="/project.html?id=${encodeURIComponent(p.id)}" class="agent-project-tag">${escapeHtml(p.name)}</a>`
-        ).join('');
+      grid.innerHTML = sorted.map(p => {
+        const overall = getOverallStatus(p);
+        const overallLabel = overall === 'active' ? 'Active' : overall === 'idle' ? 'Idle' : 'Down';
+        const hasPending = !!p.currentTask?.pendingQuestion;
 
-        const hasPending = !!a.currentTask?.pendingQuestion;
-
-        const taskRow = a.currentTask
+        const taskRow = p.currentTask
           ? (() => {
-              const t = a.currentTask;
-              const dur = t.durationMin > 0 ? ` <span style="color:var(--text-muted)" title="${fmtTimestamp(t.startedAt)}">${t.durationMin}min</span>` : (t.startedAt ? ` <span style="color:var(--text-muted);font-size:11px" title="${fmtTimestamp(t.startedAt)}">depuis ${timeAgo(t.startedAt)}</span>` : '');
-              const projLabel = t.projectName || t.projectId;
-              const proj = t.projectId ? ` <a href="/project.html?id=${encodeURIComponent(t.projectId)}" style="color:var(--accent);text-decoration:none;font-size:11px">[${escapeHtml(projLabel)}]</a>` : '';
+              const t = p.currentTask;
+              const dur = t.startedAt ? ` <span style="color:var(--text-muted);font-size:11px" title="${fmtTimestamp(t.startedAt)}">depuis ${timeAgo(t.startedAt)}</span>` : '';
+              const engineBadge = t.engine ? ` <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--accent)22;color:var(--accent);border:1px solid var(--accent)44">${escapeHtml(t.engine)}</span>` : '';
               const pending = t.pendingQuestion
-                ? `<div style="margin-top:4px;padding:4px 8px;background:rgba(210,153,34,0.1);border:1px solid rgba(210,153,34,0.3);border-radius:4px;color:var(--yellow);font-size:11px">⚠ En attente: ${escapeHtml(typeof t.pendingQuestion === 'object' ? (t.pendingQuestion.question || JSON.stringify(t.pendingQuestion)) : t.pendingQuestion)}</div>`
+                ? `<div style="margin-top:4px;padding:4px 8px;background:rgba(210,153,34,0.1);border:1px solid rgba(210,153,34,0.3);border-radius:4px;color:var(--yellow);font-size:11px">En attente: ${escapeHtml(typeof t.pendingQuestion === 'object' ? (t.pendingQuestion.question || JSON.stringify(t.pendingQuestion)) : t.pendingQuestion)}</div>`
                 : '';
-              const engineBadge = t.engine ? ` <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--accent)22;color:var(--accent);border:1px solid var(--accent)44;opacity:0.8">${escapeHtml(t.engine)}</span>` : '';
-              const reviewBadge = (a.pendingReviewCount || 0) > 0
-                ? ` <a href="/project.html?id=${encodeURIComponent(t.projectId || '')}" style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:8px;background:var(--yellow)22;color:var(--yellow);border:1px solid var(--yellow)44;text-decoration:none" title="${a.pendingReviewCount} tâche(s) en attente de review">⚑ ${a.pendingReviewCount} en review</a>`
-                : '';
-              return `<div class="agent-current-task"><strong>Tâche active:</strong> ${escapeHtml(t.title || t.id)}${proj}${dur}${engineBadge}${reviewBadge}${pending}</div>`;
+              return `<div class="agent-current-task"><strong>Tâche active:</strong> ${escapeHtml(t.title || t.id)}${dur}${engineBadge}${pending}</div>`;
             })()
           : '';
 
-        const lastActivityRow = !a.currentTask
-          ? (() => {
-              // Pick the most recent source across all: notification, task, git commit, last known in_progress
-              const candidates = [];
-              if (a.lastActivity && a.lastActivity.timestamp)
-                candidates.push({ kind: 'notification', ts: new Date(a.lastActivity.timestamp).getTime(), d: a.lastActivity });
-              if (a.projectLastTask && a.projectLastTask.timestamp)
-                candidates.push({ kind: 'task', ts: new Date(a.projectLastTask.timestamp).getTime(), d: a.projectLastTask });
-              if (a.gitLastCommit && a.gitLastCommit.timestamp)
-                candidates.push({ kind: 'git', ts: new Date(a.gitLastCommit.timestamp).getTime(), d: a.gitLastCommit });
-              if (a.lastKnownActivity && a.lastKnownActivity.timestamp)
-                candidates.push({ kind: 'inprogress', ts: new Date(a.lastKnownActivity.timestamp).getTime(), d: a.lastKnownActivity });
-              if (!candidates.length) {
-                return `<div class="agent-last-activity"><span style="color:var(--text-muted);font-size:11px;font-style:italic">Aucune activité récente</span></div>`;
-              }
-              // Prioritize actionable statuses (review/validating) over git commits
-              const ACTIONABLE = new Set(['review', 'validating']);
-              const actionable = candidates.filter(c =>
-                (c.kind === 'notification' || c.kind === 'task') && ACTIONABLE.has(c.d.status)
-              );
-              const best = actionable.length > 0
-                ? actionable.reduce((a, b) => a.ts >= b.ts ? a : b)
-                : candidates.reduce((a, b) => a.ts >= b.ts ? a : b);
-              if (best.kind === 'inprogress') {
-                const lk = best.d;
-                const projTag = lk.projectId
-                  ? `<a href="/project.html?id=${encodeURIComponent(lk.projectId)}" class="agent-project-tag" style="font-size:10px;padding:1px 7px">${escapeHtml(lk.projectName || lk.projectId)}</a>`
-                  : (lk.projectName ? `<span style="font-size:10px;color:var(--text-muted)">${escapeHtml(lk.projectName)}</span>` : '');
-                const titleEl = lk.projectId
-                  ? `<a href="/project.html?id=${encodeURIComponent(lk.projectId)}" style="color:var(--text-muted);text-decoration:none;font-style:italic">${escapeHtml(lk.taskTitle || lk.taskId || '?')}</a>`
-                  : `<span style="color:var(--text-muted);font-style:italic">${escapeHtml(lk.taskTitle || lk.taskId || '?')}</span>`;
-                const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lk.taskId || '');
-                const taskIdSpan = lk.taskId && !isUuid ? `<span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(lk.taskId)}</span>` : '';
-                return `<div class="agent-last-activity">
-                  <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--accent)22;color:var(--accent);border:1px solid var(--accent)44;white-space:nowrap">🔄 en cours</span>
-                  ${titleEl}
-                  ${taskIdSpan}
-                  <span style="color:var(--text-muted);font-size:11px" title="${fmtTimestamp(lk.timestamp)}">${timeAgo(lk.timestamp)}</span>
-                  ${projTag}
-                </div>`;
-              } else if (best.kind === 'notification' || best.kind === 'task') {
-                const item = best.d;
-                const statusColor = item.status === 'done' || item.status === 'approved' ? 'var(--green)'
-                  : item.status === 'rejected' || item.status === 'failed' ? 'var(--red)'
-                  : item.status === 'review' || item.status === 'validating' ? 'var(--yellow)'
-                  : 'var(--text-muted)';
-                const statusBadge = `<span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;white-space:nowrap" title="${escapeHtml(item.message || item.status)}">${escapeHtml(item.status)}</span>`;
-                const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.taskId || '');
-                const taskIdSpan = item.taskId && !isUuid ? `<span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(item.taskId)}</span>` : '';
-                const extraReview = (item.reviewPendingCount || 0) > 1
-                  ? ` <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--yellow)22;color:var(--yellow);border:1px solid var(--yellow)44" title="${item.reviewPendingCount} tâches en attente de review">+${item.reviewPendingCount - 1} en review</span>`
-                  : '';
-                const projTag = item.projectId
-                  ? `<a href="/project.html?id=${encodeURIComponent(item.projectId)}" class="agent-project-tag" style="font-size:10px;padding:1px 7px">${escapeHtml(item.projectName || item.projectId)}</a>`
-                  : (item.projectName ? `<span style="font-size:10px;color:var(--text-muted)">${escapeHtml(item.projectName)}</span>` : '');
-                const titleEl = item.projectId
-                  ? `<a href="/project.html?id=${encodeURIComponent(item.projectId)}" style="color:${statusColor};text-decoration:none">${escapeHtml(item.taskTitle || item.taskId || '?')}</a>`
-                  : `<span style="color:${statusColor}">${escapeHtml(item.taskTitle || item.taskId || '?')}</span>`;
-                const commitEl = item.commitSha
-                  ? `<span style="font-family:monospace;font-size:10px;color:var(--text-muted)" title="commit SHA">${escapeHtml(item.commitSha)}</span>`
-                  : '';
-                const summaryFirst = item.lastCoderSummary
-                  ? (item.lastCoderSummary.split('\n').find(l => l.trim()) || '')
-                  : '';
-                const summaryEl = summaryFirst
-                  ? `<div style="width:100%;padding-top:2px;font-size:11px;color:var(--text-muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(summaryFirst)}">${escapeHtml(summaryFirst.substring(0, 100))}</div>`
-                  : '';
-                return `<div class="agent-last-activity">
-                  ${statusBadge}
-                  ${titleEl}
-                  ${taskIdSpan}
-                  ${commitEl}
-                  ${extraReview}
-                  <span style="color:var(--text-muted);font-size:11px" title="${fmtTimestamp(item.timestamp)}">${timeAgo(item.timestamp)}</span>
-                  ${projTag}
-                  ${summaryEl}
-                </div>`;
-              } else {
-                const gc = best.d;
-                const gcProjTag = gc.projectId
-                  ? `<a href="/project.html?id=${encodeURIComponent(gc.projectId)}" class="agent-project-tag" style="font-size:10px;padding:1px 7px">${escapeHtml(gc.projectName || gc.projectId)}</a>`
-                  : (gc.projectName ? `<span style="font-size:10px;color:var(--text-muted)">${escapeHtml(gc.projectName)}</span>` : '');
-                const gcAgeDays = (Date.now() - best.ts) / 86400000;
-                const gcMsgColor = gcAgeDays > 7 ? 'var(--text-muted)' : 'var(--text)';
-                const gcTitleEl = gc.projectId
-                  ? `<a href="/project.html?id=${encodeURIComponent(gc.projectId)}" style="color:${gcMsgColor};text-decoration:none;font-size:12px">${escapeHtml(gc.message)}</a>`
-                  : `<span style="color:${gcMsgColor};font-size:12px">${escapeHtml(gc.message)}</span>`;
-                return `<div class="agent-last-activity">
-                  <span style="color:var(--text-muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">git</span>
-                  <span style="font-family:monospace;font-size:10px;color:var(--text-muted)">${escapeHtml(gc.hash)}</span>
-                  ${gcTitleEl}
-                  <span style="color:var(--text-muted);font-size:11px" title="${fmtTimestamp(gc.timestamp)}">${timeAgo(gc.timestamp)}</span>
-                  ${gcProjTag}
-                </div>`;
-              }
-            })()
-          : '';
+        const activityLine = !p.currentTask ? buildActivityLine(p) : '';
 
-        const workspaceHtml = (() => {
-          if (!a.workspacePath) {
-            return '<span style="color:var(--text-muted)">—</span>';
-          }
-          const missing = a.workspaceExists === false ? ' <span style="color:var(--red)" title="Chemin introuvable">(absent)</span>' : '';
-          // Show workspace source badge when auto-resolved (not explicitly configured)
-          const srcBadge = a.workspaceSource !== 'explicit'
-            ? ` <span style="font-size:9px;color:var(--text-muted);opacity:0.7" title="Workspace résolu automatiquement depuis le projet lié">auto</span>`
-            : '';
-          if (a.workspaceProjectName && a.workspaceProjectId) {
-            const extraNames = Array.isArray(a.workspaceExtraProjectNames) && a.workspaceExtraProjectNames.length
-              ? a.workspaceExtraProjectNames.join(', ')
-              : (a.workspaceExtraProjects > 0 ? `+${a.workspaceExtraProjects} projet(s)` : '');
-            const extra = (() => {
-              if (!a.workspaceExtraProjects) return '';
-              const names = Array.isArray(a.workspaceExtraProjectNames) ? a.workspaceExtraProjectNames : [];
-              const links = names.map(name => {
-                const proj = (a.linkedProjects || []).find(p => p.name === name);
-                return proj
-                  ? `<a href="/project.html?id=${encodeURIComponent(proj.id)}" class="agent-project-tag" style="font-size:10px;padding:1px 7px">${escapeHtml(name)}</a>`
-                  : `<span style="font-size:10px;color:var(--text-muted)">${escapeHtml(name)}</span>`;
-              });
-              return links.length ? ' ' + links.join(' ') : '';
-            })();
-            return `<a href="/project.html?id=${encodeURIComponent(a.workspaceProjectId)}" style="color:var(--accent);text-decoration:none" title="${escapeHtml(a.workspacePath)}">${escapeHtml(a.workspaceProjectName)}</a>${extra}${srcBadge}${missing}`;
-          }
-          const shortPath = escapeHtml(a.workspacePath.split('/').filter(Boolean).slice(-2).join('/') || a.workspacePath);
-          return `<span style="font-family:monospace;font-size:12px" title="${escapeHtml(a.workspacePath)}">${shortPath}</span>${srcBadge}${missing}`;
-        })();
+        const reviewBadge = (p.pendingReviewCount || 0) > 0
+          ? `<a href="/project.html?id=${encodeURIComponent(p.id)}" class="review-badge" title="${p.pendingReviewCount} tâche(s) en attente de review">${p.pendingReviewCount} en review</a>`
+          : '';
 
         return `<div class="agent-card">
           <div class="agent-card-header">
-            <div class="agent-status-dot ${sk}"></div>
-            <div class="agent-name">${escapeHtml(a.name)}</div>
-            ${hasPending ? '<span class="agent-pending-badge">⚠ Réponse requise</span>' : ''}
-            <span class="agent-id-badge">${escapeHtml(a.id)}</span>
-            <span class="agent-status-label ${sk}">${escapeHtml(a.statusLabel || sk)}</span>
+            <a href="/project.html?id=${encodeURIComponent(p.id)}" class="agent-name">${escapeHtml(p.name)}</a>
+            ${hasPending ? '<span class="agent-pending-badge">Réponse requise</span>' : ''}
+            ${reviewBadge}
+            <span class="agent-status-label ${overall}">${escapeHtml(overallLabel)}</span>
           </div>
           <div class="agent-card-body">
-            <div class="agent-field">
-              <div class="agent-field-label">Engine</div>
-              <div class="agent-field-value">${getEngineBadge(a.engine, a.model, a.engineIsInferred)}</div>
-            </div>
-            <div class="agent-field">
-              <div class="agent-field-label">Model</div>
-              <div class="agent-field-value mono">${escapeHtml((a.model || '-').replace(/^anthropic\//, ''))}</div>
-            </div>
-            <div class="agent-field">
-              <div class="agent-field-label">Thinking</div>
-              <div class="agent-field-value">${getThinkingBadge(a.effectiveThinking || 'auto', a.thinkingIsDefault !== false)}</div>
-            </div>
-            <div class="agent-field">
-              <div class="agent-field-label">Workspace</div>
-              <div class="agent-field-value">
-                ${workspaceHtml}
+            <div class="instance-col">
+              <div class="instance-col-header">
+                <div class="instance-dot ${p.planStatus}"></div>
+                Plan
               </div>
+              <div class="instance-activity">—</div>
+            </div>
+            <div class="instance-col">
+              <div class="instance-col-header">
+                <div class="instance-dot ${p.codeStatus}"></div>
+                Code
+              </div>
+              <div class="instance-activity">${p.currentTask ? escapeHtml(p.currentTask.title || '...') : '—'}</div>
             </div>
           </div>
           ${taskRow}
-          ${lastActivityRow}
-          <div class="agent-card-footer">
-            <div class="agent-projects">${projectTags || '<span style="font-size:11px;color:var(--text-muted)">Aucun projet</span>'}</div>
-            <div class="agent-actions">
-              <button class="btn-agent-action" onclick="openEditModal('${escapeHtml(a.id)}')">Modifier</button>
-              <button class="btn-agent-action danger" onclick="openDeleteModal('${escapeHtml(a.id)}')">Supprimer</button>
-            </div>
-          </div>
+          ${!p.currentTask ? `<div class="agent-card-footer">${activityLine}</div>` : ''}
         </div>`;
-      }).join(''); // sorted
+      }).join('');
       renderStats();
     }
 
-    async function loadAgents() {
+    async function loadProjects() {
       try {
         const res = await fetch('/api/agents');
-        if (!res.ok) throw new Error('Erreur chargement agents');
+        if (!res.ok) throw new Error('Erreur chargement');
         const data = await res.json();
-        agents = Array.isArray(data) ? data : (data.agents || []);
-        agentDefaults = data.defaults || { thinkingDefault: 'auto' };
+        projects = Array.isArray(data.projects) ? data.projects : [];
         workerStatus = data.workerStatus || null;
-        renderAgents();
+        renderProjects();
       } catch (err) {
         document.getElementById('agentsGrid').innerHTML = `<div class="empty-state" style="color:var(--red)">Erreur: ${escapeHtml(err.message)}</div>`;
       }
     }
 
-    // Modal logic
-    const modal = document.getElementById('agentModal');
-    const deleteModalEl = document.getElementById('deleteModal');
-
-    document.getElementById('btnAddAgent').addEventListener('click', () => {
-      document.getElementById('formMode').value = 'create';
-      document.getElementById('formOriginalId').value = '';
-      document.getElementById('modalTitle').textContent = 'Nouvel agent';
-      document.getElementById('formId').value = '';
-      document.getElementById('formId').disabled = false;
-      document.getElementById('formName').value = '';
-      document.getElementById('formEngine').value = '';
-      document.getElementById('formModel').value = 'claude-sonnet-4-6';
-      document.getElementById('formThinking').value = '';
-      document.getElementById('formWorkspace').value = '';
-      modal.classList.add('open');
-    });
-
-    function openEditModal(agentId) {
-      const a = agents.find(x => x.id === agentId);
-      if (!a) return;
-      document.getElementById('formMode').value = 'edit';
-      document.getElementById('formOriginalId').value = a.id;
-      document.getElementById('modalTitle').textContent = 'Modifier ' + a.name;
-      document.getElementById('formId').value = a.id;
-      document.getElementById('formId').disabled = true;
-      document.getElementById('formName').value = a.name || '';
-      document.getElementById('formEngine').value = a.engineIsInferred ? '' : (a.engine || '');
-      document.getElementById('formModel').value = a.model || '';
-      document.getElementById('formThinking').value = a.thinkingIsDefault ? '' : (a.effectiveThinking || '');
-      document.getElementById('formWorkspace').value = a.workspaceSource === 'explicit' ? (a.workspacePath || '') : '';
-      modal.classList.add('open');
-    }
-
-    function openDeleteModal(agentId) {
-      const a = agents.find(x => x.id === agentId);
-      if (!a) return;
-      deleteTargetId = agentId;
-      document.getElementById('deleteAgentName').textContent = a.name;
-      deleteModalEl.classList.add('open');
-    }
-
-    document.getElementById('btnCancelModal').addEventListener('click', () => modal.classList.remove('open'));
-    document.getElementById('btnCancelDelete').addEventListener('click', () => deleteModalEl.classList.remove('open'));
-
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
-    deleteModalEl.addEventListener('click', (e) => { if (e.target === deleteModalEl) deleteModalEl.classList.remove('open'); });
-
-    document.getElementById('agentForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const mode = document.getElementById('formMode').value;
-      const payload = {
-        id: document.getElementById('formId').value.trim(),
-        name: document.getElementById('formName').value.trim(),
-        engine: document.getElementById('formEngine').value,
-        model: document.getElementById('formModel').value.trim(),
-        thinking: document.getElementById('formThinking').value,
-        workspacePath: document.getElementById('formWorkspace').value.trim()
-      };
-
-      try {
-        let res;
-        if (mode === 'create') {
-          res = await fetch('/api/agents', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-        } else {
-          const origId = document.getElementById('formOriginalId').value;
-          res = await fetch('/api/agents/' + encodeURIComponent(origId), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-        }
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || 'Erreur');
-        }
-        modal.classList.remove('open');
-        showToast(mode === 'create' ? 'Agent cree' : 'Agent mis a jour', 'success');
-        await loadAgents();
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    });
-
-    document.getElementById('btnConfirmDelete').addEventListener('click', async () => {
-      if (!deleteTargetId) return;
-      try {
-        const res = await fetch('/api/agents/' + encodeURIComponent(deleteTargetId), { method: 'DELETE' });
-        if (!res.ok) throw new Error('Erreur suppression');
-        deleteModalEl.classList.remove('open');
-        showToast('Agent supprime', 'success');
-        deleteTargetId = null;
-        await loadAgents();
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    });
-
-    // Init
     initCommon(() => {
-      loadAgents();
-      createSmartInterval(loadAgents, 15000);
+      loadProjects();
+      createSmartInterval(loadProjects, 15000);
     });
   </script>
 </body>
