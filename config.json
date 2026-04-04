@@ -117,7 +117,8 @@
       "engine": "claude",
       "openclawAgentIds": [
         "openclaw-dashboard",
-        "main"
+        "main",
+        "dj"
       ]
     },
     {
@@ -272,19 +273,19 @@
     {
       "id": "royal-heights",
       "name": "Royal Heights Prospection",
-      "model": "anthropic/claude-sonnet-4-6",
+      "model": "claude-sonnet-4-6",
       "thinking": "medium"
     },
     {
       "id": "royal-heights-marketing",
       "name": "Royal Heights Marketing",
-      "model": "anthropic/claude-sonnet-4-6",
+      "model": "claude-sonnet-4-6",
       "thinking": "medium"
     },
     {
       "id": "champion-spirit-staging-analytics",
       "name": "CS Staging Analytics",
-      "model": "anthropic/claude-sonnet-4-6",
+      "model": "claude-sonnet-4-6",
       "thinking": "medium"
     },
     {

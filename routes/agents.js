@@ -433,6 +433,11 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
               taskId: latest.id,
               status: latest.status,
               timestamp: latest.updatedAt || latest.completedAt,
+              lastCoderSummary: latest.lastCoderSummary || null,
+              lastCoderEngine: latest.lastCoderEngine || (typeof latest.engine === 'string' ? latest.engine : null) || null,
+              lastCoderModel: latest.lastCoderModel || (typeof latest.model === 'string' ? latest.model : null) || null,
+              commitSha: latest.commitSha ? latest.commitSha.substring(0, 8) : (latest.lastCoderCommit ? latest.lastCoderCommit.substring(0, 8) : null),
+              createdBy: latest.createdBy || null,
             };
             projectReviewCountMap[p] = candidates.filter(t => REVIEW_STATUSES.has(t.status)).length;
           } catch { /* ignore: file may not exist */ }

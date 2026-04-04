@@ -478,7 +478,8 @@
         codex:       { color: 'var(--purple)',  label: 'Codex' },
       };
       const { color, label } = map[e] || { color: 'var(--text-muted)', label: escapeHtml(engine || e) };
-      const autoSuffix = isInferred ? ` <span style="opacity:0.5;font-size:10px;font-weight:400">auto</span>` : '';
+      // Don't show 'auto' for claude — the claude- model prefix is unambiguous
+      const autoSuffix = (isInferred && e !== 'claude') ? ` <span style="opacity:0.5;font-size:10px;font-weight:400">auto</span>` : '';
       return `<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};font-size:11px;font-weight:600;border:1px solid ${color}44">${label}${autoSuffix}</span>`;
     }
 
@@ -623,13 +624,24 @@
                 const titleEl = item.projectId
                   ? `<a href="/project.html?id=${encodeURIComponent(item.projectId)}" style="color:${statusColor};text-decoration:none">${escapeHtml(item.taskTitle || item.taskId || '?')}</a>`
                   : `<span style="color:${statusColor}">${escapeHtml(item.taskTitle || item.taskId || '?')}</span>`;
+                const commitEl = item.commitSha
+                  ? `<span style="font-family:monospace;font-size:10px;color:var(--text-muted)" title="commit SHA">${escapeHtml(item.commitSha)}</span>`
+                  : '';
+                const summaryFirst = item.lastCoderSummary
+                  ? (item.lastCoderSummary.split('\n').find(l => l.trim()) || '')
+                  : '';
+                const summaryEl = summaryFirst
+                  ? `<div style="width:100%;padding-top:2px;font-size:11px;color:var(--text-muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(summaryFirst)}">${escapeHtml(summaryFirst.substring(0, 100))}</div>`
+                  : '';
                 return `<div class="agent-last-activity">
                   ${statusBadge}
                   ${titleEl}
                   ${taskIdSpan}
+                  ${commitEl}
                   ${extraReview}
                   <span style="color:var(--text-muted);font-size:11px" title="${fmtTimestamp(item.timestamp)}">${timeAgo(item.timestamp)}</span>
                   ${projTag}
+                  ${summaryEl}
                 </div>`;
               } else {
                 const gc = best.d;
@@ -665,9 +677,17 @@
             const extraNames = Array.isArray(a.workspaceExtraProjectNames) && a.workspaceExtraProjectNames.length
               ? a.workspaceExtraProjectNames.join(', ')
               : (a.workspaceExtraProjects > 0 ? `+${a.workspaceExtraProjects} projet(s)` : '');
-            const extra = a.workspaceExtraProjects > 0
-              ? ` <span style="font-size:10px;color:var(--text-muted)" title="${escapeHtml(extraNames)}">+${a.workspaceExtraProjects}</span>`
-              : '';
+            const extra = (() => {
+              if (!a.workspaceExtraProjects) return '';
+              const names = Array.isArray(a.workspaceExtraProjectNames) ? a.workspaceExtraProjectNames : [];
+              const links = names.map(name => {
+                const proj = (a.linkedProjects || []).find(p => p.name === name);
+                return proj
+                  ? `<a href="/project.html?id=${encodeURIComponent(proj.id)}" class="agent-project-tag" style="font-size:10px;padding:1px 7px">${escapeHtml(name)}</a>`
+                  : `<span style="font-size:10px;color:var(--text-muted)">${escapeHtml(name)}</span>`;
+              });
+              return links.length ? ' ' + links.join(' ') : '';
+            })();
             return `<a href="/project.html?id=${encodeURIComponent(a.workspaceProjectId)}" style="color:var(--accent);text-decoration:none" title="${escapeHtml(a.workspacePath)}">${escapeHtml(a.workspaceProjectName)}</a>${extra}${srcBadge}${missing}`;
           }
           const shortPath = escapeHtml(a.workspacePath.split('/').filter(Boolean).slice(-2).join('/') || a.workspacePath);

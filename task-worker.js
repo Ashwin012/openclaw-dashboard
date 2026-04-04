@@ -561,7 +561,7 @@ function buildInstruction(task) {
 
   const loopEnabled = Boolean(task.optimizationLoop || task?.metadata?.optimizationLoop || task?.metadata?.optimization_loop || task?.metadata?.requiresOptimizationLoop);
   const loopCount = Number.isInteger(task.optimizationLoopCount) ? task.optimizationLoopCount : 0;
-  const maxLoops = Number.isInteger(task.optimizationMaxLoops) && task.optimizationMaxLoops > 0 ? task.optimizationMaxLoops : 2;
+  const maxLoops = Number.isInteger(task.optimizationMaxLoops) && task.optimizationMaxLoops > 0 ? task.optimizationMaxLoops : 10;
   if (loopEnabled) {
     const loopLines = [
       `Boucle d'optimisation active: passe ${loopCount + 1} (max ${maxLoops}).`,
@@ -1398,7 +1398,7 @@ function buildReviewInstruction(task, gitDiff, qualityResults) {
 
   const loopEnabled = Boolean(task.optimizationLoop);
   const loopCount = Number.isInteger(task.optimizationLoopCount) ? task.optimizationLoopCount : 0;
-  const maxLoops = Number.isInteger(task.optimizationMaxLoops) && task.optimizationMaxLoops > 0 ? task.optimizationMaxLoops : 2;
+  const maxLoops = Number.isInteger(task.optimizationMaxLoops) && task.optimizationMaxLoops > 0 ? task.optimizationMaxLoops : 10;
   const loopsRemaining = loopEnabled ? Math.max(0, maxLoops - loopCount) : 0;
 
   parts.push(
@@ -1606,7 +1606,7 @@ async function processReviewTask(project, task, runState) {
       // Check optimization loops
       const loopEnabled = Boolean(task.optimizationLoop);
       const loopCount = Number.isInteger(task.optimizationLoopCount) ? task.optimizationLoopCount : 0;
-      const maxLoops = Number.isInteger(task.optimizationMaxLoops) && task.optimizationMaxLoops > 0 ? task.optimizationMaxLoops : 2;
+      const maxLoops = Number.isInteger(task.optimizationMaxLoops) && task.optimizationMaxLoops > 0 ? task.optimizationMaxLoops : 10;
 
       if (loopEnabled && loopCount < maxLoops) {
         // Re-queue for optimization
