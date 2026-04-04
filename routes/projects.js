@@ -12,6 +12,7 @@ const execFileAsync = promisify(execFile);
 // ===== Docker helpers =====
 
 const _dockerPathCache = new Map();
+// Returns { dir, file } or null. file is null when the default name is used.
 function findDockerComposePath(project) {
   if (_dockerPathCache.has(project.id)) return _dockerPathCache.get(project.id);
   const candidates = [project.path];
@@ -21,20 +22,44 @@ function findDockerComposePath(project) {
       else candidates.push(repo.path);
     }
   }
+  // Exact default names first (no -f needed)
+  const defaultNames = ['docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml'];
   for (const dir of candidates) {
-    for (const file of ['docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml']) {
+    for (const file of defaultNames) {
       if (fs.existsSync(path.join(dir, file))) {
-        _dockerPathCache.set(project.id, dir);
-        return dir;
+        const result = { dir, file: null };
+        _dockerPathCache.set(project.id, result);
+        return result;
       }
     }
   }
-  // Don't cache null — compose files may be added later
+  // Fallback: suffixed compose files (docker-compose.dev.yml, etc.)
+  const suffixedPriority = ['docker-compose.dev.yml', 'docker-compose.local.yml'];
+  for (const dir of candidates) {
+    for (const file of suffixedPriority) {
+      if (fs.existsSync(path.join(dir, file))) {
+        const result = { dir, file };
+        _dockerPathCache.set(project.id, result);
+        return result;
+      }
+    }
+    // Any remaining docker-compose.*.yml
+    try {
+      const entries = fs.readdirSync(dir);
+      const match = entries.find(e => /^docker-compose\..+\.ya?ml$/.test(e) && !suffixedPriority.includes(e));
+      if (match) {
+        const result = { dir, file: match };
+        _dockerPathCache.set(project.id, result);
+        return result;
+      }
+    } catch { /* ignore */ }
+  }
   return null;
 }
 
-async function dockerCompose(args, cwd) {
-  const { stdout, stderr } = await execFileAsync('docker', ['compose', ...args], {
+async function dockerCompose(args, cwd, composeFile) {
+  const fileArgs = composeFile ? ['-f', composeFile] : [];
+  const { stdout, stderr } = await execFileAsync('docker', ['compose', ...fileArgs, ...args], {
     cwd,
     maxBuffer: 10 * 1024 * 1024,
     timeout: 60000
@@ -1204,11 +1229,11 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
-    const composePath = findDockerComposePath(project);
-    if (!composePath) return res.json({ available: false });
+    const compose = findDockerComposePath(project);
+    if (!compose) return res.json({ available: false });
 
     try {
-      const { stdout } = await dockerCompose(['ps', '--format', 'json'], composePath);
+      const { stdout } = await dockerCompose(['ps', '--format', 'json'], compose.dir, compose.file);
       const lines = stdout.trim().split('\n').filter(l => l.trim());
       const containers = lines.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
       const running = containers.some(c => c.State === 'running');
@@ -1227,11 +1252,11 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
-    const composePath = findDockerComposePath(project);
-    if (!composePath) return res.status(400).json({ error: 'No docker-compose file found' });
+    const compose = findDockerComposePath(project);
+    if (!compose) return res.status(400).json({ error: 'No docker-compose file found' });
 
     try {
-      const { stdout, stderr } = await dockerCompose(args, composePath);
+      const { stdout, stderr } = await dockerCompose(args, compose.dir, compose.file);
       res.json({ ok: true, output: stdout || stderr });
     } catch (err) {
       res.status(500).json({ error: err.stderr || err.message });
