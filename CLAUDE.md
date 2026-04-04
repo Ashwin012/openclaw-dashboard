@@ -1,3 +1,4 @@
+# Tested by E2E-TEST-001 pipeline
 # OpenClaw Dev Dashboard
 
 Personal dashboard for Ashwin — project management, code review, trading bot monitoring, invoicing, news feed, and more.
