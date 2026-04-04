@@ -233,7 +233,7 @@
     {
       "id": "dj",
       "name": "DJ Gollum",
-      "model": "qwen3.6-plus-free",
+      "model": "groq/llama-3.3-70b-versatile",
       "thinking": "low"
     }
   ]
