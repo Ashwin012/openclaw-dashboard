@@ -21,9 +21,7 @@
       "stagingUrl": "https://sto.afdex.io",
       "githubUrl": "https://github.com/Infozen/afdex-sto",
       "engine": "claude",
-      "openclawAgentIds": [
-        "afdex"
-      ]
+      "autoDeploy": false
     },
     {
       "id": "champion-spirit",
@@ -50,9 +48,9 @@
       "githubUrl": "https://github.com/Champion-Spirit/championspirit-api",
       "engine": "claude",
       "openclawAgentIds": [
-        "champion-spirit",
         "champion-spirit-staging-analytics"
-      ]
+      ],
+      "autoDeploy": false
     },
     {
       "id": "trading-bot",
@@ -69,9 +67,7 @@
       "prodUrl": "http://45.77.131.11:8080/",
       "githubUrl": "https://github.com/Ashwin012/trading-bot",
       "engine": "claude",
-      "openclawAgentIds": [
-        "trading-bot"
-      ]
+      "autoDeploy": false
     },
     {
       "id": "stho",
@@ -97,9 +93,7 @@
       "prodUrl": "https://thestho.com/",
       "githubUrl": "https://github.com/STHO-Global/stho-api",
       "engine": "claude",
-      "openclawAgentIds": [
-        "stho"
-      ]
+      "autoDeploy": false
     },
     {
       "id": "openclaw-dashboard",
@@ -115,9 +109,7 @@
       "testUrl": "http://158.69.1.160:8090",
       "githubUrl": "https://github.com/Ashwin012/openclaw-dashboard",
       "engine": "claude",
-      "openclawAgentIds": [
-        "openclaw-dashboard"
-      ]
+      "autoDeploy": true
     },
     {
       "id": "royal-heights",
@@ -129,15 +121,15 @@
         }
       ],
       "path": "/home/openclaw/projects/royal-heights",
-      "description": "Luxury Apartments in Balaclava, Mauritius \u2014 32 units",
+      "description": "Luxury Apartments in Balaclava, Mauritius — 32 units",
       "prodUrl": "https://royal-heights.mu",
       "githubUrl": "https://github.com/Infozen/royal-heights-website",
       "testUrl": "http://158.69.1.160:8085",
       "engine": "claude",
       "openclawAgentIds": [
-        "royal-heights",
         "royal-heights-marketing"
-      ]
+      ],
+      "autoDeploy": false
     },
     {
       "id": "synapcoin",
@@ -157,12 +149,12 @@
       "prodApiUrl": "https://api.synapcoin.io",
       "engine": "claude",
       "openclawAgentIds": [
-        "synapcoin",
         "synapcoin-marketing",
         "synapcoin-docs",
         "synap-communication",
         "synap-qa"
-      ]
+      ],
+      "autoDeploy": true
     },
     {
       "id": "synaphive",
@@ -182,11 +174,11 @@
       "prodApiUrl": "https://api.synaphive.io",
       "engine": "claude",
       "openclawAgentIds": [
-        "synaphive",
         "synaphive-marketing",
         "synap-communication",
         "synap-qa"
-      ]
+      ],
+      "autoDeploy": true
     }
   ],
   "openclawAgents": [
@@ -195,48 +187,6 @@
       "name": "Gollum (Main)",
       "model": "claude-opus-4-6",
       "thinking": "high"
-    },
-    {
-      "id": "champion-spirit",
-      "name": "Champion Spirit Dev Agent",
-      "model": "claude-opus-4-6",
-      "thinking": "high"
-    },
-    {
-      "id": "afdex",
-      "name": "Afdex Dev Agent",
-      "model": "claude-opus-4-6",
-      "thinking": "high"
-    },
-    {
-      "id": "synaphive",
-      "name": "SynapHive Dev Agent",
-      "model": "claude-opus-4-6",
-      "thinking": "high"
-    },
-    {
-      "id": "synapcoin",
-      "name": "SynapCoin Dev Agent",
-      "model": "claude-opus-4-6",
-      "thinking": "high"
-    },
-    {
-      "id": "trading-bot",
-      "name": "Trading Bot Dev Agent",
-      "model": "claude-opus-4-6",
-      "thinking": "high"
-    },
-    {
-      "id": "openclaw-dashboard",
-      "name": "OpenClaw Dashboard & Infra",
-      "model": "claude-opus-4-6",
-      "thinking": "high"
-    },
-    {
-      "id": "stho",
-      "name": "STHO Dev Agent",
-      "model": "claude-sonnet-4-6",
-      "thinking": "medium"
     },
     {
       "id": "synap-communication",
@@ -265,12 +215,6 @@
     {
       "id": "synap-qa",
       "name": "Synap QA",
-      "model": "claude-sonnet-4-6",
-      "thinking": "medium"
-    },
-    {
-      "id": "royal-heights",
-      "name": "Royal Heights Prospection",
       "model": "claude-sonnet-4-6",
       "thinking": "medium"
     },
