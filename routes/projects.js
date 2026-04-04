@@ -1156,14 +1156,21 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
     const project = config.projects.find(p => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
-    const allowed = ['testUrl', 'apiUrl', 'stagingUrl', 'prodUrl', 'prodApiUrl', 'githubUrl', 'description'];
-    for (const key of allowed) {
+    const stringFields = ['testUrl', 'apiUrl', 'stagingUrl', 'prodUrl', 'prodApiUrl', 'githubUrl', 'description'];
+    for (const key of stringFields) {
       if (req.body[key] !== undefined) {
         if (req.body[key] === '') {
           delete project[key];
         } else {
           project[key] = req.body[key];
         }
+      }
+    }
+
+    const boolFields = ['autoDeploy', 'humanValidation', 'optimizationLoop'];
+    for (const key of boolFields) {
+      if (req.body[key] !== undefined) {
+        project[key] = !!req.body[key];
       }
     }
 

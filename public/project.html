@@ -171,6 +171,18 @@
           <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px">GitHub URL</label>
           <input id="cfgGithubUrl" type="text" style="width:100%;padding:8px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box">
         </div>
+        <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:8px">Workflow Flags</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;margin-bottom:6px">
+            <input id="cfgAutoDeploy" type="checkbox" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"> Auto Deploy
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;margin-bottom:6px">
+            <input id="cfgHumanValidation" type="checkbox" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"> Human Validation
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer">
+            <input id="cfgOptimizationLoop" type="checkbox" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"> Optimization Loop
+          </label>
+        </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;padding:0 20px 16px">
         <button onclick="closeConfigModal()" style="padding:7px 16px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:13px;cursor:pointer">Cancel</button>
@@ -2029,6 +2041,9 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       document.getElementById('cfgProdUrl').value = d.prodUrl || '';
       document.getElementById('cfgProdApiUrl').value = d.prodApiUrl || '';
       document.getElementById('cfgGithubUrl').value = d.githubUrl || '';
+      document.getElementById('cfgAutoDeploy').checked = !!d.autoDeploy;
+      document.getElementById('cfgHumanValidation').checked = !!d.humanValidation;
+      document.getElementById('cfgOptimizationLoop').checked = !!d.optimizationLoop;
       const modal = document.getElementById('configModal');
       modal.style.display = 'flex';
     }
@@ -2046,6 +2061,9 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         prodUrl: document.getElementById('cfgProdUrl').value.trim(),
         prodApiUrl: document.getElementById('cfgProdApiUrl').value.trim(),
         githubUrl: document.getElementById('cfgGithubUrl').value.trim(),
+        autoDeploy: document.getElementById('cfgAutoDeploy').checked,
+        humanValidation: document.getElementById('cfgHumanValidation').checked,
+        optimizationLoop: document.getElementById('cfgOptimizationLoop').checked,
       };
       try {
         const res = await fetch(`/api/projects/${projectId}/config`, {
