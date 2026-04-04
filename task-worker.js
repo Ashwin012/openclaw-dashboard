@@ -6,7 +6,9 @@ const http = require('http');
 const { spawn } = require('child_process');
 const { readJSON, writeJSON } = require('./lib/json-store');
 
-// ─── Config ───────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// 1. Config & Constants
+// ═══════════════════════════════════════════════════════════════════════════════
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const POLL_INTERVAL_MS = 30_000;
@@ -15,19 +17,26 @@ const MAX_SUMMARY_CHARS = 1_000;
 const MAX_SUMMARY_LINES = 6;
 const MAX_STDERR_SUMMARY_CHARS = 280;
 const NVM_NODE_PATH = '/home/openclaw/.nvm/versions/node/v20.20.1/bin';
-const NVM_SOURCE = 'source /home/openclaw/.nvm/nvm.sh';
 const WORKER_PORT = 8091;
 const DASHBOARD_DIR = path.join(__dirname, '.dashboard');
 const WORKER_LOCKS_DIR = path.join(DASHBOARD_DIR, 'worker-locks');
 const WORKER_INSTANCE_LOCK_PATH = path.join(WORKER_LOCKS_DIR, 'task-worker.lock');
 const NOTIFICATIONS_PATH = path.join(DASHBOARD_DIR, 'notifications.json');
-const DEFAULT_MAX_CONCURRENCY = 2;
+const ACTIVITY_LOG_PATH = path.join(DASHBOARD_DIR, 'activity-log.json');
+
+const MAX_TASK_DURATION_MS = 3 * 60 * 60 * 1000; // 3h hard timeout
+const WARNING_THRESHOLDS_MIN = [30, 60, 120];
+const QUESTION_POLL_MS = 2_000;
+const QUESTION_WARN_MS = 30 * 60 * 1000;
+
 const DEFAULT_ENGINE_MODELS = {
   claude: 'claude-sonnet-4-6',
   codex: 'gpt-5.4',
   ollama: 'qwen3:4b',
 };
+
 const SUPPORTED_CODEX_MODELS = new Set(['default', 'gpt-5.4', 'gpt-5.3-codex']);
+
 const CLAUDE_MODEL_ALIASES = {
   sonnet: 'claude-sonnet-4-6',
   'sonnet-4-6': 'claude-sonnet-4-6',
@@ -39,6 +48,7 @@ const CLAUDE_MODEL_ALIASES = {
   'haiku-3-5': 'claude-haiku-3-5',
   'claude-haiku-3-5': 'claude-haiku-3-5',
 };
+
 const CODEX_MODEL_ALIASES = {
   default: 'default',
   'gpt-5.4': 'gpt-5.4',
@@ -46,23 +56,18 @@ const CODEX_MODEL_ALIASES = {
   'gpt-5.3-codex': 'gpt-5.3-codex',
   'openai-codex/gpt-5.3-codex': 'gpt-5.3-codex',
 };
+
 const OLLAMA_MODEL_ALIASES = {
   qwen3: 'qwen3:4b',
   'qwen3:4b': 'qwen3:4b',
 };
 
-const REVIEW_COOLDOWN_MS = 30_000; // Wait 30s before picking up review tasks (avoid instant re-processing)
-const REVIEW_MODEL = 'claude-sonnet-4-6'; // Lighter model for review phase
-const REVIEW_API_TIMEOUT_MS = 120_000; // 2min timeout for review API call (was 13+ min via CLI)
-const AUTO_DEPLOY_TIMEOUT_MS = 60_000; // 60s timeout for git push
+const PRIORITY_ORDER = { critical: -1, high: 0, medium: 1, low: 2 };
+const TERMINAL_NOTIFICATION_STATUSES = new Set(['review', 'done', 'approved', 'rejected', 'failed', 'validating', 'queued']);
 
-const MAX_TASK_DURATION_MS = 3 * 60 * 60 * 1000; // 3 hour hard timeout for any task
-const MAX_REVIEW_DURATION_MS = 10 * 60 * 1000; // 10 min hard timeout for review/validation
-const WARNING_THRESHOLDS_MIN = [30, 60, 120];
-const QUESTION_POLL_MS = 2_000;
-const QUESTION_WARN_MS = 30 * 60 * 1000;
-
-// ─── Logging ──────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// 2. Logging
+// ═══════════════════════════════════════════════════════════════════════════════
 
 function log(msg) {
   console.log(`[${new Date().toISOString()}] ${msg}`);
@@ -72,7 +77,9 @@ function logError(msg, err) {
   console.error(`[${new Date().toISOString()}] ERROR ${msg}`, err ? (err.message || err) : '');
 }
 
-// ─── Graceful shutdown ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// 3. Graceful Shutdown
+// ═══════════════════════════════════════════════════════════════════════════════
 
 let shuttingDown = false;
 let workerInstanceLock = null;
@@ -93,7 +100,9 @@ process.on('exit', () => {
   releaseWorkerInstanceLock();
 });
 
-// ─── Active run tracking ──────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// 4. Lock Management (singleton + per-project)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 const activeRuns = new Map();
 const activeProjects = new Map();
@@ -121,19 +130,6 @@ function readLockFile(lockPath) {
   }
 }
 
-function releaseFileLock(lockHandle) {
-  if (!lockHandle || !lockHandle.path) return;
-  try {
-    const current = readLockFile(lockHandle.path);
-    if (!current || current.instanceId !== lockHandle.instanceId) return;
-    fs.unlinkSync(lockHandle.path);
-  } catch (err) {
-    if (err && err.code !== 'ENOENT') {
-      logError(`Failed to release lock ${lockHandle.path}`, err);
-    }
-  }
-}
-
 function acquireFileLock(lockPath, metadata) {
   ensureDir(path.dirname(lockPath));
   const payload = {
@@ -143,68 +139,51 @@ function acquireFileLock(lockPath, metadata) {
   };
   const serialized = JSON.stringify(payload, null, 2);
 
+  // Try exclusive create
   try {
     const fd = fs.openSync(lockPath, 'wx');
-    try {
-      fs.writeFileSync(fd, serialized, 'utf8');
-    } finally {
-      fs.closeSync(fd);
-    }
-    return {
-      path: lockPath,
-      pid: payload.pid,
-      instanceId: payload.instanceId || null,
-      metadata: payload,
-    };
+    try { fs.writeFileSync(fd, serialized, 'utf8'); } finally { fs.closeSync(fd); }
+    return { path: lockPath, pid: payload.pid, instanceId: payload.instanceId || null, metadata: payload };
   } catch (err) {
     if (!err || err.code !== 'EEXIST') throw err;
   }
 
+  // Lock file exists — check if owner is alive
   const existing = readLockFile(lockPath);
   if (existing && isProcessAlive(existing.pid)) {
-    return {
-      acquired: false,
-      reason: 'locked',
-      existing,
-    };
+    return { acquired: false, reason: 'locked', existing };
   }
 
-  try {
-    fs.unlinkSync(lockPath);
-  } catch (err) {
+  // Stale lock — remove and retry
+  try { fs.unlinkSync(lockPath); } catch (err) {
     if (err && err.code !== 'ENOENT') {
-      return {
-        acquired: false,
-        reason: 'stale_lock_unlink_failed',
-        existing,
-        error: err,
-      };
+      return { acquired: false, reason: 'stale_lock_unlink_failed', existing, error: err };
     }
   }
 
   try {
     const fd = fs.openSync(lockPath, 'wx');
-    try {
-      fs.writeFileSync(fd, serialized, 'utf8');
-    } finally {
-      fs.closeSync(fd);
-    }
+    try { fs.writeFileSync(fd, serialized, 'utf8'); } finally { fs.closeSync(fd); }
     return {
-      path: lockPath,
-      pid: payload.pid,
-      instanceId: payload.instanceId || null,
-      metadata: payload,
-      replacedStaleLock: Boolean(existing),
+      path: lockPath, pid: payload.pid, instanceId: payload.instanceId || null,
+      metadata: payload, replacedStaleLock: Boolean(existing),
     };
   } catch (err) {
     if (err && err.code === 'EEXIST') {
-      return {
-        acquired: false,
-        reason: 'raced',
-        existing: readLockFile(lockPath),
-      };
+      return { acquired: false, reason: 'raced', existing: readLockFile(lockPath) };
     }
     throw err;
+  }
+}
+
+function releaseFileLock(lockHandle) {
+  if (!lockHandle || !lockHandle.path) return;
+  try {
+    const current = readLockFile(lockHandle.path);
+    if (!current || current.instanceId !== lockHandle.instanceId) return;
+    fs.unlinkSync(lockHandle.path);
+  } catch (err) {
+    if (err && err.code !== 'ENOENT') logError(`Failed to release lock ${lockHandle.path}`, err);
   }
 }
 
@@ -219,14 +198,9 @@ function acquireWorkerInstanceLock() {
     port: WORKER_PORT,
   });
 
-  if (!lock || lock.acquired === false) {
-    return lock || { acquired: false, reason: 'unknown' };
-  }
+  if (!lock || lock.acquired === false) return lock || { acquired: false, reason: 'unknown' };
 
-  if (lock.replacedStaleLock) {
-    log(`Recovered stale worker instance lock at ${WORKER_INSTANCE_LOCK_PATH}`);
-  }
-
+  if (lock.replacedStaleLock) log(`Recovered stale worker instance lock at ${WORKER_INSTANCE_LOCK_PATH}`);
   workerInstanceLock = lock;
   return lock;
 }
@@ -246,26 +220,18 @@ function acquireProjectExecutionLock(project, task) {
     taskId: task.id,
     taskTitle: task.title,
   });
-
-  if (!lock || lock.acquired === false) {
-    return lock || { acquired: false, reason: 'unknown' };
-  }
-
-  return lock;
+  return (!lock || lock.acquired === false) ? (lock || { acquired: false, reason: 'unknown' }) : lock;
 }
 
-function getActiveRunCount() {
-  return activeRuns.size;
-}
+// ─── Active Run Tracking ──────────────────────────────────────────────────────
+
+function getActiveRunCount() { return activeRuns.size; }
 
 function getActiveRunsList() {
-  return Array.from(activeRuns.values())
-    .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+  return Array.from(activeRuns.values()).sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 }
 
-function hasProjectActiveRun(projectId) {
-  return activeProjects.has(projectId);
-}
+function hasProjectActiveRun(projectId) { return activeProjects.has(projectId); }
 
 function createReservedRun(project, task) {
   const runState = {
@@ -288,7 +254,6 @@ function createReservedRun(project, task) {
     answerDeliveredAt: null,
     projectLock: null,
   };
-
   activeRuns.set(task.id, runState);
   activeProjects.set(project.id, task.id);
   return runState;
@@ -298,9 +263,7 @@ function releaseRun(taskId) {
   const runState = activeRuns.get(taskId);
   if (!runState) return null;
   activeRuns.delete(taskId);
-  if (activeProjects.get(runState.projectId) === taskId) {
-    activeProjects.delete(runState.projectId);
-  }
+  if (activeProjects.get(runState.projectId) === taskId) activeProjects.delete(runState.projectId);
   return runState;
 }
 
@@ -317,14 +280,13 @@ function getRunByProject(projectId) {
 }
 
 function describeRun(runState) {
-  const durationMin = Math.floor((Date.now() - runState.startTime.getTime()) / 60_000);
   return {
     id: runState.taskId,
     title: runState.taskTitle,
     project: runState.projectName,
     projectId: runState.projectId,
     startedAt: runState.startTime.toISOString(),
-    durationMin,
+    durationMin: Math.floor((Date.now() - runState.startTime.getTime()) / 60_000),
     pid: runState.pid,
     engine: runState.engine,
     pendingQuestion: runState.currentQuestion,
@@ -332,13 +294,8 @@ function describeRun(runState) {
 }
 
 function getLegacyStatusFields(runs) {
-  if (runs.length !== 1) {
-    return { task: null, pendingQuestion: null };
-  }
-  return {
-    task: describeRun(runs[0]),
-    pendingQuestion: runs[0].currentQuestion,
-  };
+  if (runs.length !== 1) return { task: null, pendingQuestion: null };
+  return { task: describeRun(runs[0]), pendingQuestion: runs[0].currentQuestion };
 }
 
 function resolveTargetRun(query) {
@@ -347,70 +304,30 @@ function resolveTargetRun(query) {
 
   if (taskId) {
     const runState = activeRuns.get(taskId);
-    if (!runState) {
-      return { error: `Active task not found for taskId=${taskId}`, statusCode: 404 };
-    }
-    if (projectId && runState.projectId !== projectId) {
-      return { error: 'taskId and project do not match the same active run', statusCode: 400 };
-    }
+    if (!runState) return { error: `Active task not found for taskId=${taskId}`, statusCode: 404 };
+    if (projectId && runState.projectId !== projectId) return { error: 'taskId and project do not match the same active run', statusCode: 400 };
     return { runState };
   }
 
   if (projectId) {
     const runState = getRunByProject(projectId);
-    if (!runState) {
-      return { error: `No active task for project=${projectId}`, statusCode: 404 };
-    }
+    if (!runState) return { error: `No active task for project=${projectId}`, statusCode: 404 };
     return { runState };
   }
 
   const runs = getActiveRunsList();
-  if (runs.length === 0) {
-    return { runState: null };
-  }
-  if (runs.length === 1) {
-    return { runState: runs[0] };
-  }
-
-  return {
-    error: 'Multiple tasks are active; specify taskId or project',
-    statusCode: 400,
-  };
+  if (runs.length === 0) return { runState: null };
+  if (runs.length === 1) return { runState: runs[0] };
+  return { error: 'Multiple tasks are active; specify taskId or project', statusCode: 400 };
 }
 
-// ─── Notifications ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// 5. Task Helpers (read/write, notes, summary)
+// ═══════════════════════════════════════════════════════════════════════════════
 
-const ACTIVITY_LOG_PATH = path.join(DASHBOARD_DIR, 'activity-log.json');
-const TERMINAL_NOTIFICATION_STATUSES = new Set(['review', 'done', 'approved', 'rejected', 'failed', 'validating', 'queued']);
+function now() { return new Date().toISOString(); }
 
-function addNotification(projectName, taskTitle, taskId, fromStatus, toStatus, message) {
-  try {
-    const entry = { projectName, taskTitle, taskId, fromStatus, toStatus, message, timestamp: new Date().toISOString() };
-    const data = readJSON(NOTIFICATIONS_PATH, { pending: [] }) || { pending: [] };
-    if (!Array.isArray(data.pending)) data.pending = [];
-    data.pending.push(entry);
-    writeJSON(NOTIFICATIONS_PATH, data);
-    // Persist terminal notifications to rolling activity log (survives bell clears)
-    if (TERMINAL_NOTIFICATION_STATUSES.has(toStatus)) {
-      try {
-        const raw = readJSON(ACTIVITY_LOG_PATH, []);
-        const log = Array.isArray(raw) ? raw : [];
-        log.push(entry);
-        writeJSON(ACTIVITY_LOG_PATH, log.length > 200 ? log.slice(-200) : log);
-      } catch (logErr) {
-        logError('Failed to write activity log', logErr);
-      }
-    }
-  } catch (err) {
-    logError('Failed to write notification', err);
-  }
-}
-
-// ─── tasks.json helpers ───────────────────────────────────────────────────────
-
-function getTasksPath(projectPath) {
-  return path.join(projectPath, '.claude', 'tasks.json');
-}
+function getTasksPath(projectPath) { return path.join(projectPath, '.claude', 'tasks.json'); }
 
 function readTasks(projectPath) {
   const raw = readJSON(getTasksPath(projectPath), { tasks: [] }) || { tasks: [] };
@@ -420,13 +337,7 @@ function readTasks(projectPath) {
 }
 
 function writeTasks(projectPath, data) {
-  const p = getTasksPath(projectPath);
-  const toWrite = Array.isArray(data) ? { tasks: data } : data;
-  writeJSON(p, toWrite);
-}
-
-function now() {
-  return new Date().toISOString();
+  writeJSON(getTasksPath(projectPath), Array.isArray(data) ? { tasks: data } : data);
 }
 
 function addNote(task, author, text) {
@@ -439,10 +350,7 @@ function isWorkerNote(note) {
 }
 
 function removeWorkerNotes(task) {
-  if (!Array.isArray(task.notes)) {
-    task.notes = [];
-    return;
-  }
+  if (!Array.isArray(task.notes)) { task.notes = []; return; }
   task.notes = task.notes.filter(note => !isWorkerNote(note));
 }
 
@@ -453,16 +361,12 @@ function setWorkerFinalNote(task, text) {
   addNote(task, 'Worker', finalText);
 }
 
-
 function isAuthorNote(note, author) {
   return note && typeof note.author === 'string' && note.author.trim().toLowerCase() === author.trim().toLowerCase();
 }
 
 function removeNotesByAuthor(task, author) {
-  if (!Array.isArray(task.notes)) {
-    task.notes = [];
-    return;
-  }
+  if (!Array.isArray(task.notes)) { task.notes = []; return; }
   task.notes = task.notes.filter(note => !isAuthorNote(note, author));
 }
 
@@ -473,90 +377,82 @@ function setAuthorFinalNote(task, author, text) {
   addNote(task, author, finalText);
 }
 
-async function getGitHeadInfo(projectPath) {
-  const rev = await spawnPromise('git rev-parse HEAD', { cwd: projectPath }, 15000);
-  if (rev.code !== 0 || !rev.output) return null;
-  const hash = rev.output.trim().split(/\s+/)[0];
-  if (!hash) return null;
-  const msg = await spawnPromise(`git log -1 --pretty=%s ${hash}`, { cwd: projectPath }, 15000);
-  return {
-    hash,
-    shortHash: hash.slice(0, 7),
-    message: msg.code === 0 ? msg.output.trim() : '',
-  };
-}
-
-function extractCommitHash(text) {
-  if (!text || typeof text !== 'string') return null;
-  const matches = text.match(/[0-9a-f]{7,40}/gi);
-  if (!matches || !matches.length) return null;
-  return matches[matches.length - 1];
-}
-
 function updateTask(projectPath, taskId, mutate) {
   const data = readTasks(projectPath);
   const task = data.tasks.find(t => t.id === taskId);
-  if (!task) {
-    logError(`Task ${taskId} not found in ${projectPath}`);
-    return null;
-  }
+  if (!task) { logError(`Task ${taskId} not found in ${projectPath}`); return null; }
   mutate(task);
   task.updatedAt = now();
   writeTasks(projectPath, data);
   return task;
 }
 
-// ─── Quality gates ────────────────────────────────────────────────────────────
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+function addNotification(projectName, taskTitle, taskId, fromStatus, toStatus, message) {
+  try {
+    const entry = { projectName, taskTitle, taskId, fromStatus, toStatus, message, timestamp: now() };
+    const data = readJSON(NOTIFICATIONS_PATH, { pending: [] }) || { pending: [] };
+    if (!Array.isArray(data.pending)) data.pending = [];
+    data.pending.push(entry);
+    writeJSON(NOTIFICATIONS_PATH, data);
+
+    if (TERMINAL_NOTIFICATION_STATUSES.has(toStatus)) {
+      try {
+        const raw = readJSON(ACTIVITY_LOG_PATH, []);
+        const actLog = Array.isArray(raw) ? raw : [];
+        actLog.push(entry);
+        writeJSON(ACTIVITY_LOG_PATH, actLog.length > 200 ? actLog.slice(-200) : actLog);
+      } catch (logErr) { logError('Failed to write activity log', logErr); }
+    }
+  } catch (err) { logError('Failed to write notification', err); }
+}
+
+// ─── Git helpers ──────────────────────────────────────────────────────────────
 
 function spawnPromise(cmd, opts, timeoutMs) {
   return new Promise(resolve => {
     const proc = spawn(cmd, { ...opts, shell: '/bin/bash' });
-    let stdout = '';
-    let stderr = '';
+    let stdout = '', stderr = '';
     proc.stdout && proc.stdout.on('data', d => { stdout += d.toString(); });
     proc.stderr && proc.stderr.on('data', d => { stderr += d.toString(); });
     let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      proc.kill('SIGTERM');
-    }, timeoutMs);
-    proc.on('close', code => {
-      clearTimeout(timer);
-      resolve({ code: timedOut ? -1 : code, output: [stdout, stderr].filter(Boolean).join('\n').trim(), timedOut });
-    });
-    proc.on('error', err => {
-      clearTimeout(timer);
-      resolve({ code: -1, output: err.message, timedOut: false });
-    });
+    const timer = setTimeout(() => { timedOut = true; proc.kill('SIGTERM'); }, timeoutMs);
+    proc.on('close', code => { clearTimeout(timer); resolve({ code: timedOut ? -1 : code, output: [stdout, stderr].filter(Boolean).join('\n').trim(), timedOut }); });
+    proc.on('error', err => { clearTimeout(timer); resolve({ code: -1, output: err.message, timedOut: false }); });
   });
 }
 
 function spawnPromiseWithStdin(cmd, args, stdinData, opts, timeoutMs) {
   return new Promise(resolve => {
     const proc = spawn(cmd, args, { ...opts, shell: false });
-    let stdout = '';
-    let stderr = '';
+    let stdout = '', stderr = '';
     proc.stdout && proc.stdout.on('data', d => { stdout += d.toString(); });
     proc.stderr && proc.stderr.on('data', d => { stderr += d.toString(); });
     let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      proc.kill('SIGTERM');
-    }, timeoutMs);
-    proc.on('close', code => {
-      clearTimeout(timer);
-      resolve({ code: timedOut ? -1 : code, output: [stdout, stderr].filter(Boolean).join('\n').trim(), timedOut });
-    });
-    proc.on('error', err => {
-      clearTimeout(timer);
-      resolve({ code: -1, output: err.message, timedOut: false });
-    });
-    if (stdinData != null) {
-      proc.stdin.write(stdinData);
-      proc.stdin.end();
-    }
+    const timer = setTimeout(() => { timedOut = true; proc.kill('SIGTERM'); }, timeoutMs);
+    proc.on('close', code => { clearTimeout(timer); resolve({ code: timedOut ? -1 : code, output: [stdout, stderr].filter(Boolean).join('\n').trim(), timedOut }); });
+    proc.on('error', err => { clearTimeout(timer); resolve({ code: -1, output: err.message, timedOut: false }); });
+    if (stdinData != null) { proc.stdin.write(stdinData); proc.stdin.end(); }
   });
 }
+
+async function getGitHeadInfo(projectPath) {
+  const rev = await spawnPromise('git rev-parse HEAD', { cwd: projectPath }, 15000);
+  if (rev.code !== 0 || !rev.output) return null;
+  const hash = rev.output.trim().split(/\s+/)[0];
+  if (!hash) return null;
+  const msg = await spawnPromise(`git log -1 --pretty=%s ${hash}`, { cwd: projectPath }, 15000);
+  return { hash, shortHash: hash.slice(0, 7), message: msg.code === 0 ? msg.output.trim() : '' };
+}
+
+function extractCommitHash(text) {
+  if (!text || typeof text !== 'string') return null;
+  const matches = text.match(/[0-9a-f]{7,40}/gi);
+  return matches && matches.length ? matches[matches.length - 1] : null;
+}
+
+// ─── Quality gates ────────────────────────────────────────────────────────────
 
 async function runQualityGates(projectPath) {
   const results = [];
@@ -570,61 +466,9 @@ async function runQualityGates(projectPath) {
   return results;
 }
 
-// ─── Build instruction ────────────────────────────────────────────────────────
-
-function buildInstruction(task) {
-  const parts = [task.title.trim()];
-
-  if (task.description && task.description.trim()) {
-    parts.push('', task.description.trim());
-  }
-
-  const technicalContext = [];
-  if (task.technicalAgent) technicalContext.push(`Agent technique responsable: ${task.technicalAgent}`);
-  if (task.coderAgent) technicalContext.push(`Agent codeur: ${task.coderAgent}`);
-  if (task.priority) technicalContext.push(`Priorité: ${task.priority}`);
-  if (task.engine) technicalContext.push(`Engine demandé: ${task.engine}`);
-  if (task.model) technicalContext.push(`Modèle demandé: ${task.model}`);
-  if (technicalContext.length) {
-    parts.push('', 'Contexte workflow:', ...technicalContext);
-  }
-
-  const loopEnabled = Boolean(task.optimizationLoop || task?.metadata?.optimizationLoop || task?.metadata?.optimization_loop || task?.metadata?.requiresOptimizationLoop);
-  const loopCount = Number.isInteger(task.optimizationLoopCount) ? task.optimizationLoopCount : 0;
-  const maxLoops = Number.isInteger(task.optimizationMaxLoops) && task.optimizationMaxLoops > 0 ? task.optimizationMaxLoops : 10;
-  if (loopEnabled) {
-    const loopLines = [
-      `Boucle d'optimisation active: passe ${loopCount + 1} (max ${maxLoops}).`,
-      loopCount > 0
-        ? 'Tu retravailles du code que tu as déjà produit. Repars de ton implémentation précédente, critique-la, simplifie-la, améliore la robustesse, les edge cases et le responsive/UX si pertinent, puis rends une version optimisée.'
-        : 'Cette tâche autorise une ou plusieurs boucles d’optimisation si l’agent technique le juge nécessaire après review.',
-    ];
-    parts.push('', ...loopLines);
-  }
-
-  const initPrompt = typeof task.coderPrompt === 'string' ? task.coderPrompt.trim() : '';
-  if (initPrompt) {
-    parts.push('', "Prompt d'initialisation spécifique pour le codeur:", initPrompt);
-  }
-
-  parts.push('', 'Fin de tâche attendue: fais les changements, commit si nécessaire, puis rends un feedback final compact (1000 caractères max) contenant le commit SHA si tu en as créé un. La tâche repartira ensuite en review pour validation technique.');
-
-  return parts.join('\n');
-}
-
-function buildCodexInstruction(projectPath, instruction) {
-  const claudeMdPath = path.join(projectPath, 'CLAUDE.md');
-  if (!fs.existsSync(claudeMdPath)) return instruction;
-
-  return [
-    'Before doing anything else, read `./CLAUDE.md` at the repository root. It is the single source of truth for project instructions, architecture context, and working rules.',
-    'Follow `CLAUDE.md` throughout the task. If anything conflicts with later assumptions, `CLAUDE.md` wins.',
-    '',
-    instruction,
-  ].join('\n');
-}
-
-// ─── Core task processing (claude stream-json / codex plain-text) ─────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// 6. Engine Resolution (aliases, routing, fallback)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 function getEngineLabel(engine) {
   if (engine === 'codex') return 'Codex';
@@ -634,38 +478,12 @@ function getEngineLabel(engine) {
 
 function inferModelProvider(model) {
   if (!model || typeof model !== 'string') return null;
-  const normalized = model.trim().toLowerCase();
-  if (!normalized) return null;
+  const n = model.trim().toLowerCase();
+  if (!n) return null;
 
-  if (
-    normalized.startsWith('claude-') ||
-    ['sonnet', 'opus', 'haiku', 'sonnet-4-6', 'opus-4-6', 'haiku-3-5'].includes(normalized)
-  ) {
-    return 'claude';
-  }
-
-  if (
-    normalized.startsWith('gpt-') ||
-    normalized.includes('codex') ||
-    /^o\d/.test(normalized) ||
-    /^o[1-9]-/.test(normalized)
-  ) {
-    return 'codex';
-  }
-
-  if (
-    normalized.includes(':') ||
-    normalized.startsWith('qwen') ||
-    normalized.startsWith('llama') ||
-    normalized.startsWith('mistral') ||
-    normalized.startsWith('mixtral') ||
-    normalized.startsWith('gemma') ||
-    normalized.startsWith('deepseek') ||
-    normalized.startsWith('phi')
-  ) {
-    return 'ollama';
-  }
-
+  if (n.startsWith('claude-') || ['sonnet', 'opus', 'haiku', 'sonnet-4-6', 'opus-4-6', 'haiku-3-5'].includes(n)) return 'claude';
+  if (n.startsWith('gpt-') || n.includes('codex') || /^o\d/.test(n) || /^o[1-9]-/.test(n)) return 'codex';
+  if (n.includes(':') || /^(qwen|llama|mistral|mixtral|gemma|deepseek|phi)/.test(n)) return 'ollama';
   return null;
 }
 
@@ -675,88 +493,38 @@ function isModelCompatibleWithEngine(model, engine) {
 }
 
 function normalizeModelForEngine(model, engine) {
-  if (!model || typeof model !== 'string') {
-    return { model: null, source: 'default', reason: null };
-  }
-
+  if (!model || typeof model !== 'string') return { model: null, source: 'default', reason: null };
   const trimmed = model.trim();
   const normalized = trimmed.toLowerCase();
 
   if (engine === 'claude') {
-    if (!isModelCompatibleWithEngine(trimmed, engine)) {
-      return {
-        model: DEFAULT_ENGINE_MODELS.claude,
-        source: 'safe-default',
-        reason: 'provider_mismatch',
-      };
-    }
-
+    if (!isModelCompatibleWithEngine(trimmed, engine)) return { model: DEFAULT_ENGINE_MODELS.claude, source: 'safe-default', reason: 'provider_mismatch' };
     const canonical = CLAUDE_MODEL_ALIASES[normalized] || trimmed;
-    return {
-      model: canonical,
-      source: canonical === trimmed ? 'configured' : 'normalized-alias',
-      reason: canonical === trimmed ? null : 'alias_normalized',
-    };
+    return { model: canonical, source: canonical === trimmed ? 'configured' : 'normalized-alias', reason: canonical === trimmed ? null : 'alias_normalized' };
   }
 
   if (engine === 'codex') {
-    if (!isModelCompatibleWithEngine(trimmed, engine)) {
-      return {
-        model: DEFAULT_ENGINE_MODELS.codex,
-        source: 'safe-default',
-        reason: 'provider_mismatch',
-      };
-    }
-
+    if (!isModelCompatibleWithEngine(trimmed, engine)) return { model: DEFAULT_ENGINE_MODELS.codex, source: 'safe-default', reason: 'provider_mismatch' };
     const canonical = CODEX_MODEL_ALIASES[normalized] || null;
     if (canonical && SUPPORTED_CODEX_MODELS.has(canonical)) {
-      return {
-        model: canonical,
-        source: canonical === trimmed ? 'configured' : 'normalized-alias',
-        reason: canonical === trimmed ? null : 'alias_normalized',
-      };
+      return { model: canonical, source: canonical === trimmed ? 'configured' : 'normalized-alias', reason: canonical === trimmed ? null : 'alias_normalized' };
     }
-
-    return {
-      model: DEFAULT_ENGINE_MODELS.codex,
-      source: 'safe-default',
-      reason: 'unsupported_codex_model',
-    };
+    return { model: DEFAULT_ENGINE_MODELS.codex, source: 'safe-default', reason: 'unsupported_codex_model' };
   }
 
   if (engine === 'ollama') {
-    if (!isModelCompatibleWithEngine(trimmed, engine)) {
-      return {
-        model: DEFAULT_ENGINE_MODELS.ollama,
-        source: 'safe-default',
-        reason: 'provider_mismatch',
-      };
-    }
-
+    if (!isModelCompatibleWithEngine(trimmed, engine)) return { model: DEFAULT_ENGINE_MODELS.ollama, source: 'safe-default', reason: 'provider_mismatch' };
     const canonical = OLLAMA_MODEL_ALIASES[normalized] || trimmed;
-    return {
-      model: canonical,
-      source: canonical === trimmed ? 'configured' : 'normalized-alias',
-      reason: canonical === trimmed ? null : 'alias_normalized',
-    };
+    return { model: canonical, source: canonical === trimmed ? 'configured' : 'normalized-alias', reason: canonical === trimmed ? null : 'alias_normalized' };
   }
 
   return { model: trimmed, source: 'configured', reason: null };
 }
 
 function normalizeFallbackModelForEngine(model, engine) {
-  if (!model || typeof model !== 'string') {
-    return { model: null, source: 'default', reason: null };
-  }
-
-  if (engine === 'codex' || engine === 'ollama') {
-    return {
-      model: null,
-      source: 'omitted',
-      reason: engine === 'codex' ? 'codex_cli_has_no_fallback_model' : 'ollama_via_codex_has_no_fallback_model',
-    };
-  }
-
+  if (!model || typeof model !== 'string') return { model: null, source: 'default', reason: null };
+  if (engine === 'codex') return { model: null, source: 'omitted', reason: 'codex_cli_has_no_fallback_model' };
+  if (engine === 'ollama') return { model: null, source: 'omitted', reason: 'ollama_via_codex_has_no_fallback_model' };
   return normalizeModelForEngine(model, engine);
 }
 
@@ -780,123 +548,46 @@ function resolveEngineConfig(project, task, requestedEngine, options = {}) {
   const normalizedFallbackModel = normalizeFallbackModelForEngine(rawFallbackModel, engine);
 
   return {
-    requestedEngine,
-    allowReroute,
-    engine,
-    rerouted,
-    rerouteReason,
-    rawModel,
-    rawFallbackModel,
-    model: normalizedModel.model,
-    modelSource: normalizedModel.source,
-    modelReason: normalizedModel.reason,
-    fallbackModel: normalizedFallbackModel.model,
-    fallbackModelSource: normalizedFallbackModel.source,
-    fallbackModelReason: normalizedFallbackModel.reason,
+    requestedEngine, allowReroute, engine, rerouted, rerouteReason,
+    rawModel, rawFallbackModel,
+    model: normalizedModel.model, modelSource: normalizedModel.source, modelReason: normalizedModel.reason,
+    fallbackModel: normalizedFallbackModel.model, fallbackModelSource: normalizedFallbackModel.source, fallbackModelReason: normalizedFallbackModel.reason,
   };
 }
+
+// ─── Error classification ─────────────────────────────────────────────────────
 
 function detectErrorTypeFromText(text) {
   const value = String(text || '').toLowerCase();
   if (!value) return null;
-
   if (value.includes('rate limit') || value.includes('rate_limit') || value.includes('429')) return 'rate_limit';
-
-  if (
-    value.includes('invalid model') ||
-    value.includes('unsupported model') ||
-    value.includes('model_not_found') ||
-    value.includes('unknown model')
-  ) {
-    return 'invalid_model';
-  }
-
-  if (
-    value.includes('auth') ||
-    value.includes('authentication') ||
-    value.includes('unauthorized') ||
-    value.includes('forbidden') ||
-    value.includes('api key') ||
-    value.includes('permission denied') ||
-    value.includes('access denied') ||
-    value.includes('401') ||
-    value.includes('403')
-  ) {
-    return 'auth_issue';
-  }
-
+  if (value.includes('invalid model') || value.includes('unsupported model') || value.includes('model_not_found') || value.includes('unknown model')) return 'invalid_model';
+  if (value.includes('auth') || value.includes('authentication') || value.includes('unauthorized') || value.includes('forbidden') || value.includes('api key') || value.includes('permission denied') || value.includes('access denied') || value.includes('401') || value.includes('403')) return 'auth_issue';
   return null;
 }
 
 function extractStructuredError(run) {
-  const rateLimitEvent = Array.isArray(run.rateLimitEvents) && run.rateLimitEvents.length > 0
-    ? run.rateLimitEvents[run.rateLimitEvents.length - 1]
-    : null;
-  const resultJson = run.resultJson || null;
-  const payloads = [rateLimitEvent, resultJson];
-
-  for (const payload of payloads) {
+  const rateLimitEvent = Array.isArray(run.rateLimitEvents) && run.rateLimitEvents.length > 0 ? run.rateLimitEvents[run.rateLimitEvents.length - 1] : null;
+  for (const payload of [rateLimitEvent, run.resultJson]) {
     if (!payload || typeof payload !== 'object') continue;
-
-    const directType = detectErrorTypeFromText([
-      payload.type,
-      payload.subtype,
-      payload.error?.type,
-      payload.error?.message,
-      payload.message,
-      payload.result,
-    ].filter(Boolean).join(' | '));
-
-    if (directType) {
-      return {
-        type: directType,
-        message: payload.error?.message || payload.message || payload.result || null,
-        raw: payload,
-      };
-    }
+    const directType = detectErrorTypeFromText([payload.type, payload.subtype, payload.error?.type, payload.error?.message, payload.message, payload.result].filter(Boolean).join(' | '));
+    if (directType) return { type: directType, message: payload.error?.message || payload.message || payload.result || null, raw: payload };
   }
-
   const stderrType = detectErrorTypeFromText(run.stderrBuf);
-  if (stderrType) {
-    return {
-      type: stderrType,
-      message: run.stderrBuf.trim() || null,
-      raw: { stderr: run.stderrBuf.trim() },
-    };
+  if (stderrType) return { type: stderrType, message: run.stderrBuf.trim() || null, raw: { stderr: run.stderrBuf.trim() } };
+  if (run.resultJson && typeof run.resultJson === 'object' && (run.resultJson.subtype === 'error' || run.resultJson.error || run.exitCode !== 0)) {
+    return { type: 'engine_error', message: run.resultJson.error?.message || run.resultJson.message || run.resultJson.result || null, raw: run.resultJson };
   }
-
-  if (resultJson && typeof resultJson === 'object' && (resultJson.subtype === 'error' || resultJson.error || run.exitCode !== 0)) {
-    return {
-      type: 'engine_error',
-      message: resultJson.error?.message || resultJson.message || resultJson.result || null,
-      raw: resultJson,
-    };
-  }
-
   return null;
 }
 
 function classifyRunOutcome(run) {
-  if (run.stoppedManually) {
-    return { status: 'manual_stop', type: 'manual_stop', structuredError: null };
-  }
-
+  if (run.stoppedManually) return { status: 'manual_stop', type: 'manual_stop', structuredError: null };
   const structuredError = extractStructuredError(run);
-  const resultSubtype = run.resultJson?.subtype || null;
-  const resultHasError = Boolean(run.resultJson?.error) || resultSubtype === 'error';
-
-  if (run.exitCode === 0 && !resultHasError) {
-    return { status: 'success', type: 'success', structuredError };
-  }
-
-  if (structuredError) {
-    return { status: 'failed', type: structuredError.type, structuredError };
-  }
-
-  if (run.resultJson && !resultHasError) {
-    return { status: 'success', type: 'success', structuredError: null };
-  }
-
+  const resultHasError = Boolean(run.resultJson?.error) || run.resultJson?.subtype === 'error';
+  if (run.exitCode === 0 && !resultHasError) return { status: 'success', type: 'success', structuredError };
+  if (structuredError) return { status: 'failed', type: structuredError.type, structuredError };
+  if (run.resultJson && !resultHasError) return { status: 'success', type: 'success', structuredError: null };
   return { status: 'failed', type: 'infra_error', structuredError: null };
 }
 
@@ -905,6 +596,8 @@ function shouldAttemptEngineFallback(engine, classification, hasAlreadyRerouted)
   if (hasAlreadyRerouted) return false;
   return engine === 'claude' && classification.type === 'rate_limit';
 }
+
+// ─── Text summarization ───────────────────────────────────────────────────────
 
 function clampText(text, maxChars = MAX_SUMMARY_CHARS) {
   const normalized = String(text || '').replace(/\r/g, '').trim();
@@ -917,8 +610,7 @@ function formatStructuredError(structuredError, options = {}) {
   if (!structuredError) return '';
   const label = structuredError.type.replace(/_/g, ' ');
   const message = structuredError.message ? clampText(structuredError.message, 160) : '';
-  const base = message ? `${label}: ${message}` : label;
-  return clampText(base, options.maxChars || 220);
+  return clampText(message ? `${label}: ${message}` : label, options.maxChars || 220);
 }
 
 function stripAnsi(text) {
@@ -926,10 +618,7 @@ function stripAnsi(text) {
 }
 
 function normalizeOutputLines(text) {
-  return stripAnsi(text)
-    .split(/\r?\n/)
-    .map(line => line.replace(/\s+/g, ' ').trim())
-    .filter(Boolean);
+  return stripAnsi(text).split(/\r?\n/).map(line => line.replace(/\s+/g, ' ').trim()).filter(Boolean);
 }
 
 function isLikelyNoiseLine(line) {
@@ -974,29 +663,19 @@ function summarizeTextOutput(text, options = {}) {
 
   const ranked = uniqueLines
     .map((line, index) => ({ line, index, score: scoreSummaryLine(line) }))
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return a.index - b.index;
-    });
+    .sort((a, b) => b.score !== a.score ? b.score - a.score : a.index - b.index);
 
   const preferred = ranked.filter(item => item.score > 0);
   const pool = preferred.length ? preferred : ranked;
 
-  const selectedIndexes = pool
-    .slice(0, maxLines)
-    .map(item => item.index)
-    .sort((a, b) => a - b);
-
+  const selectedIndexes = pool.slice(0, maxLines).map(item => item.index).sort((a, b) => a - b);
   const selected = selectedIndexes.length
     ? selectedIndexes.map(index => uniqueLines[index])
     : uniqueLines.slice(-Math.min(maxLines, uniqueLines.length));
 
   let summary = selected.map(line => `- ${line}`).join('\n');
   const hiddenCount = Math.max(uniqueLines.length - selected.length, 0);
-  if (hiddenCount > 0) {
-    summary += `\n- ${hiddenCount} autre(s) ligne(s) masquée(s)`;
-  }
-
+  if (hiddenCount > 0) summary += `\n- ${hiddenCount} autre(s) ligne(s) masquée(s)`;
   return clampText(summary, maxChars);
 }
 
@@ -1004,12 +683,8 @@ function summarizeStderr(text, options = {}) {
   const lines = normalizeOutputLines(text);
   if (!lines.length) return '';
   let summary = lines.slice(0, 2).join(' | ');
-  if (summary.length > MAX_STDERR_SUMMARY_CHARS) {
-    summary = summary.slice(0, MAX_STDERR_SUMMARY_CHARS - 1).trimEnd() + '…';
-  }
-  if (lines.length > 2) {
-    summary += ` | ${lines.length - 2} ligne(s) stderr masquée(s)`;
-  }
+  if (summary.length > MAX_STDERR_SUMMARY_CHARS) summary = summary.slice(0, MAX_STDERR_SUMMARY_CHARS - 1).trimEnd() + '…';
+  if (lines.length > 2) summary += ` | ${lines.length - 2} ligne(s) stderr masquée(s)`;
   return clampText(summary, options.maxChars || MAX_STDERR_SUMMARY_CHARS);
 }
 
@@ -1018,10 +693,7 @@ function summarizeQualityGates(qualityResults) {
   const items = qualityResults.map(result => {
     const status = result.passed ? 'PASS' : 'FAIL';
     if (!result.output) return `${result.gate} ${status}`;
-    const compact = summarizeTextOutput(result.output, { fallback: '', maxChars: 110, maxLines: 2 })
-      .replace(/^-\s*/gm, '')
-      .replace(/\n+/g, ' | ')
-      .trim();
+    const compact = summarizeTextOutput(result.output, { fallback: '', maxChars: 110, maxLines: 2 }).replace(/^-\s*/gm, '').replace(/\n+/g, ' | ').trim();
     return compact ? `${result.gate} ${status}: ${compact}` : `${result.gate} ${status}`;
   });
   return clampText(`Checks: ${items.join(' ; ')}`, 220);
@@ -1044,11 +716,130 @@ function buildTaskSummaryNote({ engineLabel, failed, classification, run, qualit
   }));
 
   const qualitySummary = summarizeQualityGates(qualityResults);
-  if (qualitySummary) {
-    parts.push(qualitySummary);
-  }
+  if (qualitySummary) parts.push(qualitySummary);
 
   return clampText(parts.filter(Boolean).join('\n\n'), MAX_SUMMARY_CHARS);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 7. Instruction Builder (with rejection feedback injection)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function getRejectionFeedback(task) {
+  if (!Array.isArray(task.notes)) return [];
+  return task.notes
+    .filter(note => {
+      if (!note || typeof note.text !== 'string') return false;
+      const author = (note.author || '').trim().toLowerCase();
+      const text = note.text.trim();
+      // Reviewer or Agent notes containing rejection markers
+      return (author === 'reviewer' || author === 'agent' || author === 'agent technique')
+        && (text.includes('❌') || text.includes('⛔') || text.includes('Rejeté') || text.includes('rejeté') || text.includes('rejected'));
+    })
+    .map(note => note.text.trim());
+}
+
+function buildInstruction(task) {
+  const parts = [task.title.trim()];
+
+  if (task.description && task.description.trim()) {
+    parts.push('', task.description.trim());
+  }
+
+  const technicalContext = [];
+  if (task.technicalAgent) technicalContext.push(`Agent technique responsable: ${task.technicalAgent}`);
+  if (task.coderAgent) technicalContext.push(`Agent codeur: ${task.coderAgent}`);
+  if (task.priority) technicalContext.push(`Priorité: ${task.priority}`);
+  if (task.engine) technicalContext.push(`Engine demandé: ${task.engine}`);
+  if (task.model) technicalContext.push(`Modèle demandé: ${task.model}`);
+  if (technicalContext.length) {
+    parts.push('', 'Contexte workflow:', ...technicalContext);
+  }
+
+  // Optimization loop info
+  const loopEnabled = Boolean(task.optimizationLoop || task?.metadata?.optimizationLoop || task?.metadata?.optimization_loop || task?.metadata?.requiresOptimizationLoop);
+  const loopCount = Number.isInteger(task.optimizationLoopCount) ? task.optimizationLoopCount : 0;
+  const maxLoops = Number.isInteger(task.optimizationMaxLoops) && task.optimizationMaxLoops > 0 ? task.optimizationMaxLoops : 10;
+  if (loopEnabled) {
+    const loopLines = [
+      `Boucle d'optimisation active: passe ${loopCount + 1} (max ${maxLoops}).`,
+      loopCount > 0
+        ? 'Tu retravailles du code que tu as déjà produit. Repars de ton implémentation précédente, critique-la, simplifie-la, améliore la robustesse, les edge cases et le responsive/UX si pertinent, puis rends une version optimisée.'
+        : 'Cette tâche autorise une ou plusieurs boucles d\'optimisation si l\'agent technique le juge nécessaire après review.',
+    ];
+    parts.push('', ...loopLines);
+  }
+
+  // Rejection feedback history — the coder gets ALL accumulated rejection comments
+  const rejections = getRejectionFeedback(task);
+  if (rejections.length > 0) {
+    parts.push('', '⚠️ FEEDBACK DES REVIEWS PRÉCÉDENTES (à prendre en compte impérativement) :');
+    for (let i = 0; i < rejections.length; i++) {
+      parts.push(`[Review ${i + 1}] ${rejections[i]}`);
+    }
+    parts.push('Corrige les points soulevés ci-dessus en priorité.');
+  }
+
+  // Coder prompt
+  const initPrompt = typeof task.coderPrompt === 'string' ? task.coderPrompt.trim() : '';
+  if (initPrompt) {
+    parts.push('', "Prompt d'initialisation spécifique pour le codeur:", initPrompt);
+  }
+
+  parts.push('', 'Fin de tâche attendue: fais les changements, commit si nécessaire, puis rends un feedback final compact (1000 caractères max) contenant le commit SHA si tu en as créé un. La tâche repartira ensuite en review pour validation technique.');
+
+  return parts.join('\n');
+}
+
+function buildCodexInstruction(projectPath, instruction) {
+  const claudeMdPath = path.join(projectPath, 'CLAUDE.md');
+  if (!fs.existsSync(claudeMdPath)) return instruction;
+  return [
+    'Before doing anything else, read `./CLAUDE.md` at the repository root. It is the single source of truth for project instructions, architecture context, and working rules.',
+    'Follow `CLAUDE.md` throughout the task. If anything conflicts with later assumptions, `CLAUDE.md` wins.',
+    '', instruction,
+  ].join('\n');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 8. Coder Execution
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function pollForAnswer(runState, proc, toolUseId) {
+  const interval = setInterval(() => {
+    const currentRun = activeRuns.get(runState.taskId);
+    if (!currentRun || currentRun.proc !== proc) { clearInterval(interval); return; }
+
+    if (!currentRun.questionWarnEmitted && currentRun.questionStartTime && Date.now() - currentRun.questionStartTime >= QUESTION_WARN_MS) {
+      currentRun.questionWarnEmitted = true;
+      addNotification(currentRun.projectName, currentRun.taskTitle, currentRun.taskId, 'in_progress', 'in_progress', '⏰ Question sans réponse depuis 30min');
+    }
+
+    if (!currentRun.pendingAnswer) return;
+
+    const answer = currentRun.pendingAnswer;
+    log(`  Answer received for task [${currentRun.taskId}]: "${answer}"`);
+
+    const response = JSON.stringify({
+      type: 'user',
+      message: {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: toolUseId, content: answer }],
+      },
+    });
+
+    try {
+      proc.stdin.write(response + '\n');
+      log('  Answer sent to Claude Code');
+      currentRun.answerDeliveredAt = Date.now();
+      currentRun.pendingAnswer = null;
+      if (currentRun.currentQuestion) currentRun.currentQuestion = { ...currentRun.currentQuestion, answered: true };
+      currentRun.currentQuestion = null;
+    } catch (err) {
+      logError('Failed to write answer to stdin', err);
+    }
+    clearInterval(interval);
+  }, QUESTION_POLL_MS);
 }
 
 async function runEngine(project, task, engine, env, instruction, runState, options = {}) {
@@ -1058,18 +849,14 @@ async function runEngine(project, task, engine, env, instruction, runState, opti
   const model = resolved.model;
   const fallbackModel = resolved.fallbackModel;
 
-  if (resolved.rerouted) {
-    log(`  Rerouting ${getEngineLabel(engine)} -> ${getEngineLabel(effectiveEngine)} because ${resolved.rerouteReason}`);
-  }
+  if (resolved.rerouted) log(`  Rerouting ${getEngineLabel(engine)} -> ${getEngineLabel(effectiveEngine)} because ${resolved.rerouteReason}`);
   if (resolved.rawModel && resolved.modelSource !== 'configured') {
-    const modelAction = `normalize_${effectiveEngine}_model_${resolved.modelReason || 'adjusted'}`;
-    log(`  ${modelAction}: "${resolved.rawModel}" -> ${model || 'CLI default'}`);
+    log(`  normalize_${effectiveEngine}_model_${resolved.modelReason || 'adjusted'}: "${resolved.rawModel}" -> ${model || 'CLI default'}`);
   } else if (model) {
     log(`  Using model: ${model}`);
   }
   if (resolved.rawFallbackModel && resolved.fallbackModelSource !== 'configured') {
-    const fallbackAction = `${fallbackModel ? 'normalize' : 'drop'}_${effectiveEngine}_fallback_model_${resolved.fallbackModelReason || 'adjusted'}`;
-    log(`  ${fallbackAction}: "${resolved.rawFallbackModel}" -> ${fallbackModel || 'none'}`);
+    log(`  ${fallbackModel ? 'normalize' : 'drop'}_${effectiveEngine}_fallback_model_${resolved.fallbackModelReason || 'adjusted'}: "${resolved.rawFallbackModel}" -> ${fallbackModel || 'none'}`);
   } else if (fallbackModel) {
     log(`  Using fallback-model: ${fallbackModel}`);
   }
@@ -1079,34 +866,15 @@ async function runEngine(project, task, engine, env, instruction, runState, opti
   let proc;
   if (effectiveEngine === 'codex' || effectiveEngine === 'ollama') {
     const codexInstruction = buildCodexInstruction(projectPath, instruction);
-    const codexArgs = [
-      'exec',
-      codexInstruction,
-      '--dangerously-bypass-approvals-and-sandbox',
-    ];
-    if (effectiveEngine === 'ollama') {
-      codexArgs.push('--oss', '--local-provider', 'ollama');
-    }
+    const codexArgs = ['exec', codexInstruction, '--dangerously-bypass-approvals-and-sandbox'];
+    if (effectiveEngine === 'ollama') codexArgs.push('--oss', '--local-provider', 'ollama');
     if (model) codexArgs.push('--model', model);
-    proc = spawn('codex', codexArgs, {
-      cwd: projectPath,
-      env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    proc = spawn('codex', codexArgs, { cwd: projectPath, env, stdio: ['pipe', 'pipe', 'pipe'] });
   } else {
-    const claudeArgs = [
-      '--input-format', 'stream-json',
-      '--output-format', 'stream-json',
-      '--verbose',
-      '--permission-mode', 'bypassPermissions',
-    ];
+    const claudeArgs = ['--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'bypassPermissions'];
     if (model) claudeArgs.push('--model', model);
     if (fallbackModel) claudeArgs.push('--fallback-model', fallbackModel);
-    proc = spawn('claude', claudeArgs, {
-      cwd: projectPath,
-      env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    proc = spawn('claude', claudeArgs, { cwd: projectPath, env, stdio: ['pipe', 'pipe', 'pipe'] });
   }
 
   let resultText = '';
@@ -1129,33 +897,17 @@ async function runEngine(project, task, engine, env, instruction, runState, opti
   const completionPromise = new Promise(res => { resolveCompletion = res; });
 
   if (effectiveEngine === 'codex' || effectiveEngine === 'ollama') {
-    proc.stdout.on('data', chunk => {
-      resultText += chunk.toString();
-      runState.resultText = resultText;
-    });
-
+    proc.stdout.on('data', chunk => { resultText += chunk.toString(); runState.resultText = resultText; });
     proc.stderr.on('data', chunk => { stderrBuf += chunk.toString(); });
-
-    proc.on('close', code => {
-      exitCode = code;
-      log(`  ${effectiveEngine === 'ollama' ? 'Codex/Ollama' : 'Codex'} process exited (code=${code}) for task [${task.id}]`);
-      resolveCompletion();
-    });
-
-    proc.on('error', err => {
-      logError(`${effectiveEngine === 'ollama' ? 'Codex/Ollama' : 'Codex'} process error for task [${task.id}]`, err);
-      resolveCompletion();
-    });
+    proc.on('close', code => { exitCode = code; log(`  ${effectiveEngine === 'ollama' ? 'Codex/Ollama' : 'Codex'} process exited (code=${code}) for task [${task.id}]`); resolveCompletion(); });
+    proc.on('error', err => { logError(`${effectiveEngine === 'ollama' ? 'Codex/Ollama' : 'Codex'} process error for task [${task.id}]`, err); resolveCompletion(); });
   } else {
-    const userMsg = JSON.stringify({
-      type: 'user',
-      message: { role: 'user', content: instruction },
-    });
+    // Claude Code stream-json
+    const userMsg = JSON.stringify({ type: 'user', message: { role: 'user', content: instruction } });
     log(`  Sending instruction (${instruction.length} chars)`);
     proc.stdin.write(userMsg + '\n');
 
     let stdoutBuf = '';
-
     proc.stdout.on('data', chunk => {
       stdoutBuf += chunk.toString();
       let newlineIdx;
@@ -1165,11 +917,7 @@ async function runEngine(project, task, engine, env, instruction, runState, opti
         if (!line) continue;
 
         let event;
-        try {
-          event = JSON.parse(line);
-        } catch {
-          continue;
-        }
+        try { event = JSON.parse(line); } catch { continue; }
 
         switch (event.type) {
           case 'system':
@@ -1180,20 +928,13 @@ async function runEngine(project, task, engine, env, instruction, runState, opti
             const msg = event.message;
             if (msg && msg.content) {
               for (const block of msg.content) {
-                if (block.type === 'text') {
-                  resultText += (resultText ? '\n' : '') + block.text;
-                  runState.resultText = resultText;
-                }
+                if (block.type === 'text') { resultText += (resultText ? '\n' : '') + block.text; runState.resultText = resultText; }
                 if (block.type === 'tool_use' && block.name === 'AskUserQuestion') {
                   const question = block.input?.question || block.input?.text || JSON.stringify(block.input);
                   log(`  [stream] Question detected: "${question}"`);
                   runState.currentQuestion = {
-                    taskId: task.id,
-                    projectId: project.id,
-                    question,
-                    timestamp: new Date().toISOString(),
-                    answered: false,
-                    toolUseId: block.id,
+                    taskId: task.id, projectId: project.id, question,
+                    timestamp: new Date().toISOString(), answered: false, toolUseId: block.id,
                   };
                   runState.questionStartTime = Date.now();
                   runState.questionWarnEmitted = false;
@@ -1207,10 +948,7 @@ async function runEngine(project, task, engine, env, instruction, runState, opti
 
           case 'result':
             resultJson = event;
-            if (event.result) {
-              resultText = event.result;
-              runState.resultText = resultText;
-            }
+            if (event.result) { resultText = event.result; runState.resultText = resultText; }
             log(`  [stream] Result received (${event.subtype}, ${event.duration_ms}ms, $${event.total_cost_usd?.toFixed(4) || '?'}) — closing stdin`);
             try { proc.stdin.end(); } catch {}
             setTimeout(() => { try { proc.kill('SIGTERM'); } catch {} }, 5000);
@@ -1227,17 +965,8 @@ async function runEngine(project, task, engine, env, instruction, runState, opti
     });
 
     proc.stderr.on('data', chunk => { stderrBuf += chunk.toString(); });
-
-    proc.on('close', code => {
-      exitCode = code;
-      log(`  Process exited (code=${code}) for task [${task.id}]`);
-      resolveCompletion();
-    });
-
-    proc.on('error', err => {
-      logError(`Process error for task [${task.id}]`, err);
-      resolveCompletion();
-    });
+    proc.on('close', code => { exitCode = code; log(`  Process exited (code=${code}) for task [${task.id}]`); resolveCompletion(); });
+    proc.on('error', err => { logError(`Process error for task [${task.id}]`, err); resolveCompletion(); });
   }
 
   await completionPromise;
@@ -1247,27 +976,15 @@ async function runEngine(project, task, engine, env, instruction, runState, opti
   runState.pendingAnswer = null;
   runState.answerDeliveredAt = null;
 
-  if (shuttingDown) {
-    releaseRun(task.id);
-    process.exit(0);
-    return null;
-  }
+  if (shuttingDown) { releaseRun(task.id); process.exit(0); return null; }
 
   log(`  Task finished (exitCode=${exitCode})`);
 
   return {
-    requestedEngine: engine,
-    engine: effectiveEngine,
-    rerouted: resolved.rerouted,
-    rerouteReason: resolved.rerouteReason,
-    modelUsed: model,
-    fallbackModelUsed: fallbackModel,
-    exitCode,
-    resultText,
-    resultJson,
-    stderrBuf,
-    rateLimitEvents,
-    stoppedManually,
+    requestedEngine: engine, engine: effectiveEngine,
+    rerouted: resolved.rerouted, rerouteReason: resolved.rerouteReason,
+    modelUsed: model, fallbackModelUsed: fallbackModel,
+    exitCode, resultText, resultJson, stderrBuf, rateLimitEvents, stoppedManually,
   };
 }
 
@@ -1288,12 +1005,7 @@ async function processTask(project, task, runState) {
   const startHead = await getGitHeadInfo(projectPath);
   const instruction = buildInstruction(task);
 
-  const env = {
-    ...process.env,
-    PATH: `${NVM_NODE_PATH}:${process.env.PATH}`,
-    HOME: '/home/openclaw',
-  };
-
+  const env = { ...process.env, PATH: `${NVM_NODE_PATH}:${process.env.PATH}`, HOME: '/home/openclaw' };
   const engine = task.engine || project.engine || 'claude';
   let finalEngine = engine;
 
@@ -1303,33 +1015,21 @@ async function processTask(project, task, runState) {
     finalEngine = run.engine;
     let classification = classifyRunOutcome(run);
 
+    // Fallback: Claude rate_limit → Codex
     if (shouldAttemptEngineFallback(run.engine, classification, run.rerouted)) {
       const altEngine = run.engine === 'codex' ? 'claude' : 'codex';
-      const engineLabel = getEngineLabel(run.engine);
-      const altEngineLabel = getEngineLabel(altEngine);
-      const reasonLabel = classification.type.replace(/_/g, ' ');
-      const fallbackAction = `fallback_to_${altEngine}_due_to_${run.engine}_${classification.type}`;
-
-      log(`  ${fallbackAction}`);
-      addNotification(project.name, task.title, task.id, 'in_progress', 'in_progress', `⚠️ ${engineLabel} échoué (${reasonLabel}) — fallback sur ${altEngineLabel}`);
-
+      log(`  fallback_to_${altEngine}_due_to_${run.engine}_${classification.type}`);
+      addNotification(project.name, task.title, task.id, 'in_progress', 'in_progress', `⚠️ ${getEngineLabel(run.engine)} échoué (${classification.type.replace(/_/g, ' ')}) — fallback sur ${getEngineLabel(altEngine)}`);
       run = await runEngine(project, task, altEngine, env, instruction, runState, { allowReroute: false });
       if (!run) return;
       finalEngine = run.engine;
       classification = classifyRunOutcome(run);
-    } else if (classification.status === 'failed') {
-      const skippedTarget = run.engine === 'codex' ? 'claude' : 'codex';
-      const skipReason = run.rerouted ? 'already_rerouted' : classification.type;
-      log(`  skip_${skippedTarget}_fallback_${skipReason}`);
     }
 
-    const { exitCode, resultText, resultJson, stderrBuf, stoppedManually } = run;
+    const { resultText, resultJson, stderrBuf, stoppedManually, exitCode } = run;
 
     if (stoppedManually) {
-      updateTask(projectPath, task.id, t => {
-        setWorkerFinalNote(t, '⏹ Tâche stoppée manuellement.');
-        t.status = 'review';
-      });
+      updateTask(projectPath, task.id, t => { setWorkerFinalNote(t, '⏹ Tâche stoppée manuellement.'); t.status = 'review'; });
       addNotification(project.name, task.title, task.id, 'in_progress', 'review', '⏹ Tâche stoppée manuellement');
       return;
     }
@@ -1338,21 +1038,11 @@ async function processTask(project, task, runState) {
 
     let qualityResults = [];
     if (!failed) {
-      try {
-        qualityResults = await runQualityGates(projectPath);
-      } catch (err) {
-        logError('Quality gates error', err);
-      }
+      try { qualityResults = await runQualityGates(projectPath); } catch (err) { logError('Quality gates error', err); }
     }
 
     const engineLabel = getEngineLabel(finalEngine);
-    let summaryNote = buildTaskSummaryNote({
-      engineLabel,
-      failed,
-      classification,
-      run: { exitCode, resultText, resultJson, stderrBuf },
-      qualityResults,
-    });
+    let summaryNote = buildTaskSummaryNote({ engineLabel, failed, classification, run: { exitCode, resultText, resultJson, stderrBuf }, qualityResults });
 
     const endHead = await getGitHeadInfo(projectPath);
     const commitChanged = Boolean(endHead && (!startHead || startHead.hash !== endHead.hash));
@@ -1374,408 +1064,153 @@ async function processTask(project, task, runState) {
       t.lastCoderCommit = commitHash || '';
       if (commitHash) t.commitSha = commitHash;
       if (t.optimizationLoop) {
-        const currentCount = Number.isInteger(t.optimizationLoopCount) ? t.optimizationLoopCount : 0;
-        t.optimizationLoopCount = currentCount + 1;
+        t.optimizationLoopCount = (Number.isInteger(t.optimizationLoopCount) ? t.optimizationLoopCount : 0) + 1;
       }
       if (failed) t.error = true;
     });
 
-    const notifMsg = failed
-      ? '❌ Erreur pendant le traitement — en review'
-      : '🔍 Traitement terminé — en attente de review';
+    const notifMsg = failed ? '❌ Erreur pendant le traitement — en review' : '🔍 Traitement terminé — en attente de review';
     addNotification(project.name, task.title, task.id, 'in_progress', 'review', notifMsg);
     log(`Task [${task.id}] → review${failed ? ' (with error)' : ''}`);
+
+    // Send webhook notification
+    await sendWebhook(project, task, { summaryNote, commitHash, engine: finalEngine, model: run.modelUsed });
   } finally {
-    if (runState.projectLock) {
-      releaseFileLock(runState.projectLock);
-      runState.projectLock = null;
-    }
+    if (runState.projectLock) { releaseFileLock(runState.projectLock); runState.projectLock = null; }
     releaseRun(task.id);
-    if (shuttingDown && getActiveRunCount() === 0) {
-      process.exit(0);
-    }
+    if (shuttingDown && getActiveRunCount() === 0) process.exit(0);
   }
 }
 
-// ─── Auto-validation pipeline (review → validate → deploy → done) ────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// 9. Webhook Notification
+// ═══════════════════════════════════════════════════════════════════════════════
 
-function buildReviewInstruction(task, gitDiff, qualityResults) {
-  const parts = [
-    'Tu es un reviewer technique. Tu dois valider le code produit par un agent codeur.',
-    '',
-    `**Tâche originale:** ${task.title}`,
-  ];
-
-  if (task.description && task.description.trim()) {
-    parts.push(`**Description:** ${task.description.trim()}`);
+async function sendWebhook(project, task, { summaryNote, commitHash, engine, model }) {
+  const config = loadConfig();
+  const webhookUrl = config.webhookUrl || config.worker?.webhookUrl || '';
+  if (!webhookUrl) {
+    log(`  No webhookUrl configured — skipping webhook for task [${task.id}]`);
+    return false;
   }
 
-  if (task.lastCoderSummary) {
-    parts.push('', `**Résumé du codeur:** ${task.lastCoderSummary}`);
-  }
-
-  if (gitDiff && gitDiff.trim()) {
-    const diffTruncated = gitDiff.length > 8000 ? gitDiff.slice(0, 8000) + '\n... (diff tronqué)' : gitDiff;
-    parts.push('', '**Diff git des changements:**', '```diff', diffTruncated, '```');
-  } else {
-    parts.push('', '**⚠️ ATTENTION: Aucun diff git détecté.** Si aucun changement n\'a été fait, rejette la tâche. Ne valide que si le résumé du codeur confirme clairement que des changements ont été faits et commités.');
-  }
-
-  if (Array.isArray(qualityResults) && qualityResults.length > 0) {
-    const qLines = qualityResults.map(r => `- ${r.gate}: ${r.passed ? 'PASS' : 'FAIL'}${r.output ? ` (${r.output.slice(0, 100)})` : ''}`);
-    parts.push('', '**Résultats quality gates:**', ...qLines);
-  }
-
-  const loopEnabled = Boolean(task.optimizationLoop);
-  const loopCount = Number.isInteger(task.optimizationLoopCount) ? task.optimizationLoopCount : 0;
-  const maxLoops = Number.isInteger(task.optimizationMaxLoops) && task.optimizationMaxLoops > 0 ? task.optimizationMaxLoops : 10;
-  const loopsRemaining = loopEnabled ? Math.max(0, maxLoops - loopCount) : 0;
-
-  parts.push(
-    '',
-    '**Critères de validation:**',
-    '1. Le code répond-il à la tâche demandée?',
-    '2. Pas de bugs évidents, pas de régressions?',
-    '3. Le code suit-il les conventions du projet (CLAUDE.md)?',
-    '4. Pas de failles de sécurité introduites?',
-    '',
-    loopsRemaining > 0
-      ? `Boucles d'optimisation restantes: ${loopsRemaining}. Si le code est bon mais peut être amélioré, tu peux rejeter pour optimisation.`
-      : 'Aucune boucle d\'optimisation restante. Approuve sauf si le code est manifestement cassé.',
-    '',
-    '**Réponds UNIQUEMENT avec un JSON valide, sans markdown ni texte autour:**',
-    '```',
-    '{"approved": true|false, "feedback": "explication courte (200 chars max)", "deploy": true|false}',
-    '```',
-    '',
-    '- `approved`: true si le code est validé',
-    '- `feedback`: explication concise du verdict',
-    '- `deploy`: true si le code doit être poussé (git push) vers le remote. false si pas de commit ou si le code ne doit pas encore être déployé.',
-  );
-
-  return parts.join('\n');
-}
-
-async function getGitDiff(projectPath, commitHash) {
-  // Try to get diff for the specific commit (validate hash to prevent injection)
-  if (commitHash && /^[0-9a-f]{7,40}$/i.test(commitHash)) {
-    const r = await spawnPromiseWithStdin('git', ['diff', `${commitHash}~1..${commitHash}`], null, { cwd: projectPath }, 15000);
-    if (r.code === 0 && r.output.trim()) return r.output.trim();
-  }
-  // Fallback: staged + unstaged diff
-  const r = await spawnPromiseWithStdin('git', ['diff', 'HEAD'], null, { cwd: projectPath }, 15000);
-  if (r.code === 0 && r.output.trim()) return r.output.trim();
-  // Fallback: last commit diff
-  const r2 = await spawnPromiseWithStdin('git', ['diff', 'HEAD~1..HEAD'], null, { cwd: projectPath }, 15000);
-  return r2.code === 0 ? r2.output.trim() : '';
-}
-
-async function autoDeploy(projectPath) {
-  log(`  Auto-deploy: git pull --rebase then push in ${projectPath}`);
-  // Pull first to avoid push rejection if remote has advanced
-  const pull = await spawnPromise('git pull --rebase --autostash', { cwd: projectPath }, AUTO_DEPLOY_TIMEOUT_MS);
-  if (pull.code !== 0 && !pull.output.includes('Already up to date')) {
-    log(`  Auto-deploy: pull --rebase failed: ${pull.output.slice(0, 200)}`);
-    // Try push anyway (might work if remote hasn't changed)
-  }
-  const result = await spawnPromise('git push', { cwd: projectPath }, AUTO_DEPLOY_TIMEOUT_MS);
-  return {
-    success: result.code === 0,
-    output: result.output,
-    timedOut: result.timedOut,
+  const payload = {
+    event: 'task_review_ready',
+    projectId: project.id,
+    projectName: project.name,
+    taskId: task.id,
+    taskTitle: task.title,
+    coderEngine: engine || 'claude',
+    coderModel: model || '',
+    coderSummary: summaryNote || '',
+    commitSha: commitHash || '',
+    timestamp: now(),
   };
-}
-
-function parseReviewVerdict(text) {
-  // Try to extract JSON from the response
-  const jsonPatterns = [
-    /\{[^{}]*"approved"\s*:\s*(true|false)[^{}]*\}/,
-    /```(?:json)?\s*(\{[^}]+\})\s*```/,
-  ];
-
-  for (const pattern of jsonPatterns) {
-    const match = text.match(pattern);
-    if (match) {
-      try {
-        const raw = match[1] || match[0];
-        const parsed = JSON.parse(raw);
-        if (typeof parsed.approved === 'boolean') {
-          return {
-            approved: parsed.approved,
-            feedback: typeof parsed.feedback === 'string' ? parsed.feedback.slice(0, 300) : '',
-            deploy: typeof parsed.deploy === 'boolean' ? parsed.deploy : parsed.approved,
-          };
-        }
-      } catch {}
-    }
-  }
-
-  // Fallback: heuristic on text
-  const lower = text.toLowerCase();
-  if (lower.includes('"approved": true') || lower.includes('"approved":true')) {
-    return { approved: true, feedback: 'Auto-parsed: approved', deploy: true };
-  }
-  if (lower.includes('"approved": false') || lower.includes('"approved":false')) {
-    return { approved: false, feedback: 'Auto-parsed: rejected', deploy: false };
-  }
-
-  // Cannot determine — default to REJECTED (safe: never auto-approve unparseable verdicts)
-  return { approved: false, feedback: 'Verdict parsing failed — rejected for safety', deploy: false };
-}
-
-async function callAnthropicReviewAPI(instruction, model) {
-  const token = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-  if (!token) throw new Error('CLAUDE_CODE_OAUTH_TOKEN not set');
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REVIEW_API_TIMEOUT_MS);
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: instruction }],
-      }),
-    });
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(`Anthropic API ${res.status}: ${body.slice(0, 300)}`);
-    }
-
-    const data = await res.json();
-    let text = '';
-    if (Array.isArray(data.content)) {
-      for (const block of data.content) {
-        if (block.type === 'text') text += block.text;
-      }
-    }
-    return text;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function processReviewTask(project, task, runState) {
-  const projectPath = project.path;
-
-  log(`Processing review [${task.id}] "${task.title}" in "${project.name}"`);
-
-  updateTask(projectPath, task.id, t => {
-    t.status = 'validating';
-    t.validatingAt = now();
-  });
-  addNotification(project.name, task.title, task.id, 'review', 'validating', '🔍 Validation automatique en cours');
-
-  try {
-    // 1. Gather context for review
-    const gitDiff = await getGitDiff(projectPath, task.lastCoderCommit || task.commitSha || '');
-    let qualityResults = [];
+    log(`  Sending webhook to ${webhookUrl} for task [${task.id}]`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
     try {
-      qualityResults = await runQualityGates(projectPath);
-    } catch (err) {
-      logError('Quality gates error during review', err);
-    }
-
-    // 2. Build review instruction and call Anthropic API directly (lightweight, no CLI spawn)
-    const instruction = buildReviewInstruction(task, gitDiff, qualityResults);
-    runState.engine = 'api';
-    runState.pid = process.pid; // For status reporting
-
-    let resultText;
-    try {
-      resultText = await callAnthropicReviewAPI(instruction, REVIEW_MODEL);
-    } catch (apiErr) {
-      // API call failed — fall back to claude -p one-shot (stdin pipe, no shell interpolation)
-      log(`  Review API call failed: ${apiErr.message} — falling back to claude -p`);
-      const env = { ...process.env, PATH: `${NVM_NODE_PATH}:${process.env.PATH}`, HOME: '/home/openclaw' };
-      const cliResult = await spawnPromiseWithStdin(
-        'claude', ['-p', '--model', REVIEW_MODEL, '--output-format', 'text'],
-        instruction, { cwd: projectPath, env }, MAX_REVIEW_DURATION_MS
-      );
-      resultText = cliResult.output || '';
-      if (cliResult.timedOut) {
-        log(`  Review CLI fallback also timed out for [${task.id}]`);
-        resultText = '{"approved": false, "feedback": "Review timed out", "deploy": false}';
-      }
-    }
-    runState.resultText = resultText;
-
-    if (runState.stoppedManually) {
-      updateTask(projectPath, task.id, t => {
-        setWorkerFinalNote(t, '⏹ Review stoppée manuellement.');
-        t.status = 'review';
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-      return;
-    }
-
-    // 3. Parse verdict
-    const verdict = parseReviewVerdict(resultText);
-    log(`  Review verdict for [${task.id}]: approved=${verdict.approved}, deploy=${verdict.deploy}, feedback="${verdict.feedback}"`);
-
-    if (!verdict.approved) {
-      // Check optimization loops
-      const loopEnabled = Boolean(task.optimizationLoop);
-      const loopCount = Number.isInteger(task.optimizationLoopCount) ? task.optimizationLoopCount : 0;
-      const maxLoops = Number.isInteger(task.optimizationMaxLoops) && task.optimizationMaxLoops > 0 ? task.optimizationMaxLoops : 10;
-
-      if (loopEnabled && loopCount < maxLoops) {
-        // Re-queue for optimization
-        updateTask(projectPath, task.id, t => {
-          setAuthorFinalNote(t, 'Reviewer', `❌ Rejeté — re-optimisation (passe ${loopCount + 1}/${maxLoops}): ${verdict.feedback}`);
-          t.status = 'queued';
-          t.error = false;
-        });
-        addNotification(project.name, task.title, task.id, 'validating', 'queued', `🔄 Rejeté par reviewer — re-optimisation passe ${loopCount + 1}/${maxLoops}`);
-        log(`  Task [${task.id}] → queued (optimization loop ${loopCount + 1}/${maxLoops})`);
-        return;
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        log(`  Webhook failed (HTTP ${res.status}): ${body.slice(0, 200)}`);
+        return false;
       }
-
-      // Loop limit reached or no loop configured — mark as review for human intervention
-      const loopLimitMsg = loopEnabled && loopCount >= maxLoops
-        ? `⛔ Limite de boucles d'optimisation atteinte (${loopCount}/${maxLoops}) — intervention humaine requise: ${verdict.feedback}`
-        : `❌ Rejeté par reviewer — intervention humaine requise: ${verdict.feedback}`;
-      updateTask(projectPath, task.id, t => {
-        setAuthorFinalNote(t, 'Reviewer', loopEnabled && loopCount >= maxLoops
-          ? `⛔ Limite de boucles atteinte (${loopCount}/${maxLoops}): ${verdict.feedback}`
-          : `❌ Rejeté: ${verdict.feedback}`);
-        t.status = 'review';
-        t.humanValidation = true; // Force human review now
-        t.error = true;
-      });
-      addNotification(project.name, task.title, task.id, 'validating', 'review', loopLimitMsg);
-      log(`  Task [${task.id}] → review (${loopEnabled && loopCount >= maxLoops ? `loop limit ${loopCount}/${maxLoops}` : 'rejected, needs human intervention'})`);
-      return;
+      log(`  Webhook sent successfully for task [${task.id}]`);
+      return true;
+    } finally {
+      clearTimeout(timeout);
     }
-
-    // 4. Approved — deploy if requested
-    let deployResult = null;
-    if (verdict.deploy) {
-      deployResult = await autoDeploy(projectPath);
-      if (deployResult.success) {
-        log(`  Auto-deploy succeeded for [${task.id}]`);
-      } else {
-        log(`  Auto-deploy failed for [${task.id}]: ${deployResult.output?.slice(0, 200)}`);
-      }
-    }
-
-    // 5. Mark as done
-    updateTask(projectPath, task.id, t => {
-      const deployInfo = deployResult
-        ? (deployResult.success ? '✅ Déployé (git push)' : `⚠️ Deploy échoué: ${(deployResult.output || '').slice(0, 100)}`)
-        : '';
-      const reviewNote = `✅ Validé: ${verdict.feedback}${deployInfo ? '\n' + deployInfo : ''}`;
-      setAuthorFinalNote(t, 'Reviewer', reviewNote);
-      t.status = 'done';
-      t.completedAt = now();
-      t.validatedAt = now();
-      if (deployResult && deployResult.success) {
-        t.deployedAt = now();
-        t.deployedCommit = t.lastCoderCommit || t.commitSha || '';
-      }
-    });
-
-    const deployMsg = deployResult
-      ? (deployResult.success ? ' + déployé' : ' (deploy échoué)')
-      : '';
-    addNotification(project.name, task.title, task.id, 'validating', 'done', `✅ Validé et terminé${deployMsg}: ${verdict.feedback}`);
-    log(`Task [${task.id}] → done${deployMsg}`);
   } catch (err) {
-    logError(`Review pipeline crashed for [${task.id}]`, err);
-    updateTask(projectPath, task.id, t => {
-      setWorkerFinalNote(t, `⚠️ Erreur validation: ${(err.message || String(err)).slice(0, 200)}`);
-      t.status = 'review';
-      t.humanValidation = true;
-      t.error = true;
-    });
-    addNotification(project.name, task.title, task.id, 'validating', 'review', `⚠️ Erreur validation — intervention humaine requise`);
-  } finally {
-    if (runState.projectLock) {
-      releaseFileLock(runState.projectLock);
-      runState.projectLock = null;
-    }
-    releaseRun(task.id);
-    if (shuttingDown && getActiveRunCount() === 0) {
-      process.exit(0);
-    }
+    logError(`Webhook failed for task [${task.id}]`, err);
+    return false;
   }
 }
 
-// ─── Poll for answer to a question ────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// 10. Poll Loop (queued tasks only)
+// ═══════════════════════════════════════════════════════════════════════════════
 
-function pollForAnswer(runState, proc, toolUseId) {
-  const interval = setInterval(() => {
-    const currentRun = activeRuns.get(runState.taskId);
-    if (!currentRun || currentRun.proc !== proc) {
-      clearInterval(interval);
-      return;
-    }
-
-    if (!currentRun.questionWarnEmitted && currentRun.questionStartTime && Date.now() - currentRun.questionStartTime >= QUESTION_WARN_MS) {
-      currentRun.questionWarnEmitted = true;
-      addNotification(currentRun.projectName, currentRun.taskTitle, currentRun.taskId, 'in_progress', 'in_progress', '⏰ Question sans réponse depuis 30min');
-    }
-
-    if (!currentRun.pendingAnswer) return;
-
-    const answer = currentRun.pendingAnswer;
-    log(`  Answer received for task [${currentRun.taskId}]: "${answer}"`);
-
-    const response = JSON.stringify({
-      type: 'user',
-      message: {
-        role: 'user',
-        content: [
-          {
-            type: 'tool_result',
-            tool_use_id: toolUseId,
-            content: answer,
-          },
-        ],
-      },
-    });
-
-    try {
-      proc.stdin.write(response + '\n');
-      log('  Answer sent to Claude Code');
-      currentRun.answerDeliveredAt = Date.now();
-      currentRun.pendingAnswer = null;
-      if (currentRun.currentQuestion) {
-        currentRun.currentQuestion = { ...currentRun.currentQuestion, answered: true };
-      }
-      currentRun.currentQuestion = null;
-    } catch (err) {
-      logError('Failed to write answer to stdin', err);
-    }
-
-    clearInterval(interval);
-  }, QUESTION_POLL_MS);
+function loadConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+  } catch (err) {
+    logError('Failed to read config.json', err);
+    return { projects: [] };
+  }
 }
 
-// ─── Warning check ────────────────────────────────────────────────────────────
+function getTaskPriorityRank(task) { return PRIORITY_ORDER[task.priority] ?? 99; }
+
+function getTaskCreatedTime(task) {
+  const raw = task.createdAt || task.created;
+  const ts = raw ? Date.parse(raw) : NaN;
+  return Number.isFinite(ts) ? ts : Number.MAX_SAFE_INTEGER;
+}
+
+function compareTaskOrder(a, b) {
+  const pa = getTaskPriorityRank(a);
+  const pb = getTaskPriorityRank(b);
+  if (pa !== pb) return pa - pb;
+  const ta = getTaskCreatedTime(a);
+  const tb = getTaskCreatedTime(b);
+  if (ta !== tb) return ta - tb;
+  return String(a.id).localeCompare(String(b.id));
+}
+
+function getNextQueuedTask(project) {
+  if (hasProjectActiveRun(project.id)) return null;
+
+  const data = readTasks(project.path);
+  const queued = data.tasks.filter(t => {
+    if (t.status !== 'queued' && t.status !== 'pending') return false;
+    if (activeRuns.has(t.id)) return false;
+
+    // Guard-fou: optimization loop limit check BEFORE taking the task
+    if (t.optimizationLoop) {
+      const loopCount = Number.isInteger(t.optimizationLoopCount) ? t.optimizationLoopCount : 0;
+      const maxLoops = Number.isInteger(t.optimizationMaxLoops) && t.optimizationMaxLoops > 0 ? t.optimizationMaxLoops : 10;
+      if (loopCount >= maxLoops) {
+        log(`  Task [${t.id}] — optimization loop limit reached (${loopCount}/${maxLoops}), flagging humanValidation`);
+        try {
+          updateTask(project.path, t.id, u => {
+            u.status = 'review';
+            u.humanValidation = true;
+            u.error = true;
+          });
+          addNotification(project.name, t.title || t.id, t.id, 'queued', 'review',
+            `⛔ Limite de boucles d'optimisation atteinte (${loopCount}/${maxLoops}) — intervention humaine requise`);
+        } catch (err) { logError(`Failed to move loop-exhausted task [${t.id}] to review`, err); }
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  if (queued.length === 0) return null;
+  queued.sort(compareTaskOrder);
+  return queued[0];
+}
 
 function checkRunningWarnings() {
   for (const runState of activeRuns.values()) {
     const elapsedMs = Date.now() - runState.startTime.getTime();
     const elapsedMin = Math.floor(elapsedMs / 60_000);
 
-    // Hard timeout: kill tasks that exceed maximum duration
-    const maxDuration = runState.engine === 'api' ? MAX_REVIEW_DURATION_MS : MAX_TASK_DURATION_MS;
-    if (elapsedMs > maxDuration && !runState.stoppedManually) {
-      const label = runState.engine === 'api' ? 'review' : 'task';
-      log(`  ⏰ Hard timeout: ${label} [${runState.taskId}] exceeded ${Math.round(maxDuration / 60000)}min — killing`);
+    // Hard timeout: kill tasks exceeding maximum duration
+    if (elapsedMs > MAX_TASK_DURATION_MS && !runState.stoppedManually) {
+      log(`  ⏰ Hard timeout: task [${runState.taskId}] exceeded ${Math.round(MAX_TASK_DURATION_MS / 60000)}min — killing`);
       runState.stoppedManually = true;
       try { runState.proc && runState.proc.kill('SIGTERM'); } catch {}
-      addNotification(runState.projectName, runState.taskTitle, runState.taskId, 'in_progress', 'review',
-        `⏰ Timeout: ${label} tué après ${elapsedMin} minutes`);
+      addNotification(runState.projectName, runState.taskTitle, runState.taskId, 'in_progress', 'review', `⏰ Timeout: tâche tuée après ${elapsedMin} minutes`);
       continue;
     }
 
@@ -1790,134 +1225,21 @@ function checkRunningWarnings() {
   }
 }
 
-// ─── Config loader ────────────────────────────────────────────────────────────
-
-function loadConfig() {
-  try {
-    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-  } catch (err) {
-    logError('Failed to read config.json', err);
-    return { projects: [] };
-  }
-}
-
-function getMaxConcurrency(config) {
-  const envValue = Number.parseInt(process.env.TASK_WORKER_MAX_CONCURRENCY || '', 10);
-  if (Number.isInteger(envValue) && envValue > 0) return envValue;
-
-  const configValue = Number.parseInt(String(config?.worker?.maxConcurrency ?? ''), 10);
-  if (Number.isInteger(configValue) && configValue > 0) return configValue;
-
-  return DEFAULT_MAX_CONCURRENCY;
-}
-
-// ─── Poll loop ────────────────────────────────────────────────────────────────
-
-const PRIORITY_ORDER = {
-  critical: -1,
-  high: 0,
-  medium: 1,
-  low: 2,
-};
-
-function getTaskPriorityRank(task) {
-  return PRIORITY_ORDER[task.priority] ?? 99;
-}
-
-function getTaskCreatedTime(task) {
-  const raw = task.createdAt || task.created;
-  const ts = raw ? Date.parse(raw) : NaN;
-  return Number.isFinite(ts) ? ts : Number.MAX_SAFE_INTEGER;
-}
-
-function compareTaskOrder(a, b) {
-  const pa = getTaskPriorityRank(a);
-  const pb = getTaskPriorityRank(b);
-  if (pa !== pb) return pa - pb;
-
-  const ta = getTaskCreatedTime(a);
-  const tb = getTaskCreatedTime(b);
-  if (ta !== tb) return ta - tb;
-
-  return String(a.id).localeCompare(String(b.id));
-}
-
-function getNextQueuedTask(project) {
-  if (hasProjectActiveRun(project.id)) return null;
-
-  const data = readTasks(project.path);
-  const queued = data.tasks.filter(t => {
-    if (t.status !== 'queued' && t.status !== 'pending') return false;
-    if (activeRuns.has(t.id)) return false;
-    // Skip tasks that have exhausted their optimization loops — move them to review
-    if (t.optimizationLoop) {
-      const loopCount = Number.isInteger(t.optimizationLoopCount) ? t.optimizationLoopCount : 0;
-      const maxLoops = Number.isInteger(t.optimizationMaxLoops) && t.optimizationMaxLoops > 0 ? t.optimizationMaxLoops : 10;
-      if (loopCount >= maxLoops) {
-        log(`  Task [${t.id}] — optimization loop limit reached (${loopCount}/${maxLoops}), moving to review`);
-        const taskTitle = t.title || t.id;
-        try {
-          updateTask(project.path, t.id, u => {
-            u.status = 'review';
-            u.humanValidation = true;
-            u.error = true;
-          });
-          addNotification(project.name, taskTitle, t.id, 'queued', 'review',
-            `⛔ Limite de boucles d'optimisation atteinte (${loopCount}/${maxLoops}) — intervention humaine requise`);
-        } catch (err) {
-          logError(`Failed to move loop-exhausted task [${t.id}] to review`, err);
-        }
-        return false;
-      }
-    }
-    return true;
-  });
-  if (queued.length === 0) return null;
-
-  queued.sort(compareTaskOrder);
-  return queued[0];
-}
-
-function getNextReviewTask(project) {
-  if (hasProjectActiveRun(project.id)) return null;
-
-  const data = readTasks(project.path);
-  const reviewable = data.tasks.filter(t => {
-    if (t.status !== 'review') return false;
-    if (t.humanValidation) return false; // Requires human review, skip
-    if (activeRuns.has(t.id)) return false;
-    // Cooldown: don't pick up tasks that just entered review
-    const reviewAt = t.reviewRequestedAt ? Date.parse(t.reviewRequestedAt) : 0;
-    if (reviewAt && (Date.now() - reviewAt) < REVIEW_COOLDOWN_MS) return false;
-    return true;
-  });
-  if (reviewable.length === 0) return null;
-
-  reviewable.sort(compareTaskOrder);
-  return reviewable[0];
-}
-
 async function pollOnce() {
   checkRunningWarnings();
 
   const config = loadConfig();
-  const maxConcurrency = getMaxConcurrency(config);
-  const availableSlots = Math.max(0, maxConcurrency - getActiveRunCount());
-  if (availableSlots === 0) return;
 
-  const scheduled = [];
-
+  // No global concurrency cap — schedule one task per project, all projects in parallel
   for (const project of config.projects) {
-    if (shuttingDown || scheduled.length >= availableSlots) break;
+    if (shuttingDown) break;
 
     const task = getNextQueuedTask(project);
     if (!task) continue;
 
     const projectLock = acquireProjectExecutionLock(project, task);
     if (!projectLock || projectLock.acquired === false) {
-      const holder = projectLock && projectLock.existing
-        ? `held by pid=${projectLock.existing.pid} task=${projectLock.existing.taskId || '?'}`
-        : `reason=${projectLock?.reason || 'unknown'}`;
+      const holder = projectLock?.existing ? `held by pid=${projectLock.existing.pid} task=${projectLock.existing.taskId || '?'}` : `reason=${projectLock?.reason || 'unknown'}`;
       log(`Project "${project.name}": skipping task [${task.id}] because project execution lock is ${holder}`);
       continue;
     }
@@ -1935,64 +1257,120 @@ async function pollOnce() {
           t.error = true;
         });
       } catch {}
-      if (runState.projectLock) {
-        releaseFileLock(runState.projectLock);
-        runState.projectLock = null;
-      }
+      if (runState.projectLock) { releaseFileLock(runState.projectLock); runState.projectLock = null; }
       releaseRun(task.id);
     });
-
-    scheduled.push(task.id);
   }
+}
 
-  // Second pass: pick up review tasks for auto-validation pipeline
-  const totalScheduled = getActiveRunCount() + scheduled.length;
-  const remainingSlots = Math.max(0, maxConcurrency - totalScheduled);
-  if (remainingSlots > 0 && !shuttingDown) {
-    let reviewScheduled = 0;
-    for (const project of config.projects) {
-      if (shuttingDown || (getActiveRunCount() + scheduled.length) >= maxConcurrency) break;
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
-      const reviewTask = getNextReviewTask(project);
-      if (!reviewTask) continue;
+// ═══════════════════════════════════════════════════════════════════════════════
+// 11. HTTP Server (port 8091)
+// ═══════════════════════════════════════════════════════════════════════════════
 
-      const projectLock = acquireProjectExecutionLock(project, reviewTask);
-      if (!projectLock || projectLock.acquired === false) {
-        log(`Project "${project.name}": skipping review [${reviewTask.id}] — project locked`);
-        continue;
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => { try { resolve(body ? JSON.parse(body) : {}); } catch { resolve({}); } });
+    req.on('error', reject);
+  });
+}
+
+function sendJson(res, statusCode, payload) {
+  res.writeHead(statusCode);
+  res.end(JSON.stringify(payload));
+}
+
+function startHttpServer() {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer(async (req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      const requestUrl = new URL(req.url, `http://127.0.0.1:${WORKER_PORT}`);
+
+      if (req.method === 'GET' && requestUrl.pathname === '/health') {
+        return sendJson(res, 200, { ok: true });
       }
 
-      log(`Project "${project.name}": scheduling review [${reviewTask.id}] "${reviewTask.title}"`);
-      const runState = createReservedRun(project, reviewTask);
-      runState.projectLock = projectLock;
+      if (req.method === 'GET' && requestUrl.pathname === '/status') {
+        const runs = getActiveRunsList();
+        const legacy = getLegacyStatusFields(runs);
+        return sendJson(res, 200, {
+          running: runs.length > 0,
+          count: runs.length,
+          tasks: runs.map(describeRun),
+          ...legacy,
+        });
+      }
 
-      processReviewTask(project, reviewTask, runState).catch(err => {
-        logError(`Unexpected error in processReviewTask [${reviewTask.id}]`, err);
-        try {
-          updateTask(project.path, reviewTask.id, t => {
-            setAuthorFinalNote(t, 'Reviewer', `❌ Erreur validation: ${err.message || err}`);
-            t.status = 'review';
-            t.error = true;
-          });
-        } catch {}
-        if (runState.projectLock) {
-          releaseFileLock(runState.projectLock);
-          runState.projectLock = null;
+      if (req.method === 'POST' && requestUrl.pathname === '/stop') {
+        const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
+        if (resolved.error) {
+          if (resolved.statusCode === 404 && getActiveRunCount() === 0) return sendJson(res, 200, { ok: true, message: 'No task running' });
+          return sendJson(res, resolved.statusCode, { error: resolved.error });
         }
-        releaseRun(reviewTask.id);
-      });
+        if (!resolved.runState) return sendJson(res, 200, { ok: true, message: 'No task running' });
+        log(`Manual stop requested for task [${resolved.runState.taskId}]`);
+        resolved.runState.stoppedManually = true;
+        try { resolved.runState.proc && resolved.runState.proc.kill('SIGTERM'); } catch {}
+        return sendJson(res, 200, { ok: true, message: 'Stop signal sent', taskId: resolved.runState.taskId, projectId: resolved.runState.projectId });
+      }
 
-      scheduled.push(reviewTask.id);
-    }
-  }
+      if (req.method === 'GET' && requestUrl.pathname === '/question') {
+        const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
+        if (resolved.error) return sendJson(res, resolved.statusCode, { error: resolved.error });
+        return sendJson(res, 200, { question: resolved.runState ? resolved.runState.currentQuestion : null });
+      }
+
+      if (req.method === 'POST' && requestUrl.pathname === '/answer') {
+        const body = await readBody(req);
+        if (!body.answer || typeof body.answer !== 'string') return sendJson(res, 400, { error: 'Missing answer field' });
+
+        const targetQuery = {
+          taskId: body.taskId || requestUrl.searchParams.get('taskId') || '',
+          project: body.project || requestUrl.searchParams.get('project') || '',
+        };
+        const resolved = resolveTargetRun(targetQuery);
+        if (resolved.error) return sendJson(res, resolved.statusCode, { error: resolved.error });
+        if (!resolved.runState) return sendJson(res, 400, { error: 'No active task' });
+        if (!resolved.runState.currentQuestion) return sendJson(res, 400, { error: 'Active task is not waiting for a question response' });
+
+        resolved.runState.pendingAnswer = body.answer;
+        return sendJson(res, 200, { ok: true, taskId: resolved.runState.taskId, projectId: resolved.runState.projectId });
+      }
+
+      if (req.method === 'GET' && requestUrl.pathname === '/output') {
+        const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
+        if (resolved.error) return sendJson(res, resolved.statusCode, { error: resolved.error });
+        const output = resolved.runState ? resolved.runState.resultText || '' : '';
+        return sendJson(res, 200, { output: output.slice(-2000), totalChars: output.length });
+      }
+
+      return sendJson(res, 404, { error: 'Not found' });
+    });
+
+    let settled = false;
+    const handleStartupError = err => {
+      if (settled) { logError('Worker HTTP server error', err); return; }
+      settled = true;
+      reject(err);
+    };
+
+    server.once('error', handleStartupError);
+    server.listen(WORKER_PORT, '127.0.0.1', () => {
+      settled = true;
+      server.off('error', handleStartupError);
+      server.on('error', err => { logError('Worker HTTP server error', err); });
+      log(`Worker HTTP server listening on 127.0.0.1:${WORKER_PORT}`);
+      resolve(server);
+    });
+  });
 }
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-
-// ─── Zombie task recovery (on startup) ────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// 12. Startup (singleton, zombie recovery, main)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 function recoverZombieTasks() {
   const config = loadConfig();
@@ -2018,21 +1396,18 @@ function recoverZombieTasks() {
         recovered++;
       }
     }
-    if (changed) {
-      writeTasks(project.path, data);
-    }
+    if (changed) writeTasks(project.path, data);
   }
-  if (recovered > 0) {
-    log(`Recovered ${recovered} zombie task(s) at startup`);
-  }
+  if (recovered > 0) log(`Recovered ${recovered} zombie task(s) at startup`);
+
   // Clean stale project locks
   try {
-    const lockFiles = require('fs').readdirSync(WORKER_LOCKS_DIR).filter(f => f.startsWith('project-'));
+    const lockFiles = fs.readdirSync(WORKER_LOCKS_DIR).filter(f => f.startsWith('project-'));
     for (const lockFile of lockFiles) {
-      const lockPath = require('path').join(WORKER_LOCKS_DIR, lockFile);
+      const lockPath = path.join(WORKER_LOCKS_DIR, lockFile);
       const lockData = readLockFile(lockPath);
       if (lockData && !isProcessAlive(lockData.pid)) {
-        try { require('fs').unlinkSync(lockPath); } catch {}
+        try { fs.unlinkSync(lockPath); } catch {}
         log(`Cleaned stale project lock: ${lockFile}`);
       }
     }
@@ -2043,18 +1418,15 @@ async function main() {
   const config = loadConfig();
   const instanceLock = acquireWorkerInstanceLock();
   if (!instanceLock || instanceLock.acquired === false) {
-    const owner = instanceLock && instanceLock.existing
-      ? `pid=${instanceLock.existing.pid}, acquiredAt=${instanceLock.existing.acquiredAt || 'unknown'}`
-      : `reason=${instanceLock?.reason || 'unknown'}`;
+    const owner = instanceLock?.existing ? `pid=${instanceLock.existing.pid}, acquiredAt=${instanceLock.existing.acquiredAt || 'unknown'}` : `reason=${instanceLock?.reason || 'unknown'}`;
     log(`Another task worker instance already owns the execution lock (${owner}) — exiting without polling`);
     process.exit(1);
     return;
   }
 
   recoverZombieTasks();
-  log('Task worker started (multi-engine: claude stream-json / codex plain-text / ollama via codex | auto-validation pipeline)');
-  log(`Poll interval: ${POLL_INTERVAL_MS / 1000}s | Quality gate timeout: ${QUALITY_GATE_TIMEOUT_MS / 60000}m`);
-  log(`Max concurrency: ${getMaxConcurrency(config)}`);
+  log('Task worker started (orchestrator mode: execute coder + webhook notify)');
+  log(`Poll interval: ${POLL_INTERVAL_MS / 1000}s | Hard timeout: ${MAX_TASK_DURATION_MS / 3600000}h | No global concurrency cap`);
   log(`Projects: ${config.projects.map(p => p.name).join(', ')}`);
   log(`HTTP server on port ${WORKER_PORT}`);
 
@@ -2066,14 +1438,11 @@ async function main() {
     process.exit(1);
     return;
   }
+
   await pollOnce();
 
   while (!shuttingDown) {
-    try {
-      await pollOnce();
-    } catch (err) {
-      logError('Unexpected error in poll loop', err);
-    }
+    try { await pollOnce(); } catch (err) { logError('Unexpected error in poll loop', err); }
     if (!shuttingDown) await sleep(POLL_INTERVAL_MS);
   }
 
@@ -2081,137 +1450,13 @@ async function main() {
   process.exit(0);
 }
 
-// ─── HTTP server (port 8091) ──────────────────────────────────────────────────
-
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try {
-        resolve(body ? JSON.parse(body) : {});
-      } catch {
-        resolve({});
-      }
-    });
-    req.on('error', reject);
-  });
-}
-
-function sendJson(res, statusCode, payload) {
-  res.writeHead(statusCode);
-  res.end(JSON.stringify(payload));
-}
-
-function startHttpServer() {
-  return new Promise((resolve, reject) => {
-    const server = http.createServer(async (req, res) => {
-      res.setHeader('Content-Type', 'application/json');
-
-      const requestUrl = new URL(req.url, `http://127.0.0.1:${WORKER_PORT}`);
-
-      if (req.method === 'GET' && requestUrl.pathname === '/health') {
-        return sendJson(res, 200, { ok: true });
-      }
-
-      if (req.method === 'GET' && requestUrl.pathname === '/status') {
-        const runs = getActiveRunsList();
-        const legacy = getLegacyStatusFields(runs);
-        return sendJson(res, 200, {
-          running: runs.length > 0,
-          count: runs.length,
-          maxConcurrency: getMaxConcurrency(loadConfig()),
-          tasks: runs.map(describeRun),
-          ...legacy,
-        });
-      }
-
-      if (req.method === 'POST' && requestUrl.pathname === '/stop') {
-        const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
-        if (resolved.error) {
-          if (resolved.statusCode === 404 && getActiveRunCount() === 0) {
-            return sendJson(res, 200, { ok: true, message: 'No task running' });
-          }
-          return sendJson(res, resolved.statusCode, { error: resolved.error });
-        }
-        if (!resolved.runState) {
-          return sendJson(res, 200, { ok: true, message: 'No task running' });
-        }
-        log(`Manual stop requested for task [${resolved.runState.taskId}]`);
-        resolved.runState.stoppedManually = true;
-        try { resolved.runState.proc && resolved.runState.proc.kill('SIGTERM'); } catch {}
-        return sendJson(res, 200, { ok: true, message: 'Stop signal sent', taskId: resolved.runState.taskId, projectId: resolved.runState.projectId });
-      }
-
-      if (req.method === 'GET' && requestUrl.pathname === '/question') {
-        const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
-        if (resolved.error) {
-          return sendJson(res, resolved.statusCode, { error: resolved.error });
-        }
-        return sendJson(res, 200, { question: resolved.runState ? resolved.runState.currentQuestion : null });
-      }
-
-      if (req.method === 'POST' && requestUrl.pathname === '/answer') {
-        const body = await readBody(req);
-        if (!body.answer || typeof body.answer !== 'string') {
-          return sendJson(res, 400, { error: 'Missing answer field' });
-        }
-
-        const targetQuery = {
-          taskId: body.taskId || requestUrl.searchParams.get('taskId') || '',
-          project: body.project || requestUrl.searchParams.get('project') || '',
-        };
-        const resolved = resolveTargetRun(targetQuery);
-        if (resolved.error) {
-          return sendJson(res, resolved.statusCode, { error: resolved.error });
-        }
-        if (!resolved.runState) {
-          return sendJson(res, 400, { error: 'No active task' });
-        }
-        if (!resolved.runState.currentQuestion) {
-          return sendJson(res, 400, { error: 'Active task is not waiting for a question response' });
-        }
-
-        resolved.runState.pendingAnswer = body.answer;
-        return sendJson(res, 200, { ok: true, taskId: resolved.runState.taskId, projectId: resolved.runState.projectId });
-      }
-
-      if (req.method === 'GET' && requestUrl.pathname === '/output') {
-        const resolved = resolveTargetRun(Object.fromEntries(requestUrl.searchParams.entries()));
-        if (resolved.error) {
-          return sendJson(res, resolved.statusCode, { error: resolved.error });
-        }
-        const output = resolved.runState ? resolved.runState.resultText || '' : '';
-        return sendJson(res, 200, { output: output.slice(-2000), totalChars: output.length });
-      }
-
-      return sendJson(res, 404, { error: 'Not found' });
-    });
-
-    let settled = false;
-    const handleStartupError = err => {
-      if (settled) {
-        logError('Worker HTTP server error', err);
-        return;
-      }
-      settled = true;
-      reject(err);
-    };
-
-    server.once('error', handleStartupError);
-    server.listen(WORKER_PORT, '127.0.0.1', () => {
-      settled = true;
-      server.off('error', handleStartupError);
-      server.on('error', err => { logError('Worker HTTP server error', err); });
-      log(`Worker HTTP server listening on 127.0.0.1:${WORKER_PORT}`);
-      resolve(server);
-    });
-  });
-}
-
 if (require.main === module) {
   main();
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Exports (for tests)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 module.exports = {
   DEFAULT_ENGINE_MODELS,
@@ -2231,4 +1476,11 @@ module.exports = {
   summarizeStderr,
   buildTaskSummaryNote,
   setWorkerFinalNote,
+  // New exports for new tests
+  buildInstruction,
+  getRejectionFeedback,
+  sendWebhook,
+  getNextQueuedTask,
+  hasProjectActiveRun,
+  loadConfig,
 };
