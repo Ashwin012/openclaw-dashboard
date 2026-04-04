@@ -438,19 +438,29 @@ body.menu-open { overflow: hidden; }
 .project-header {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
 }
 
-/* Row 1: Name + status */
-.ph-row1 {
+/* Top row: title group + controls */
+.ph-top {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
-  min-width: 0;
 }
-.ph-row1 h1 {
+.ph-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 1;
+}
+.ph-title-group h1 {
   font-size: 20px;
   font-weight: 600;
   margin: 0;
@@ -478,16 +488,15 @@ body.menu-open { overflow: hidden; }
   text-overflow: ellipsis;
   min-width: 0;
 }
-
-/* Row 2: Branch + actions + engine */
-.ph-row2 {
+.ph-controls {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .ph-select {
-  background: var(--bg-card);
+  background: var(--bg-surface);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -510,7 +519,7 @@ body.menu-open { overflow: hidden; }
   color: var(--bg);
 }
 .ph-btn-config {
-  background: var(--bg-card);
+  background: var(--bg-surface);
   color: var(--text-muted);
   border: 1px solid var(--border);
   font-size: 14px;
@@ -521,11 +530,10 @@ body.menu-open { overflow: hidden; }
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
 }
 
-/* Row 3: URL links */
-.ph-row3 {
+/* Links row */
+.ph-links {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -549,9 +557,10 @@ body.menu-open { overflow: hidden; }
 .ph-link-github { background: #6e6a86; color: #e0def4; }
 
 @media (max-width: 768px) {
-  .ph-row1 h1 { font-size: 17px; }
-  .ph-engine { margin-left: 0; width: 100%; }
-  .ph-row3 { gap: 5px; }
+  .ph-title-group h1 { font-size: 17px; }
+  .ph-top { flex-direction: column; align-items: flex-start; }
+  .ph-controls { margin-left: 0; flex-wrap: wrap; width: 100%; }
+  .ph-links { gap: 5px; }
   .ph-link { padding: 4px 8px; font-size: 10px; }
 }
 

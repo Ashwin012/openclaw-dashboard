@@ -18,6 +18,7 @@ function findDockerComposePath(project) {
   if (project.repos) {
     for (const repo of project.repos) {
       if (repo.name === 'docker') candidates.unshift(repo.path);
+      else candidates.push(repo.path);
     }
   }
   for (const dir of candidates) {
@@ -28,7 +29,7 @@ function findDockerComposePath(project) {
       }
     }
   }
-  _dockerPathCache.set(project.id, null);
+  // Don't cache null — compose files may be added later
   return null;
 }
 

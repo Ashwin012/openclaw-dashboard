@@ -926,31 +926,33 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
 
       document.getElementById('content').innerHTML = `
         <div class="project-header">
-          <div class="ph-row1">
-            <h1>${escapeHtml(data.name)}</h1>
-            <span id="projectLiveStatusBadge" class="ph-status-badge" style="background:${statusTone.bg};color:${statusTone.color};border-color:${statusTone.color}33">${escapeHtml(data.currentStatus?.label || 'Clean')}</span>
-            <span id="projectLiveStatusSummary" class="ph-status-summary">${escapeHtml(data.currentStatus?.summary || '')}</span>
-            <span id="projectLivePrimaryTask" class="ph-status-summary" style="display:${primaryTask ? 'inline' : 'none'}">${primaryTask ? escapeHtml(primaryTask.title) : ''}</span>
-          </div>
-          <div class="ph-row2">
-            <select id="branchSelect" onchange="onBranchChange()" class="ph-select">
-              <option value="${escapeHtml(data.branch)}" selected>${escapeHtml(data.branch)}</option>
-            </select>
-            <button onclick="gitPull()" class="ph-btn ph-btn-pull" id="pullBtn">Pull</button>
-            <button onclick="openConfigModal()" class="ph-btn ph-btn-config" title="Edit project config">&#9881;</button>
-            <div id="dockerToggleWrap" class="ph-docker-toggle" style="display:none">
-              <span id="dockerDot" class="docker-dot docker-dot-off"></span>
-              <button id="dockerToggleBtn" onclick="toggleDocker()" class="ph-btn ph-btn-docker" title="Toggle Docker">Docker</button>
+          <div class="ph-top">
+            <div class="ph-title-group">
+              <h1>${escapeHtml(data.name)}</h1>
+              <span id="projectLiveStatusBadge" class="ph-status-badge" style="background:${statusTone.bg};color:${statusTone.color};border-color:${statusTone.color}33">${escapeHtml(data.currentStatus?.label || 'Clean')}</span>
+              <span id="projectLiveStatusSummary" class="ph-status-summary">${escapeHtml(data.currentStatus?.summary || '')}</span>
+              <span id="projectLivePrimaryTask" class="ph-status-summary" style="display:${primaryTask ? 'inline' : 'none'}">${primaryTask ? escapeHtml(primaryTask.title) : ''}</span>
             </div>
-            <div class="ph-engine">
-              <select id="engineSelect" onchange="onEngineChange()" class="ph-select">
-                <option value="claude" ${data.engine !== 'codex' && data.engine !== 'ollama' ? 'selected' : ''}>Claude Code</option>
-                <option value="codex" ${data.engine === 'codex' ? 'selected' : ''}>Codex (OpenAI)</option>
-                <option value="ollama" ${data.engine === 'ollama' ? 'selected' : ''}>Ollama local</option>
+            <div class="ph-controls">
+              <select id="branchSelect" onchange="onBranchChange()" class="ph-select">
+                <option value="${escapeHtml(data.branch)}" selected>${escapeHtml(data.branch)}</option>
               </select>
+              <button onclick="gitPull()" class="ph-btn ph-btn-pull" id="pullBtn">Pull</button>
+              <div id="dockerToggleWrap" class="ph-docker-toggle" style="display:none">
+                <span id="dockerDot" class="docker-dot docker-dot-off"></span>
+                <button id="dockerToggleBtn" onclick="toggleDocker()" class="ph-btn ph-btn-docker" title="Toggle Docker">Docker</button>
+              </div>
+              <div class="ph-engine">
+                <select id="engineSelect" onchange="onEngineChange()" class="ph-select">
+                  <option value="claude" ${data.engine !== 'codex' && data.engine !== 'ollama' ? 'selected' : ''}>Claude Code</option>
+                  <option value="codex" ${data.engine === 'codex' ? 'selected' : ''}>Codex (OpenAI)</option>
+                  <option value="ollama" ${data.engine === 'ollama' ? 'selected' : ''}>Ollama local</option>
+                </select>
+              </div>
+              <button onclick="openConfigModal()" class="ph-btn ph-btn-config" title="Edit project config">&#9881;</button>
             </div>
           </div>
-          <div class="ph-row3">
+          <div class="ph-links">
             ${data.testUrl ? `<a href="${escapeHtml(data.testUrl)}" target="_blank" class="ph-link ph-link-dev">Dev</a>` : ''}
             ${data.apiUrl ? `<a href="${escapeHtml(data.apiUrl)}" target="_blank" class="ph-link ph-link-api">API</a>` : ''}
             ${data.stagingUrl ? `<a href="${escapeHtml(data.stagingUrl)}" target="_blank" class="ph-link ph-link-staging">Staging</a>` : ''}
