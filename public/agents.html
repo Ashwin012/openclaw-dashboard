@@ -506,8 +506,12 @@
     async function loadProjects() {
       try {
         const res = await fetch('/api/agents');
-        if (!res.ok) throw new Error('Erreur chargement');
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.error || `Erreur chargement (${res.status})`);
+        }
         const data = await res.json();
+        if (data.error) throw new Error(data.error);
         projects = Array.isArray(data.projects) ? data.projects : [];
         openclawAgents = Array.isArray(data.openclawAgents) ? data.openclawAgents : [];
         workerStatus = data.workerStatus || null;

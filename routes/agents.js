@@ -225,9 +225,20 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
       ]);
       const { inProgressTsMap, inProgressNotifMap } = readPendingInProgressMaps();
 
-      const enriched = projects.map(p =>
-        buildProjectStatus(p, workerSnapshot, notifications, inProgressTsMap, inProgressNotifMap, cfg)
-      );
+      const enriched = [];
+      for (const p of projects) {
+        try {
+          enriched.push(buildProjectStatus(p, workerSnapshot, notifications, inProgressTsMap, inProgressNotifMap, cfg));
+        } catch (projErr) {
+          console.error(`[agents] buildProjectStatus failed for ${p.id}:`, projErr.message);
+          enriched.push({
+            id: p.id, name: p.name, description: p.description || '',
+            path: p.path, planStatus: 'error', codeStatus: 'error',
+            lastActivity: null, lastKnownActivity: null, pendingReviewCount: 0,
+            projectLastTask: null, currentTask: null,
+          });
+        }
+      }
 
       // Fetch git last commit per project path
       const pathsToFetch = new Set();
@@ -295,6 +306,7 @@ module.exports = function createAgentRoutes({ config, requireAuth }) {
         : null;
       res.json({ projects: enriched, openclawAgents, workerStatus });
     } catch (err) {
+      console.error('[agents] GET /api/agents error:', err.message, err.stack);
       res.status(500).json({ error: err.message });
     }
   });
