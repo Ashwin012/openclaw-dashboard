@@ -53,6 +53,7 @@ const OLLAMA_MODEL_ALIASES = {
 
 const REVIEW_COOLDOWN_MS = 10_000; // Wait 10s before picking up review tasks (avoid instant re-processing)
 const REVIEW_MODEL = 'claude-sonnet-4-6'; // Lighter model for review phase
+const REVIEW_API_TIMEOUT_MS = 120_000; // 2min timeout for review API call (was 13+ min via CLI)
 const AUTO_DEPLOY_TIMEOUT_MS = 60_000; // 60s timeout for git push
 
 const WARNING_THRESHOLDS_MIN = [30, 60, 120];
@@ -1487,6 +1488,47 @@ function parseReviewVerdict(text) {
   return { approved: true, feedback: 'Verdict parsing failed — auto-approved', deploy: false };
 }
 
+async function callAnthropicReviewAPI(instruction, model) {
+  const token = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  if (!token) throw new Error('CLAUDE_CODE_OAUTH_TOKEN not set');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REVIEW_API_TIMEOUT_MS);
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: instruction }],
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Anthropic API ${res.status}: ${body.slice(0, 300)}`);
+    }
+
+    const data = await res.json();
+    let text = '';
+    if (Array.isArray(data.content)) {
+      for (const block of data.content) {
+        if (block.type === 'text') text += block.text;
+      }
+    }
+    return text;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function processReviewTask(project, task, runState) {
   const projectPath = project.path;
 
@@ -1508,86 +1550,11 @@ async function processReviewTask(project, task, runState) {
       logError('Quality gates error during review', err);
     }
 
-    // 2. Build review instruction and run Claude
+    // 2. Build review instruction and call Anthropic API directly (lightweight, no CLI spawn)
     const instruction = buildReviewInstruction(task, gitDiff, qualityResults);
-    const env = {
-      ...process.env,
-      PATH: `${NVM_NODE_PATH}:${process.env.PATH}`,
-      HOME: '/home/openclaw',
-    };
+    runState.engine = 'api';
 
-    const claudeArgs = [
-      '--input-format', 'stream-json',
-      '--output-format', 'stream-json',
-      '--verbose',
-      '--permission-mode', 'bypassPermissions',
-      '--model', REVIEW_MODEL,
-    ];
-
-    const proc = spawn('claude', claudeArgs, {
-      cwd: projectPath,
-      env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    runState.proc = proc;
-    runState.pid = proc.pid;
-    runState.engine = 'claude';
-
-    let resultText = '';
-    let resultJson = null;
-    let exitCode = null;
-    let stderrBuf = '';
-
-    const completionPromise = new Promise(resolve => {
-      let stdoutBuf = '';
-
-      proc.stdout.on('data', chunk => {
-        stdoutBuf += chunk.toString();
-        let newlineIdx;
-        while ((newlineIdx = stdoutBuf.indexOf('\n')) !== -1) {
-          const line = stdoutBuf.slice(0, newlineIdx).trim();
-          stdoutBuf = stdoutBuf.slice(newlineIdx + 1);
-          if (!line) continue;
-
-          let event;
-          try {
-            event = JSON.parse(line);
-          } catch {
-            continue;
-          }
-
-          if (event.type === 'assistant' && event.message) {
-            const content = event.message.content;
-            if (Array.isArray(content)) {
-              for (const block of content) {
-                if (block.type === 'text' && block.text) {
-                  resultText += block.text;
-                }
-              }
-            }
-          }
-
-          if (event.type === 'result') {
-            resultJson = event;
-            if (typeof event.result === 'string') resultText = event.result;
-          }
-        }
-      });
-
-      proc.stderr.on('data', chunk => { stderrBuf += chunk.toString(); });
-      proc.on('close', code => { exitCode = code; resolve(); });
-      proc.on('error', err => { logError('Review process error', err); resolve(); });
-    });
-
-    // Send instruction
-    const userMsg = JSON.stringify({
-      type: 'user',
-      message: { role: 'user', content: instruction },
-    });
-    proc.stdin.write(userMsg + '\n');
-
-    await completionPromise;
+    const resultText = await callAnthropicReviewAPI(instruction, REVIEW_MODEL);
     runState.resultText = resultText;
 
     if (runState.stoppedManually) {

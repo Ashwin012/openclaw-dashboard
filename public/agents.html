@@ -473,6 +473,7 @@
       const isClaudeViaOR = e === 'openrouter' && (m.startsWith('anthropic/') || (!m.includes('/') && m.startsWith('claude-')));
       const map = {
         claude:      { color: 'var(--accent)',  label: 'Claude' },
+        api:         { color: 'var(--accent)',  label: 'API' },
         openrouter:  { color: 'var(--yellow)',  label: isClaudeViaOR ? 'Claude · OR' : 'OpenRouter' },
         ollama:      { color: 'var(--green)',   label: 'Ollama' },
         codex:       { color: 'var(--purple)',  label: 'Codex' },
