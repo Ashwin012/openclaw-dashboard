@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Polymarket — Deals Finder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            pm: {
+              cyan:   '#06B6D4',
+              dark:   '#080D18',
+              card:   '#0F1623',
+              border: '#1E2A3A',
+              text:   '#E8F0F8',
+              muted:  '#5A7080',
+              green:  '#10B981',
+              red:    '#EF4444',
+              purple: '#8B5CF6',
+              yellow: '#F59E0B',
+              blue:   '#3B82F6',
+              orange: '#F97316',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    html, body { overflow-x: hidden; width: 100%; max-width: 100vw; box-sizing: border-box; }
+    body { background: #080D18; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    * { box-sizing: border-box; }
+    .card { background: #0F1623; border: 1px solid #1E2A3A; border-radius: 12px; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #080D18; }
+    ::-webkit-scrollbar-thumb { background: #1E2A3A; border-radius: 3px; }
+    .cyan-glow { box-shadow: 0 0 20px #06B6D420; }
+    .deal-card:hover { border-color: #06B6D450; }
+    .score-high { background: linear-gradient(135deg, #10B98120, #10B98108); border-color: #10B98140; }
+    .score-med { background: linear-gradient(135deg, #F59E0B20, #F59E0B08); border-color: #F59E0B40; }
+    .score-low { background: linear-gradient(135deg, #5A708020, #5A708008); }
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500; }
+    .score-bar { height: 4px; border-radius: 2px; background: #1E2A3A; overflow: hidden; }
+    .score-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+    .tab-btn { border-bottom: 2px solid transparent; color: #5A7080; }
+    .tab-btn.active { border-bottom: 2px solid #06B6D4; color: #06B6D4; }
+    .tab-btn:hover:not(.active) { color: #E8F0F8; }
+    .refreshing { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 768px) {
+      main { padding: 8px !important; }
+      h1 { font-size: 16px !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen text-pm-text">
+  <script src="/js/navbar.js"></script>
+  <script src="/js/common.js"></script>
+
+  <!-- Header -->
+  <header class="border-b border-pm-border px-6 py-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-pm-orange to-pm-cyan flex items-center justify-center font-bold text-white text-base cyan-glow">🎯</div>
+        <div>
+          <h1 class="text-xl font-bold">Polymarket <span style="color:#F97316">Deals Finder</span></h1>
+          <p class="text-xs text-pm-muted">News × Markets cross-reference · Auto-scored opportunities</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-pm-muted" id="last-updated"></span>
+        <button onclick="triggerRefresh()" id="refresh-btn" class="text-sm px-3 py-1.5 rounded-lg border border-pm-cyan text-pm-cyan hover:bg-pm-cyan hover:text-black transition-colors font-medium">
+          <span id="refresh-icon">🔄</span> Refresh
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="border-b border-pm-border px-6">
+    <div class="max-w-7xl mx-auto flex gap-6 overflow-x-auto" style="scrollbar-width:none">
+      <button class="tab-btn active py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="deals">🎯 Deals</button>
+      <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="starred">⭐ Starred</button>
+      <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="dismissed">🗑️ Dismissed</button>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-6 py-6">
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div class="card p-4 text-center">
+        <div class="text-2xl font-bold text-pm-orange" id="kpi-total">—</div>
+        <div class="text-xs text-pm-muted mt-1">Total Deals</div>
+      </div>
+      <div class="card p-4 text-center">
+        <div class="text-2xl font-bold text-pm-green" id="kpi-high">—</div>
+        <div class="text-xs text-pm-muted mt-1">High Score</div>
+      </div>
+      <div class="card p-4 text-center">
+        <div class="text-2xl font-bold text-pm-yellow" id="kpi-medium">—</div>
+        <div class="text-xs text-pm-muted mt-1">Medium Score</div>
+      </div>
+      <div class="card p-4 text-center">
+        <div class="text-2xl font-bold text-pm-cyan" id="kpi-avg">—</div>
+        <div class="text-xs text-pm-muted mt-1">Avg Score</div>
+      </div>
+      <div class="card p-4 text-center">
+        <div class="text-2xl font-bold text-pm-purple" id="kpi-markets">—</div>
+        <div class="text-xs text-pm-muted mt-1">Markets</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card p-4 mb-6">
+      <div class="flex items-center gap-4 flex-wrap">
+        <label class="text-xs text-pm-muted">Min Score:</label>
+        <select id="filter-score" onchange="loadDeals()" class="bg-pm-dark border border-pm-border rounded px-2 py-1 text-xs text-pm-text">
+          <option value="0">Tous</option>
+          <option value="25">25+</option>
+          <option value="40">40+</option>
+          <option value="60">60+</option>
+          <option value="80">80+</option>
+        </select>
+        <label class="text-xs text-pm-muted">Sort:</label>
+        <select id="filter-sort" onchange="renderCurrentTab()" class="bg-pm-dark border border-pm-border rounded px-2 py-1 text-xs text-pm-text">
+          <option value="score">Score ↓</option>
+          <option value="recent">Récent ↓</option>
+          <option value="volume">Volume ↓</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Deals Tab -->
+    <section id="tab-deals" class="tab-content">
+      <div id="deals-grid" class="grid grid-cols-1 gap-4">
+        <div class="text-center text-pm-muted text-sm py-8">Chargement…</div>
+      </div>
+    </section>
+
+    <!-- Starred Tab -->
+    <section id="tab-starred" class="tab-content hidden">
+      <div id="starred-grid" class="grid grid-cols-1 gap-4">
+        <div class="text-center text-pm-muted text-sm py-8">Chargement…</div>
+      </div>
+    </section>
+
+    <!-- Dismissed Tab -->
+    <section id="tab-dismissed" class="tab-content hidden">
+      <div id="dismissed-grid" class="grid grid-cols-1 gap-4">
+        <div class="text-center text-pm-muted text-sm py-8">Chargement…</div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    /* ========== State ========== */
+    var allDeals = [];
+    var stats = {};
+    var currentTab = 'deals';
+
+    /* ========== Helpers ========== */
+    function esc(s) { return typeof escapeHtml === 'function' ? escapeHtml(String(s || '')) : String(s || '').replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function fmt(v, d) { return Number(v || 0).toFixed(d === undefined ? 2 : d); }
+    function fmtDate(ts) {
+      if (!ts) return '–';
+      return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+    function fmtVolume(v) {
+      if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+      if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+      return Math.round(v).toString();
+    }
+
+    function scoreColor(s) {
+      if (s >= 70) return '#10B981';
+      if (s >= 40) return '#F59E0B';
+      return '#5A7080';
+    }
+    function scoreClass(s) {
+      if (s >= 70) return 'score-high';
+      if (s >= 40) return 'score-med';
+      return 'score-low';
+    }
+    function scoreLabel(s) {
+      if (s >= 70) return 'HOT';
+      if (s >= 40) return 'WARM';
+      return 'COLD';
+    }
+
+    /* ========== Tabs ========== */
+    function switchTab(name) {
+      currentTab = name;
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-content').forEach(function(s) { s.classList.add('hidden'); });
+      var btn = document.querySelector('.tab-btn[data-tab="' + name + '"]');
+      if (btn) btn.classList.add('active');
+      var section = document.getElementById('tab-' + name);
+      if (section) section.classList.remove('hidden');
+      renderCurrentTab();
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { switchTab(this.dataset.tab); });
+    });
+
+    /* ========== API ========== */
+    async function apiFetch(url, opts) {
+      var res = await fetch(url, Object.assign({ credentials: 'include' }, opts || {}));
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }
+
+    /* ========== Load Deals ========== */
+    async function loadDeals() {
+      try {
+        var minScore = document.getElementById('filter-score').value;
+        var url = '/api/polymarket-deals?dismissed=true';
+        if (minScore > 0) url += '&minScore=' + minScore;
+        var data = await apiFetch(url);
+        allDeals = data.deals || [];
+        stats = data.stats || {};
+        renderKPIs();
+        renderCurrentTab();
+        if (data.updatedAt) {
+          document.getElementById('last-updated').textContent = 'Mis à jour: ' + fmtDate(data.updatedAt);
+        }
+      } catch (e) {
+        document.getElementById('deals-grid').innerHTML = '<div class="text-center py-8" style="color:#EF4444">Erreur: ' + esc(e.message) + '</div>';
+      }
+    }
+
+    /* ========== Render ========== */
+    function renderKPIs() {
+      document.getElementById('kpi-total').textContent = stats.totalDeals || 0;
+      document.getElementById('kpi-high').textContent = stats.highScore || 0;
+      document.getElementById('kpi-medium').textContent = stats.mediumScore || 0;
+      document.getElementById('kpi-avg').textContent = stats.avgScore || 0;
+      document.getElementById('kpi-markets').textContent = stats.marketCount || 0;
+    }
+
+    function getSortedDeals(deals) {
+      var sort = document.getElementById('filter-sort').value;
+      return deals.slice().sort(function(a, b) {
+        if (sort === 'recent') return (b.newsPublishedAt || '').localeCompare(a.newsPublishedAt || '');
+        if (sort === 'volume') return (b.volume24hr || 0) - (a.volume24hr || 0);
+        return (b.score || 0) - (a.score || 0);
+      });
+    }
+
+    function renderCurrentTab() {
+      if (currentTab === 'deals') {
+        var deals = allDeals.filter(function(d) { return !d.dismissed; });
+        renderDealsList(getSortedDeals(deals), 'deals-grid');
+      } else if (currentTab === 'starred') {
+        var starred = allDeals.filter(function(d) { return d.starred && !d.dismissed; });
+        renderDealsList(getSortedDeals(starred), 'starred-grid');
+      } else {
+        var dismissed = allDeals.filter(function(d) { return d.dismissed; });
+        renderDealsList(getSortedDeals(dismissed), 'dismissed-grid');
+      }
+    }
+
+    function renderDealsList(deals, containerId) {
+      var container = document.getElementById(containerId);
+      if (deals.length === 0) {
+        container.innerHTML = '<div class="text-center text-pm-muted text-sm py-8">Aucun deal trouvé</div>';
+        return;
+      }
+
+      var html = '';
+      deals.forEach(function(d) {
+        var color = scoreColor(d.score);
+        var cls = scoreClass(d.score);
+        var label = scoreLabel(d.score);
+        var prices = d.outcomePrices || [];
+        var outcomes = d.outcomes || [];
+        var marketUrl = d.marketSlug ? 'https://polymarket.com/event/' + d.marketSlug : '';
+
+        // Outcome prices display
+        var outcomeHtml = '';
+        for (var i = 0; i < outcomes.length && i < prices.length; i++) {
+          var pct = Math.round(prices[i] * 100);
+          var oc = esc(outcomes[i]);
+          outcomeHtml += '<span class="badge mr-1 mb-1" style="background:' + (pct > 50 ? '#10B98120' : '#EF444420') + ';color:' + (pct > 50 ? '#10B981' : '#EF4444') + '">' + oc + ' ' + pct + '%</span>';
+        }
+
+        html += '<div class="card deal-card p-4 transition-all ' + cls + '" data-id="' + esc(d.id) + '">' +
+          '<div class="flex items-start gap-4">' +
+            // Score circle
+            '<div class="flex-shrink-0 w-14 h-14 rounded-xl flex flex-col items-center justify-center" style="background:' + color + '20;border:1px solid ' + color + '40">' +
+              '<div class="text-lg font-bold" style="color:' + color + '">' + d.score + '</div>' +
+              '<div class="text-[9px] font-semibold" style="color:' + color + '">' + label + '</div>' +
+            '</div>' +
+            // Content
+            '<div class="flex-1 min-w-0">' +
+              // Market question
+              '<div class="flex items-start gap-2">' +
+                (d.marketIcon ? '<img src="' + esc(d.marketIcon) + '" class="w-5 h-5 rounded mt-0.5 flex-shrink-0" onerror="this.style.display=\'none\'">' : '') +
+                '<h3 class="text-sm font-semibold leading-tight">' + esc(d.marketQuestion) + '</h3>' +
+              '</div>' +
+              // Outcomes
+              '<div class="mt-2 flex flex-wrap gap-1">' + outcomeHtml + '</div>' +
+              // Score bar
+              '<div class="score-bar mt-2 w-full max-w-xs"><div class="score-fill" style="width:' + d.score + '%;background:' + color + '"></div></div>' +
+              // News source
+              '<div class="mt-2 flex items-center gap-2 text-xs text-pm-muted">' +
+                '<span>📰 ' + esc(d.newsSource) + '</span>' +
+                '<span>·</span>' +
+                '<a href="' + esc(d.newsUrl) + '" target="_blank" class="hover:text-pm-cyan truncate max-w-xs" title="' + esc(d.newsTitle) + '">' + esc(d.newsTitle) + '</a>' +
+              '</div>' +
+              // Meta
+              '<div class="mt-1.5 flex items-center gap-3 text-xs text-pm-muted flex-wrap">' +
+                '<span>📅 ' + fmtDate(d.newsPublishedAt) + '</span>' +
+                '<span>💰 Vol 24h: $' + fmtVolume(d.volume24hr || 0) + '</span>' +
+                '<span>💧 Liq: $' + fmtVolume(d.liquidity || 0) + '</span>' +
+                (d.endDate ? '<span>⏰ Fin: ' + fmtDate(d.endDate) + '</span>' : '') +
+              '</div>' +
+            '</div>' +
+            // Actions
+            '<div class="flex flex-col gap-2 flex-shrink-0">' +
+              (marketUrl ? '<a href="' + esc(marketUrl) + '" target="_blank" class="text-xs px-2 py-1 rounded border border-pm-border text-pm-cyan hover:bg-pm-cyan hover:text-black transition-colors text-center">Voir ↗</a>' : '') +
+              '<button onclick="toggleStar(\'' + esc(d.id) + '\')" class="text-xs px-2 py-1 rounded border border-pm-border hover:border-pm-yellow transition-colors">' + (d.starred ? '⭐' : '☆') + '</button>' +
+              '<button onclick="dismissDeal(\'' + esc(d.id) + '\')" class="text-xs px-2 py-1 rounded border border-pm-border text-pm-muted hover:border-pm-red hover:text-pm-red transition-colors">✕</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    /* ========== Actions ========== */
+    async function toggleStar(id) {
+      try {
+        var data = await apiFetch('/api/polymarket-deals/' + id + '/star', { method: 'POST' });
+        var deal = allDeals.find(function(d) { return d.id === id; });
+        if (deal) deal.starred = data.starred;
+        renderCurrentTab();
+      } catch (e) {
+        console.error('Star error:', e);
+      }
+    }
+
+    async function dismissDeal(id) {
+      try {
+        await apiFetch('/api/polymarket-deals/' + id + '/dismiss', { method: 'POST' });
+        var deal = allDeals.find(function(d) { return d.id === id; });
+        if (deal) deal.dismissed = true;
+        renderCurrentTab();
+      } catch (e) {
+        console.error('Dismiss error:', e);
+      }
+    }
+
+    async function triggerRefresh() {
+      var btn = document.getElementById('refresh-btn');
+      var icon = document.getElementById('refresh-icon');
+      btn.disabled = true;
+      icon.classList.add('refreshing');
+      icon.style.display = 'inline-block';
+      try {
+        await apiFetch('/api/polymarket-deals/refresh', { method: 'POST' });
+        await loadDeals();
+      } catch (e) {
+        console.error('Refresh error:', e);
+      } finally {
+        btn.disabled = false;
+        icon.classList.remove('refreshing');
+      }
+    }
+
+    /* ========== Init ========== */
+    initCommon(function() {
+      loadDeals();
+      createSmartInterval(loadDeals, 120000); // Auto-refresh every 2min
+    });
+  </script>
+</body>
+</html>

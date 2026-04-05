@@ -133,7 +133,7 @@ async function requireAuthOrBearer(req, res, next) {
 const protectedPages = [
   'dashboard.html', 'home.html', 'chat.html', 'profile.html',
   'project.html', 'agents.html', 'royal-heights.html', 'royal-heights-prospection.html',
-  'pms-compare.html', 'prospection-rh.html', 'synapcoin-marketing.html', 'synaphive-marketing.html', 'synapcoin-docs.html'
+  'pms-compare.html', 'prospection-rh.html', 'synapcoin-marketing.html', 'synaphive-marketing.html', 'synapcoin-docs.html', 'polymarket-deals.html'
 ];
 
 protectedPages.forEach(page => {
@@ -180,6 +180,9 @@ app.use(synapCoinRouter);
 
 const synapHiveRouter = require('./routes/synaphive')({ requireAuth });
 app.use(synapHiveRouter);
+
+const polymarketDealsRouter = require('./routes/polymarket-deals')({ requireAuth });
+app.use(polymarketDealsRouter);
 
 // ===== SynapCoin Docs API =====
 const SYNAPCOIN_DOCS_BLACKLIST = new Set([

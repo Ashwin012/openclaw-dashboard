@@ -25,7 +25,8 @@
     { icon: '⚡', label: 'SynapCoin',     href: '/synapcoin-marketing.html',
       subPaths: ['/synapcoin-docs.html'] },
     { icon: '🐝', label: 'SynapHive',     href: '/synaphive-marketing.html' },
-    { icon: '📊', label: 'Polymarket',    href: '/polymarket.html' },
+    { icon: '📊', label: 'Polymarket',    href: '/polymarket.html',
+      subPaths: ['/polymarket-deals.html'] },
     { icon: '⚙️', label: 'Profil',        href: '/profile.html' },
   ];
 
