@@ -17,14 +17,42 @@ const tracker    = require('./run-tracker');
 const resolver   = require('./engine-resolver');
 const lifecycle  = require('./lifecycle');
 
-// Patterns that indicate the API rate-limited or quota was hit
-const RATE_LIMIT_RE = /rate.?limit|429|too many requests|quota exceeded|overloaded/i;
+// ── Error patterns ────────────────────────────────────────────────────────────
+
+const RATE_LIMIT_RE    = /rate.?limit|429|too many requests|quota exceeded|overloaded/i;
+const INVALID_MODEL_RE = /invalid.?model|model.?not.?found|unknown model|no such model/i;
+const AUTH_ISSUE_RE    = /unauthorized|401|invalid.?api.?key|authentication.?failed|invalid.?token|not authenticated/i;
+
+// ── Error classifier ──────────────────────────────────────────────────────────
+
+/**
+ * Classify an error string into a known category.
+ * @param {string} text
+ * @returns {'rate_limit'|'invalid_model'|'auth_issue'|'unknown'}
+ */
+function classifyError(text) {
+  if (!text) return 'unknown';
+  if (RATE_LIMIT_RE.test(text))    return 'rate_limit';
+  if (INVALID_MODEL_RE.test(text)) return 'invalid_model';
+  if (AUTH_ISSUE_RE.test(text))    return 'auth_issue';
+  return 'unknown';
+}
+
+function isRateLimit(text) {
+  return classifyError(text) === 'rate_limit';
+}
 
 // ── Instruction builder ────────────────────────────────────────────────────────
 
+const END_OF_TASK_FOOTER =
+  'Fin de tâche attendue: fais les changements, commit si nécessaire, puis rends un feedback final compact ' +
+  '(1000 caractères max) contenant le commit SHA si tu en as créé un. ' +
+  'La tâche repartira ensuite en review pour validation technique.';
+
 /**
- * Extract the instruction string from a DB task row.
- * Falls back through coderPrompt → description → name.
+ * Build the full instruction string for a task.
+ * Sections: title, description/coderPrompt, workflow context, optimization loop info,
+ * rejection feedback, end-of-task footer.
  * Injects CLAUDE.md hint for codex/ollama engines.
  *
  * @param {object} task   — DB task row
@@ -35,18 +63,166 @@ function buildInstruction(task, engine) {
   let extra = {};
   try { extra = JSON.parse(task.input || '{}'); } catch {}
 
-  const base = (extra.coderPrompt || task.description || task.name || '').trim();
+  const base  = (extra.coderPrompt || task.description || task.name || '').trim();
+  const title = (task.name || '').trim();
+
+  const parts = [];
+
+  // Title header (only if distinct from the instruction body)
+  if (title && title !== base) {
+    parts.push(`# ${title}`);
+  }
+
+  // Core instruction
+  if (base) parts.push(base);
+
+  // Workflow context block
+  const ctxLines = [];
+  if (task.priority)  ctxLines.push(`Priorité: ${task.priority}`);
+  if (extra.engine || task.engine) ctxLines.push(`Engine demandé: ${extra.engine || task.engine}`);
+  if (extra.model  || task.model)  ctxLines.push(`Modèle demandé: ${extra.model  || task.model}`);
+  if (ctxLines.length) {
+    parts.push(`\nContexte workflow:\n${ctxLines.join('\n')}`);
+  }
+
+  // Optimization loop info
+  if (extra.optimizationLoop) {
+    const loopCount = extra.optimizationLoopCount || 0;
+    const maxLoops  = extra.optimizationMaxLoops  || 2;
+    parts.push(`\nBoucle d'optimisation: ${loopCount + 1}/${maxLoops}`);
+  }
+
+  // Rejection feedback injection
+  if (extra.rejectionFeedback) {
+    parts.push(`\nFeedback de rejet précédent:\n${extra.rejectionFeedback.trim()}`);
+  }
+
+  // End-of-task instructions
+  parts.push(`\n${END_OF_TASK_FOOTER}`);
+
+  const full = parts.join('\n').trim();
 
   if (engine === 'codex' || engine === 'ollama') {
-    return `Lis CLAUDE.md avant tout.\n\n${base}`;
+    return `Lis CLAUDE.md avant tout.\n\n${full}`;
   }
-  return base;
+  return full;
 }
 
-// ── Rate-limit helper ─────────────────────────────────────────────────────────
+// ── Output processing ─────────────────────────────────────────────────────────
 
-function isRateLimit(text) {
-  return RATE_LIMIT_RE.test(text || '');
+// ANSI escape code pattern (CSI sequences, standalone escapes)
+const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+
+/** Strip ANSI escape codes from a string. */
+function stripAnsi(text) {
+  return (text || '').replace(ANSI_RE, '');
+}
+
+// Lines considered noise: blank, braille spinners, pure key=value log tags
+const NOISE_RE = /^(\s*$|[\u2800-\u28FF\s]+$|\[[\w-]+\]\s+\w+=\S+\s*$)/;
+
+function filterNoise(lines) {
+  return lines.filter(l => !NOISE_RE.test(l));
+}
+
+/**
+ * Heuristic score for how "summary-like" a line is.
+ * Higher score = better candidate for the compact summary.
+ * Returns -1 for blank/empty lines (unconditionally excluded).
+ *
+ * @param {string} line
+ * @returns {number}
+ */
+function scoreSummaryLine(line) {
+  const t = line.trim();
+  if (!t) return -1;
+
+  let score = 0;
+
+  // Length sweet-spot: informative but not a dump
+  if (t.length >= 40 && t.length <= 160) score += 2;
+  else if (t.length >= 20 && t.length <= 250) score += 1;
+
+  // Action words commonly found in commit / completion messages
+  if (/\b(commit|SHA|added|updated|created|fixed|implemented|done|completed|changed|modified|refactored)\b/i.test(t)) score += 3;
+
+  // Starts with a git SHA (very high signal)
+  if (/^[0-9a-f]{7,40}\b/.test(t)) score += 5;
+
+  // SHA appears anywhere in the line
+  if (/\b[0-9a-f]{7,40}\b/.test(t)) score += 2;
+
+  // Internal log-tag lines are less useful
+  if (/^\[[\w-]+\]/.test(t)) score -= 1;
+
+  return score;
+}
+
+/**
+ * Process raw engine output into a compact summary.
+ * Pipeline: stripAnsi → split lines → filterNoise → score → top-N → truncate.
+ *
+ * @param {string} rawOutput
+ * @param {object} [opts]
+ * @param {number} [opts.maxChars=650]
+ * @param {number} [opts.maxLines=6]
+ * @returns {string}
+ */
+function processOutput(rawOutput, { maxChars = 650, maxLines = 6 } = {}) {
+  if (!rawOutput) return '';
+
+  const clean       = stripAnsi(rawOutput);
+  const lines       = clean.split('\n').map(l => l.trimEnd());
+  const meaningful  = filterNoise(lines);
+
+  if (!meaningful.length) return clean.slice(0, maxChars);
+
+  // Slightly boost last few lines (end-of-run summaries tend to appear there)
+  const scored = meaningful.map((line, i) => ({
+    line,
+    score: scoreSummaryLine(line) + (i >= meaningful.length - 5 ? 1 : 0),
+  }));
+
+  const top = scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxLines)
+    .map(s => s.line);
+
+  // Fallback: last N meaningful lines when nothing scores well
+  const selected = top.length ? top : meaningful.slice(-maxLines);
+
+  let result = selected.join('\n');
+  if (result.length > maxChars) result = result.slice(0, maxChars - 1) + '…';
+  return result;
+}
+
+// ── Task summary note assembler ───────────────────────────────────────────────
+
+/**
+ * Build the final compact summary note for a completed task run.
+ * Used for notifications and review annotations.
+ *
+ * @param {object}      opts
+ * @param {object}      opts.task        — DB task row
+ * @param {string}      opts.rawOutput   — raw engine output
+ * @param {string}      opts.engine      — engine used
+ * @param {string|null} opts.model       — model used (or null)
+ * @returns {string}   ≤ 1000 chars
+ */
+function buildTaskSummaryNote({ task, rawOutput, engine, model }) {
+  const summary = processOutput(rawOutput);
+
+  const parts = [];
+  parts.push(`Engine: ${engine}${model ? ` (${model})` : ''}`);
+
+  // Extract a commit SHA from the raw output (first match)
+  const shaMatch = (rawOutput || '').match(/\b([0-9a-f]{7,40})\b/);
+  if (shaMatch) parts.push(`Commit: ${shaMatch[1]}`);
+
+  if (summary) parts.push(summary);
+
+  return parts.join('\n').slice(0, 1000);
 }
 
 // ── Claude spawner (stream-json) ───────────────────────────────────────────────
@@ -250,4 +426,13 @@ async function execute({ task, run }) {
   }
 }
 
-module.exports = { execute, buildInstruction, isRateLimit };
+module.exports = {
+  execute,
+  buildInstruction,
+  isRateLimit,
+  classifyError,
+  stripAnsi,
+  scoreSummaryLine,
+  processOutput,
+  buildTaskSummaryNote,
+};

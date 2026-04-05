@@ -80,10 +80,17 @@ app.listen(PORT, () => {
       // Transition task to review (queued→in_progress→review)
       tracker.reviewRun(run.id, result.output);
 
+      const summaryNote = executor.buildTaskSummaryNote({
+        task,
+        rawOutput: result.output,
+        engine:    result.engine,
+        model:     result.model,
+      });
+
       lifecycle.notify({
         type:   'task_done',
         title:  `✅ Tâche en review`,
-        body:   `${task.name || task.id} — engine=${result.engine}`,
+        body:   summaryNote || `${task.name || task.id} — engine=${result.engine}`,
         taskId: task.id,
         runId:  run.id,
       });
