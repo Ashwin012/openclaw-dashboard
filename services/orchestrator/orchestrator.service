@@ -1,6 +1,6 @@
 [Unit]
 Description=OpenClaw Orchestrator Service
-After=network.target postgresql.service
+After=network.target dev-dashboard.service
 Documentation=https://github.com/Ashwin012/openclaw-dashboard
 
 [Service]
@@ -8,8 +8,8 @@ Type=simple
 User=openclaw
 WorkingDirectory=/home/openclaw/projects/dev-dashboard/services/orchestrator
 Environment=NODE_ENV=production
-EnvironmentFile=-/home/openclaw/projects/dev-dashboard/.env
-ExecStart=/home/openclaw/.nvm/versions/node/v20.20.1/bin/node server.js
+EnvironmentFile=/home/openclaw/projects/dev-dashboard/.env
+ExecStart=/bin/bash -c "source /home/openclaw/.nvm/nvm.sh && exec node server.js"
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal

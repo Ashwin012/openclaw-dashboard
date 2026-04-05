@@ -14,9 +14,10 @@ const notifier    = require('./lib/notifier');
 const webhook     = require('./lib/webhook');
 const gitHelpers  = require('./lib/git-helpers');
 
-const app    = express();
-const PORT   = process.env.PORT || 8092;
+const app      = express();
+const PORT     = process.env.PORT || 8092;
 const WORKER_ID = process.env.WORKER_ID || `orch-${uuidv4().slice(0, 8)}`;
+const DRY_RUN  = process.env.DRY_RUN === 'true';
 
 initDb();
 
@@ -67,11 +68,22 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT',  () => shutdown('SIGINT'));
 
 app.listen(PORT, () => {
-  console.log(`Orchestrator running on port ${PORT} (workerId=${WORKER_ID})`);
+  if (DRY_RUN) {
+    console.log(`[orchestrator] *** DRY_RUN mode — shadow observation only, no tasks will be executed ***`);
+  }
+  console.log(`Orchestrator running on port ${PORT} (workerId=${WORKER_ID}, dry_run=${DRY_RUN})`);
 
   workerLoop.start({
     workerId: WORKER_ID,
     onTask: async (task, run) => {
+      // Shadow mode: log what would be executed without actually running
+      if (DRY_RUN) {
+        console.log(`[orchestrator/dry-run] would execute task ${task.id} title="${task.name || ''}" engine=${task.engine || 'n/a'} priority=${task.priority || 'n/a'} project=${task.project_id || 'n/a'}`);
+        tracker.detachRun(run.id);
+        locks.release(locks.taskKey(task.id), run.id);
+        if (task.project_id) locks.release(locks.projectKey(task.project_id), run.id);
+        return;
+      }
       // Check optimization loop limit before executing
       if (lifecycle.checkOptimizationLoop(task, run.id)) {
         // DB already finalised by lifecycle — just clean up in-memory registry + locks

@@ -3900,7 +3900,7 @@
       "model": "claude-sonnet-4-6",
       "created": "2026-04-05T18:00:00Z",
       "createdAt": "2026-04-05T18:00:00Z",
-      "updatedAt": "2026-04-05T11:26:52.696Z",
+      "updatedAt": "2026-04-05T11:27:12.529Z",
       "assignee": "codeur",
       "tags": [
         "orchestration",
@@ -3932,21 +3932,37 @@
           "author": "Agent-Codeur",
           "text": "Implémenté routes/worker.js: GET /status, POST /stop, GET /question, POST /answer, GET /output. qaStore en mémoire pour Q&A interactif. Monté dans server.js sur /. uptime ajouté à /health.",
           "timestamp": "2026-04-05T11:26:52.696Z"
+        },
+        {
+          "author": "Worker",
+          "text": "✅ Claude Code terminé (171s, 21 tour(s), $0.4852)\n\n- - **`routes/worker.js`** (nouveau) — 5 endpoints de contrôle:\n- - `POST /stop` → SIGTERM child via `lifecycle.killProcess`, transitionToReview avec `stoppedManually:true`, release locks\n- - `GET /question?taskId=|project=` → question en attente depuis le qaStore en mémoire\n- - `POST /answer` → soumet réponse, prête pour `pollAnswer()` par le moteur (ORCH-008)\n- - `GET /output?taskId=|project=` → derniers 2000 chars de `runs.logs` (SQLite)\n- - **`server.js`** — monté `app.use('/', workerRouter())` + `uptime: process.uptime()` ajouté à `/health`\n- 6 autre(s) ligne(s) masquée(s)\n\nCommit: 3bf4082 — feat(orchestrator): ORCH-013 — Control API routes (/status /stop /question /answer /output)",
+          "timestamp": "2026-04-05T11:27:12.528Z"
+        },
+        {
+          "author": "Coder",
+          "text": "✅ Claude Code terminé (171s, 21 tour(s), $0.4852)\n\n- - **`routes/worker.js`** (nouveau) — 5 endpoints de contrôle:\n- - `POST /stop` → SIGTERM child via `lifecycle.killProcess`, transitionToReview avec `stoppedManually:true`, release locks\n- - `GET /question?taskId=|project=` → question en attente depuis le qaStore en mémoire\n- - `POST /answer` → soumet réponse, prête pour `pollAnswer()` par le moteur (ORCH-008)\n- - `GET /output?taskId=|project=` → derniers 2000 chars de `runs.logs` (SQLite)\n- - **`server.js`** — monté `app.use('/', workerRouter())` + `uptime: process.uptime()` ajouté à `/health`\n- 6 autre(s) ligne(s) masquée(s)\n\nCommit: 3bf4082 — feat(orchestrator): ORCH-013 — Control API routes (/status /stop /question /answer /output)",
+          "timestamp": "2026-04-05T11:27:12.528Z"
         }
       ],
       "startedAt": "2026-04-05T11:24:18.788Z",
-      "lastWorkerRunAt": "2026-04-05T11:24:18.788Z"
+      "lastWorkerRunAt": "2026-04-05T11:24:18.788Z",
+      "reviewRequestedAt": "2026-04-05T11:27:12.528Z",
+      "lastCoderSummary": "✅ Claude Code terminé (171s, 21 tour(s), $0.4852)\n\n- - **`routes/worker.js`** (nouveau) — 5 endpoints de contrôle:\n- - `POST /stop` → SIGTERM child via `lifecycle.killProcess`, transitionToReview avec `stoppedManually:true`, release locks\n- - `GET /question?taskId=|project=` → question en attente depuis le qaStore en mémoire\n- - `POST /answer` → soumet réponse, prête pour `pollAnswer()` par le moteur (ORCH-008)\n- - `GET /output?taskId=|project=` → derniers 2000 chars de `runs.logs` (SQLite)\n- - **`server.js`** — monté `app.use('/', workerRouter())` + `uptime: process.uptime()` ajouté à `/health`\n- 6 autre(s) ligne(s) masquée(s)\n\nCommit: 3bf4082 — feat(orchestrator): ORCH-013 — Control API routes (/status /stop /question /answer /output)",
+      "lastCoderEngine": "claude",
+      "lastCoderModel": "claude-sonnet-4-6",
+      "lastCoderCommit": "3bf4082567acc9dfaeda57dd99ed11fd1d041891",
+      "commitSha": "3bf4082567acc9dfaeda57dd99ed11fd1d041891"
     },
     {
       "id": "ORCH-014",
       "title": "Cut-over progressif — migration, cohabitation, validation",
-      "status": "queued",
+      "status": "review",
       "priority": "high",
       "engine": "claude",
       "model": "claude-sonnet-4-6",
       "created": "2026-04-05T18:00:00Z",
       "createdAt": "2026-04-05T18:00:00Z",
-      "updatedAt": "2026-04-05T18:00:00Z",
+      "updatedAt": "2026-04-05T11:30:10.000Z",
       "assignee": "codeur",
       "tags": [
         "orchestration",
@@ -3988,8 +4004,15 @@
           "author": "Agent-Technique",
           "text": "Dernière tâche du lot. humanValidation=true. Ne pas basculer sans validation Ashwin à chaque phase.",
           "timestamp": "2026-04-05T18:00:00Z"
+        },
+        {
+          "author": "Agent-Technique",
+          "text": "✅ Review OK. Implémenté: (1) DRY_RUN shadow mode dans server.js, (2) orchestrator.service corrigé (postgresql→dev-dashboard, EnvironmentFile sans tiret, ExecStart via nvm), (3) scripts phase1-shadow/rollback-phase1/phase2-switch/rollback-phase2/phase3-cleanup/e2e-validate. Procédure: phase1 (sudo ./scripts/phase1-shadow.sh, valider 24-48h avec journalctl), phase2 (sudo ./scripts/phase2-switch.sh + e2e-validate phase2), phase3 après 7j stable. humanValidation=true — Ashwin valide chaque phase avant avancement.",
+          "timestamp": "2026-04-05T11:30:10.000Z"
         }
-      ]
+      ],
+      "startedAt": "2026-04-05T11:27:18.960Z",
+      "lastWorkerRunAt": "2026-04-05T11:27:18.960Z"
     }
   ]
 }
