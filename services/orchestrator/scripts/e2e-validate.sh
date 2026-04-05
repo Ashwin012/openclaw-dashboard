@@ -9,8 +9,8 @@ ORCH_URL=http://localhost:8092
 TASKS_JSON=/home/openclaw/projects/dev-dashboard/.claude/tasks.json
 PASS=0; FAIL=0
 
-ok()   { echo "  ✅ $1"; ((PASS++)); }
-fail() { echo "  ❌ $1"; ((FAIL++)); }
+ok()   { echo "  ✅ $1"; PASS=$((PASS + 1)); }
+fail() { echo "  ❌ $1"; FAIL=$((FAIL + 1)); }
 
 echo ""
 echo "=== E2E Validation — $PHASE ==="
@@ -36,7 +36,7 @@ NOTIF=/home/openclaw/projects/dev-dashboard/.dashboard/notifications.json
 # 5. Activity log file writable
 echo "[5] Activity log check..."
 ACT=/home/openclaw/projects/dev-dashboard/.dashboard/activity-log.json
-[ -f "$ACT" ] && ok "activity-log.json present" || (touch "$ACT" && ok "activity-log.json created")
+[ -f "$ACT" ] && ok "activity-log.json present" || { touch "$ACT" && ok "activity-log.json created" || fail "activity-log.json missing and could not create"; }
 
 # 6. Sync check (tasks.json readable by orchestrator)
 echo "[6] Sync check..."

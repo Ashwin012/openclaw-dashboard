@@ -5,7 +5,7 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const { git, validateBranchName, validateHash } = require('../lib/git');
 const { readJSON, writeJSON } = require('../lib/json-store');
-const { DEFAULT_ENGINE_MODELS } = require('../task-worker');
+const { DEFAULT_ENGINE_MODELS } = require('../lib/engine-models');
 
 const execFileAsync = promisify(execFile);
 

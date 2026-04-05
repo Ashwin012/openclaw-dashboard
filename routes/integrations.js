@@ -282,7 +282,7 @@ module.exports = function createIntegrationRoutes({ requireAuth }) {
 
   // ===== Worker proxy endpoints =====
 
-  const WORKER_URL = 'http://127.0.0.1:8091';
+  const WORKER_URL = 'http://127.0.0.1:8092';
 
   function proxyWorkerRequest(req, res, workerPath) {
     const workerReq = http.request(`${WORKER_URL}${workerPath}`, {

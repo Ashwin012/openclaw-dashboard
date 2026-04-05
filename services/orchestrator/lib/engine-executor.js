@@ -16,6 +16,7 @@ const { spawn }  = require('child_process');
 const tracker    = require('./run-tracker');
 const resolver   = require('./engine-resolver');
 const lifecycle  = require('./lifecycle');
+const gitHelpers = require('./git-helpers');
 
 // ── Error patterns ────────────────────────────────────────────────────────────
 
@@ -236,7 +237,7 @@ function buildTaskSummaryNote({ task, rawOutput, engine, model }) {
  * @param {object}      run  — RunState (has .id)
  * @returns {Promise<{output: string, engine: string, model: string|null}>}
  */
-function spawnClaude(instruction, model, run) {
+function spawnClaude(instruction, model, run, cwd) {
   return new Promise((resolve, reject) => {
     const args = [
       '--input-format',  'stream-json',
@@ -247,6 +248,7 @@ function spawnClaude(instruction, model, run) {
     if (model) args.push('--model', model);
 
     const child = spawn('claude', args, {
+      cwd:   cwd || process.cwd(),
       env:   { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -338,7 +340,7 @@ function spawnClaude(instruction, model, run) {
  * @param {object} run
  * @returns {Promise<{output: string, engine: string, model: null}>}
  */
-function spawnCodex(instruction, engine, run) {
+function spawnCodex(instruction, engine, run, cwd) {
   return new Promise((resolve, reject) => {
     const args = ['exec', instruction, '--dangerously-bypass-approvals-and-sandbox'];
     if (engine === 'ollama') {
@@ -346,6 +348,7 @@ function spawnCodex(instruction, engine, run) {
     }
 
     const child = spawn('codex', args, {
+      cwd:   cwd || process.cwd(),
       env:   { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -384,11 +387,11 @@ function spawnCodex(instruction, engine, run) {
 
 // ── Dispatcher ────────────────────────────────────────────────────────────────
 
-function _dispatch(engine, model, instruction, run) {
+function _dispatch(engine, model, instruction, run, cwd) {
   switch (engine) {
-    case 'claude': return spawnClaude(instruction, model, run);
-    case 'codex':  return spawnCodex(instruction, 'codex',  run);
-    case 'ollama': return spawnCodex(instruction, 'ollama', run);
+    case 'claude': return spawnClaude(instruction, model, run, cwd);
+    case 'codex':  return spawnCodex(instruction, 'codex',  run, cwd);
+    case 'ollama': return spawnCodex(instruction, 'ollama', run, cwd);
     default:
       return Promise.reject(new Error(`Unknown engine: ${engine}`));
   }
@@ -408,18 +411,19 @@ function _dispatch(engine, model, instruction, run) {
 async function execute({ task, run }) {
   const { engine, model } = resolver.resolve(task);
   const instruction       = buildInstruction(task, engine);
+  const cwd               = gitHelpers.resolveProjectPath(task.project_id);
 
-  console.log(`[engine-executor] task=${task.id} engine=${engine} model=${model || 'default'}`);
+  console.log(`[engine-executor] task=${task.id} engine=${engine} model=${model || 'default'} cwd=${cwd || 'inherited'}`);
 
   try {
-    return await _dispatch(engine, model, instruction, run);
+    return await _dispatch(engine, model, instruction, run, cwd);
   } catch (err) {
     if (err.code === 'RATE_LIMIT' && engine === 'claude') {
       const fallback = resolver.nextEngine(engine);
       if (fallback) {
         console.warn(`[engine-executor] rate_limit — falling back to ${fallback}`);
         const fbInstruction = buildInstruction(task, fallback);
-        return await _dispatch(fallback, null, fbInstruction, run);
+        return await _dispatch(fallback, null, fbInstruction, run, cwd);
       }
     }
     throw err;

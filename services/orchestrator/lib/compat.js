@@ -191,7 +191,7 @@ function logEvent(db, taskId, type, payload) {
 // ─── DB upsert helpers ───────────────────────────────────────────────────────
 
 const INSERT_SQL = `
-  INSERT INTO tasks
+  INSERT OR IGNORE INTO tasks
     (id, name, description, status, priority, engine, model, input, project_id, assignee, tags, created_at, updated_at)
   VALUES
     (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

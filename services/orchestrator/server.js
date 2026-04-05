@@ -15,7 +15,7 @@ const webhook     = require('./lib/webhook');
 const gitHelpers  = require('./lib/git-helpers');
 
 const app      = express();
-const PORT     = process.env.PORT || 8092;
+const PORT     = process.env.ORCH_PORT || 8092;
 const WORKER_ID = process.env.WORKER_ID || `orch-${uuidv4().slice(0, 8)}`;
 const DRY_RUN  = process.env.DRY_RUN === 'true';
 
