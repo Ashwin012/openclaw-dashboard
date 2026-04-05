@@ -10,6 +10,8 @@ const workerLoop = require('./lib/worker-loop');
 const tracker    = require('./lib/run-tracker');
 const executor   = require('./lib/engine-executor');
 const lifecycle  = require('./lib/lifecycle');
+const notifier   = require('./lib/notifier');
+const webhook    = require('./lib/webhook');
 
 const app    = express();
 const PORT   = process.env.PORT || 8092;
@@ -94,6 +96,43 @@ app.listen(PORT, () => {
         taskId: task.id,
         runId:  run.id,
       });
+
+      // Extract commit SHA from raw output for webhook + activity log
+      const commitShaMatch = (result.output || '').match(/\b([0-9a-f]{7,40})\b/);
+      const commitSha      = commitShaMatch ? commitShaMatch[1] : null;
+
+      // Dashboard-compat notification (legacy format)
+      notifier.addNotification({
+        projectName: task.project_id || '',
+        taskTitle:   task.name       || task.id,
+        taskId:      task.id,
+        fromStatus:  'in_progress',
+        toStatus:    'review',
+        message:     `🔍 Traitement terminé — en attente de review`,
+      });
+
+      // Activity log entry
+      notifier.logActivity({
+        event:     'task_review',
+        taskId:    task.id,
+        projectId: task.project_id || null,
+        engine:    result.engine,
+        model:     result.model    || null,
+        commitSha: commitSha       || null,
+        summary:   summaryNote     || null,
+        toStatus:  'review',
+      });
+
+      // Webhook POST (fire-and-forget, 30s timeout)
+      webhook.sendWebhook({
+        event:        'task_review',
+        projectId:    task.project_id || null,
+        taskId:       task.id,
+        coderEngine:  result.engine,
+        coderModel:   result.model    || null,
+        coderSummary: summaryNote     || null,
+        commitSha:    commitSha       || null,
+      }).catch(() => {});   // already swallowed inside sendWebhook; belt-and-suspenders
 
       // Release advisory locks (error path is handled by worker-loop catch)
       locks.release(locks.taskKey(task.id), run.id);
