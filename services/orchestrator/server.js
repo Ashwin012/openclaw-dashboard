@@ -2,9 +2,12 @@
 
 const express = require('express');
 const path = require('path');
+const { initDb } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 8092;
+
+initDb();
 
 app.use(express.json());
 
