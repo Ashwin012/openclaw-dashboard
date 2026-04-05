@@ -244,6 +244,148 @@ module.exports = function createIntegrationRoutes({ requireAuth }) {
     }
   });
 
+  // ===== Polymarket Trades (paginated) =====
+
+  router.get('/api/polymarket/trades', requireAuth, async (req, res) => {
+    try {
+      const wallet = process.env.POLYMARKET_WALLET_ADDRESS;
+      if (!wallet) return res.status(503).json({ error: 'POLYMARKET_WALLET_ADDRESS not configured' });
+
+      const page = Math.max(1, parseInt(req.query.page) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+      const sideFilter = (req.query.side || '').toLowerCase();
+
+      const dataApi = 'https://data-api.polymarket.com';
+      const gammaApi = 'https://gamma-api.polymarket.com';
+
+      // Fetch more than needed to allow client-side filtering
+      const fetchLimit = sideFilter ? limit * 3 : limit;
+      const offset = sideFilter ? 0 : (page - 1) * limit;
+      const activityRes = await fetch(`${dataApi}/activity?user=${encodeURIComponent(wallet)}&limit=${fetchLimit + offset}&offset=${sideFilter ? 0 : offset}`);
+      if (!activityRes.ok) throw new Error(`HTTP ${activityRes.status}`);
+      const rawActivity = await activityRes.json();
+      const activity = Array.isArray(rawActivity) ? rawActivity : [];
+
+      // Enrich with market titles
+      const conditionIds = [...new Set(activity.map(t => t.conditionId).filter(Boolean))];
+      const now = Date.now();
+      const marketData = {};
+      const toFetch = conditionIds.filter(id => {
+        const cached = polymarketCache.get(id);
+        if (cached && cached.expiry > now) { marketData[id] = cached.data; return false; }
+        return true;
+      });
+      if (toFetch.length > 0) {
+        const results = await Promise.allSettled(
+          toFetch.map(id => fetch(`${gammaApi}/markets?condition_id=${encodeURIComponent(id)}`).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }))
+        );
+        toFetch.forEach((id, i) => {
+          if (results[i].status === 'fulfilled') {
+            const markets = results[i].value;
+            const m = Array.isArray(markets) ? markets[0] : markets;
+            if (m) {
+              marketData[id] = { title: m.question || m.title || id, icon: m.icon || null };
+              polymarketCache.set(id, { data: marketData[id], expiry: now + 5 * 60 * 1000 });
+            }
+          }
+        });
+      }
+
+      let trades = activity.map(t => {
+        const market = marketData[t.conditionId] || {};
+        return {
+          title: market.title || t.conditionId || '–',
+          side: t.side || t.type || '–',
+          outcome: t.outcome || t.asset || '–',
+          price: parseFloat(t.price || 0),
+          size: parseFloat(t.size || t.amount || 0),
+          timestamp: t.timestamp || t.createdAt || null
+        };
+      });
+
+      // Filter by side if requested
+      if (sideFilter) {
+        trades = trades.filter(t => (t.side || '').toLowerCase() === sideFilter);
+      }
+
+      const total = trades.length;
+      const paginated = sideFilter ? trades.slice((page - 1) * limit, page * limit) : trades.slice(0, limit);
+
+      res.json({ trades: paginated, total, page, limit });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ===== Polymarket Markets =====
+
+  router.get('/api/polymarket/markets', requireAuth, async (req, res) => {
+    try {
+      const wallet = process.env.POLYMARKET_WALLET_ADDRESS;
+      if (!wallet) return res.status(503).json({ error: 'POLYMARKET_WALLET_ADDRESS not configured' });
+
+      const statusFilter = req.query.status || 'active';
+      const dataApi = 'https://data-api.polymarket.com';
+      const gammaApi = 'https://gamma-api.polymarket.com';
+
+      const positionsRes = await fetch(`${dataApi}/positions?user=${encodeURIComponent(wallet)}`);
+      if (!positionsRes.ok) throw new Error(`HTTP ${positionsRes.status}`);
+      const rawPositions = await positionsRes.json();
+      const positions = Array.isArray(rawPositions) ? rawPositions : [];
+
+      // Filter: active = non-zero size, all = everything
+      const filtered = statusFilter === 'active'
+        ? positions.filter(p => parseFloat(p.size || 0) !== 0)
+        : positions;
+
+      // Enrich with market titles
+      const conditionIds = [...new Set(filtered.map(p => p.conditionId).filter(Boolean))];
+      const now = Date.now();
+      const marketData = {};
+      const toFetch = conditionIds.filter(id => {
+        const cached = polymarketCache.get(id);
+        if (cached && cached.expiry > now) { marketData[id] = cached.data; return false; }
+        return true;
+      });
+      if (toFetch.length > 0) {
+        const results = await Promise.allSettled(
+          toFetch.map(id => fetch(`${gammaApi}/markets?condition_id=${encodeURIComponent(id)}`).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }))
+        );
+        toFetch.forEach((id, i) => {
+          if (results[i].status === 'fulfilled') {
+            const markets = results[i].value;
+            const m = Array.isArray(markets) ? markets[0] : markets;
+            if (m) {
+              marketData[id] = { title: m.question || m.title || id, icon: m.icon || null };
+              polymarketCache.set(id, { data: marketData[id], expiry: now + 5 * 60 * 1000 });
+            }
+          }
+        });
+      }
+
+      const markets = filtered.map(p => {
+        const market = marketData[p.conditionId] || {};
+        const size = parseFloat(p.size || 0);
+        const avgPrice = parseFloat(p.avgPrice || p.averagePrice || 0);
+        const curPrice = parseFloat(p.currentPrice || p.price || 0);
+        const pnl = size * (curPrice - avgPrice);
+        return {
+          conditionId: p.conditionId,
+          title: market.title || p.conditionId || '–',
+          outcome: p.outcome || p.asset || '–',
+          size,
+          avgPrice,
+          currentPrice: curPrice,
+          pnl
+        };
+      });
+
+      res.json({ markets, total: markets.length });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ===== EQS Listings (DISABLED) =====
 
   const DATA_DIR = path.join(__dirname, '..', 'data');

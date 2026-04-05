@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Polymarket — Portfolio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            pm: {
+              cyan:   '#06B6D4',
+              dark:   '#080D18',
+              card:   '#0F1623',
+              border: '#1E2A3A',
+              text:   '#E8F0F8',
+              muted:  '#5A7080',
+              green:  '#10B981',
+              red:    '#EF4444',
+              purple: '#8B5CF6',
+              yellow: '#F59E0B',
+              blue:   '#3B82F6',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    html, body { overflow-x: hidden; width: 100%; max-width: 100vw; box-sizing: border-box; }
+    body { background: #080D18; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    * { box-sizing: border-box; }
+    .card { background: #0F1623; border: 1px solid #1E2A3A; border-radius: 12px; }
+    .tab-btn { border-bottom: 2px solid transparent; color: #5A7080; }
+    .tab-btn.active { border-bottom: 2px solid #06B6D4; color: #06B6D4; }
+    .tab-btn:hover:not(.active) { color: #E8F0F8; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #080D18; }
+    ::-webkit-scrollbar-thumb { background: #1E2A3A; border-radius: 3px; }
+    .pnl-positive { color: #10B981; }
+    .pnl-negative { color: #EF4444; }
+    .side-buy { color: #10B981; }
+    .side-sell { color: #EF4444; }
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500; }
+    .cyan-glow { box-shadow: 0 0 20px #06B6D420; }
+    .position-row:hover { background: #161D2E; }
+    @media (max-width: 768px) {
+      main { padding: 8px !important; }
+      h1 { font-size: 16px !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen text-pm-text">
+  <script src="/js/navbar.js"></script>
+  <script src="/js/common.js"></script>
+
+  <!-- Header -->
+  <header class="border-b border-pm-border px-6 py-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-pm-purple to-pm-cyan flex items-center justify-center font-bold text-white text-base cyan-glow">📊</div>
+        <div>
+          <h1 class="text-xl font-bold">Polymarket <span style="color:#06B6D4">Portfolio</span></h1>
+          <p class="text-xs text-pm-muted">Prediction markets · Decentralized betting</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-pm-muted" id="last-updated"></span>
+        <button onclick="refreshAll()" class="text-sm px-3 py-1.5 rounded-lg border border-pm-cyan text-pm-cyan hover:bg-pm-cyan hover:text-black transition-colors font-medium">🔄 Refresh</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="border-b border-pm-border px-6">
+    <div class="max-w-7xl mx-auto flex gap-6 overflow-x-auto" style="scrollbar-width:none">
+      <button class="tab-btn active py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="overview">📊 Overview</button>
+      <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="history">📜 Historique</button>
+      <button class="tab-btn py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="markets">🎯 Markets</button>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-6 py-6">
+
+    <!-- ==================== OVERVIEW ==================== -->
+    <section id="tab-overview" class="tab-content">
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-pm-cyan" id="kpi-value">—</div>
+          <div class="text-xs text-pm-muted mt-1">Portfolio Value</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold" id="kpi-pnl">—</div>
+          <div class="text-xs text-pm-muted mt-1">Total PnL</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-pm-purple" id="kpi-positions">—</div>
+          <div class="text-xs text-pm-muted mt-1">Open Positions</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-pm-blue" id="kpi-trades">—</div>
+          <div class="text-xs text-pm-muted mt-1">Recent Trades</div>
+        </div>
+      </div>
+
+      <!-- Balance -->
+      <div class="card p-4 mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-pm-text">💰 Balance</h2>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="balance-grid">
+          <div class="text-center text-pm-muted text-sm">Chargement…</div>
+        </div>
+      </div>
+
+      <!-- Open Positions -->
+      <div class="card p-4 mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-pm-text">📈 Positions ouvertes</h2>
+          <span class="text-xs text-pm-muted" id="positions-count"></span>
+        </div>
+        <div id="positions-list">
+          <div class="text-center text-pm-muted text-sm py-4">Chargement…</div>
+        </div>
+      </div>
+
+      <!-- Recent Trades (top 5) -->
+      <div class="card p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-pm-text">🔄 Trades récents</h2>
+          <button onclick="switchTab('history')" class="text-xs text-pm-cyan hover:underline">Voir tout →</button>
+        </div>
+        <div id="recent-trades">
+          <div class="text-center text-pm-muted text-sm py-4">Chargement…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== HISTORIQUE ==================== -->
+    <section id="tab-history" class="tab-content hidden">
+
+      <!-- Filters -->
+      <div class="card p-4 mb-4">
+        <div class="flex items-center gap-3 flex-wrap">
+          <label class="text-xs text-pm-muted">Side:</label>
+          <select id="filter-side" onchange="loadTrades(1)" class="bg-pm-dark border border-pm-border rounded px-2 py-1 text-xs text-pm-text">
+            <option value="">Tous</option>
+            <option value="buy">Buy</option>
+            <option value="sell">Sell</option>
+          </select>
+          <label class="text-xs text-pm-muted">Par page:</label>
+          <select id="filter-limit" onchange="loadTrades(1)" class="bg-pm-dark border border-pm-border rounded px-2 py-1 text-xs text-pm-text">
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Trades Table -->
+      <div class="card overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-pm-border text-pm-muted text-xs">
+              <th class="text-left p-3">Date</th>
+              <th class="text-left p-3">Market</th>
+              <th class="text-center p-3">Side</th>
+              <th class="text-center p-3">Outcome</th>
+              <th class="text-right p-3">Price</th>
+              <th class="text-right p-3">Size</th>
+            </tr>
+          </thead>
+          <tbody id="trades-tbody">
+            <tr><td colspan="6" class="text-center text-pm-muted py-6">Chargement…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex items-center justify-between mt-4 text-sm">
+        <button id="prev-btn" onclick="loadTrades(currentPage - 1)" disabled class="px-3 py-1.5 rounded border border-pm-border text-pm-muted disabled:opacity-30 hover:text-pm-text transition-colors">← Précédent</button>
+        <span id="page-info" class="text-pm-muted text-xs"></span>
+        <button id="next-btn" onclick="loadTrades(currentPage + 1)" disabled class="px-3 py-1.5 rounded border border-pm-border text-pm-muted disabled:opacity-30 hover:text-pm-text transition-colors">Suivant →</button>
+      </div>
+    </section>
+
+    <!-- ==================== MARKETS ==================== -->
+    <section id="tab-markets" class="tab-content hidden">
+
+      <div class="card p-4 mb-4">
+        <div class="flex items-center gap-3 flex-wrap">
+          <label class="text-xs text-pm-muted">Status:</label>
+          <select id="market-status" onchange="loadMarkets()" class="bg-pm-dark border border-pm-border rounded px-2 py-1 text-xs text-pm-text">
+            <option value="active">Actifs</option>
+            <option value="all">Tous</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="markets-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="text-center text-pm-muted text-sm py-8 col-span-2">Chargement…</div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    /* ========== State ========== */
+    var currentPage = 1;
+    var cachedOverview = null;
+    var marketsLoaded = false;
+    var historyLoaded = false;
+
+    /* ========== Helpers ========== */
+    function esc(s) { return typeof escapeHtml === 'function' ? escapeHtml(String(s || '')) : String(s || '').replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function pnlClass(v) { return v >= 0 ? 'pnl-positive' : 'pnl-negative'; }
+    function pnlSign(v) { return v >= 0 ? '+' : ''; }
+    function fmt(v, d) { return Number(v || 0).toFixed(d === undefined ? 2 : d); }
+    function fmtDate(ts) {
+      if (!ts) return '–';
+      return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-content').forEach(function(s) { s.classList.add('hidden'); });
+      var btn = document.querySelector('.tab-btn[data-tab="' + name + '"]');
+      if (btn) btn.classList.add('active');
+      var section = document.getElementById('tab-' + name);
+      if (section) section.classList.remove('hidden');
+      if (name === 'history' && !historyLoaded) { loadTrades(1); }
+      if (name === 'markets' && !marketsLoaded) { loadMarkets(); }
+    }
+
+    /* ========== API calls ========== */
+    async function apiFetch(url) {
+      var res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }
+
+    /* ========== Overview Tab ========== */
+    async function loadOverview() {
+      try {
+        var data = await apiFetch('/api/polymarket');
+        cachedOverview = data;
+        renderOverview(data);
+        document.getElementById('last-updated').textContent = 'Mis à jour: ' + new Date().toLocaleTimeString('fr-FR');
+      } catch (e) {
+        document.getElementById('kpi-value').textContent = 'Erreur';
+        document.getElementById('kpi-value').style.color = '#EF4444';
+      }
+    }
+
+    function renderOverview(data) {
+      var positions = data.positions || [];
+      var trades = data.recentTrades || [];
+      var portfolioValue = data.portfolioValue || 0;
+      var totalPnl = positions.reduce(function(s, p) { return s + (p.pnl || 0); }, 0);
+
+      // KPIs
+      document.getElementById('kpi-value').textContent = fmt(portfolioValue) + ' $';
+      var pnlEl = document.getElementById('kpi-pnl');
+      pnlEl.textContent = pnlSign(totalPnl) + fmt(totalPnl) + ' $';
+      pnlEl.className = 'text-2xl font-bold ' + pnlClass(totalPnl);
+      document.getElementById('kpi-positions').textContent = positions.length;
+      document.getElementById('kpi-trades').textContent = trades.length;
+
+      // Balance
+      var balanceGrid = document.getElementById('balance-grid');
+      var cashValue = data.cashBalance || 0;
+      var investedValue = positions.reduce(function(s, p) { return s + p.size * p.currentPrice; }, 0);
+      var totalValue = cashValue + investedValue;
+      balanceGrid.innerHTML =
+        '<div class="text-center"><div class="text-lg font-bold text-pm-cyan">' + fmt(totalValue) + ' $</div><div class="text-xs text-pm-muted">Total</div></div>' +
+        '<div class="text-center"><div class="text-lg font-bold text-pm-text">' + fmt(investedValue) + ' $</div><div class="text-xs text-pm-muted">Investi</div></div>' +
+        '<div class="text-center"><div class="text-lg font-bold text-pm-text">' + fmt(cashValue) + ' $</div><div class="text-xs text-pm-muted">Cash</div></div>' +
+        '<div class="text-center"><div class="text-lg font-bold ' + pnlClass(totalPnl) + '">' + pnlSign(totalPnl) + fmt(totalPnl) + ' $</div><div class="text-xs text-pm-muted">PnL</div></div>';
+
+      // Positions
+      var positionsEl = document.getElementById('positions-list');
+      document.getElementById('positions-count').textContent = positions.length + ' position(s)';
+      if (positions.length === 0) {
+        positionsEl.innerHTML = '<div class="text-center text-pm-muted text-sm py-4">Aucune position ouverte</div>';
+      } else {
+        var html = '';
+        positions.forEach(function(p) {
+          var pnl = p.pnl || 0;
+          html += '<div class="position-row flex items-center gap-3 p-3 rounded-lg transition-colors">' +
+            '<div class="flex-1 min-w-0">' +
+              '<div class="text-sm font-medium truncate" title="' + esc(p.title) + '">' + esc(p.title) + '</div>' +
+              '<div class="text-xs text-pm-muted mt-0.5">' + esc(p.outcome) + ' · ' + fmt(p.size, 1) + ' shares</div>' +
+            '</div>' +
+            '<div class="text-right">' +
+              '<div class="text-xs text-pm-muted">@' + fmt(p.avgPrice) + ' → ' + fmt(p.currentPrice) + '</div>' +
+              '<div class="text-sm font-bold ' + pnlClass(pnl) + '">' + pnlSign(pnl) + fmt(pnl) + ' $ <span class="text-xs">(' + pnlSign(p.pnlPercent || 0) + fmt(p.pnlPercent || 0, 1) + '%)</span></div>' +
+            '</div>' +
+          '</div>';
+        });
+        positionsEl.innerHTML = html;
+      }
+
+      // Recent trades (top 5)
+      var recentEl = document.getElementById('recent-trades');
+      if (trades.length === 0) {
+        recentEl.innerHTML = '<div class="text-center text-pm-muted text-sm py-4">Aucun trade récent</div>';
+      } else {
+        var html = '';
+        trades.slice(0, 5).forEach(function(t) {
+          var sideClass = (t.side || '').toLowerCase() === 'sell' ? 'side-sell' : 'side-buy';
+          html += '<div class="flex items-center gap-3 py-2 border-b border-pm-border last:border-0 text-sm">' +
+            '<span class="font-bold text-xs uppercase w-8 ' + sideClass + '">' + esc(t.side) + '</span>' +
+            '<span class="flex-1 truncate" title="' + esc(t.title) + '">' + esc(t.title) + '</span>' +
+            '<span class="text-xs text-pm-muted">' + esc(t.outcome) + '</span>' +
+            '<span class="text-xs">@' + fmt(t.price) + '</span>' +
+            '<span class="text-xs text-pm-muted">' + fmtDate(t.timestamp) + '</span>' +
+          '</div>';
+        });
+        recentEl.innerHTML = html;
+      }
+    }
+
+    /* ========== Historique Tab ========== */
+    async function loadTrades(page) {
+      currentPage = page || 1;
+      var limit = parseInt(document.getElementById('filter-limit').value) || 20;
+      var side = document.getElementById('filter-side').value;
+      var url = '/api/polymarket/trades?page=' + currentPage + '&limit=' + limit;
+      if (side) url += '&side=' + side;
+
+      var tbody = document.getElementById('trades-tbody');
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-pm-muted py-6">Chargement…</td></tr>';
+
+      try {
+        var data = await apiFetch(url);
+        historyLoaded = true;
+        renderTrades(data);
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-pm-red py-6">Erreur: ' + esc(e.message) + '</td></tr>';
+      }
+    }
+
+    function renderTrades(data) {
+      var trades = data.trades || [];
+      var tbody = document.getElementById('trades-tbody');
+
+      if (trades.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-pm-muted py-6">Aucun trade</td></tr>';
+      } else {
+        var html = '';
+        trades.forEach(function(t) {
+          var sideClass = (t.side || '').toLowerCase() === 'sell' ? 'side-sell' : 'side-buy';
+          html += '<tr class="border-b border-pm-border hover:bg-pm-card transition-colors">' +
+            '<td class="p-3 text-xs text-pm-muted whitespace-nowrap">' + fmtDate(t.timestamp) + '</td>' +
+            '<td class="p-3 text-sm max-w-[300px] truncate" title="' + esc(t.title) + '">' + esc(t.title) + '</td>' +
+            '<td class="p-3 text-center font-bold text-xs uppercase ' + sideClass + '">' + esc(t.side) + '</td>' +
+            '<td class="p-3 text-center text-xs">' + esc(t.outcome) + '</td>' +
+            '<td class="p-3 text-right text-xs">' + fmt(t.price) + ' $</td>' +
+            '<td class="p-3 text-right text-xs">' + fmt(t.size, 1) + '</td>' +
+          '</tr>';
+        });
+        tbody.innerHTML = html;
+      }
+
+      // Pagination controls
+      var total = data.total || 0;
+      var limit = data.limit || 20;
+      var totalPages = Math.ceil(total / limit) || 1;
+      document.getElementById('page-info').textContent = 'Page ' + currentPage + ' / ' + totalPages + ' (' + total + ' trades)';
+      document.getElementById('prev-btn').disabled = currentPage <= 1;
+      document.getElementById('next-btn').disabled = currentPage >= totalPages;
+    }
+
+    /* ========== Markets Tab ========== */
+    async function loadMarkets() {
+      var status = document.getElementById('market-status').value;
+      var grid = document.getElementById('markets-grid');
+      grid.innerHTML = '<div class="text-center text-pm-muted text-sm py-8 col-span-2">Chargement…</div>';
+
+      try {
+        var data = await apiFetch('/api/polymarket/markets?status=' + status);
+        marketsLoaded = true;
+        renderMarkets(data);
+      } catch (e) {
+        grid.innerHTML = '<div class="text-center py-8 col-span-2" style="color:#EF4444">Erreur: ' + esc(e.message) + '</div>';
+      }
+    }
+
+    function renderMarkets(data) {
+      var markets = data.markets || [];
+      var grid = document.getElementById('markets-grid');
+
+      if (markets.length === 0) {
+        grid.innerHTML = '<div class="text-center text-pm-muted text-sm py-8 col-span-2">Aucun market trouvé</div>';
+        return;
+      }
+
+      var html = '';
+      markets.forEach(function(m) {
+        var pnl = m.pnl || 0;
+        var hasPosition = m.size > 0;
+        html += '<div class="card p-4">' +
+          '<div class="flex items-start gap-3">' +
+            '<div class="flex-1 min-w-0">' +
+              '<h3 class="text-sm font-semibold truncate" title="' + esc(m.title) + '">' + esc(m.title) + '</h3>' +
+              '<div class="flex items-center gap-2 mt-1.5">' +
+                '<span class="badge bg-pm-purple/20 text-pm-purple">' + esc(m.outcome || '–') + '</span>' +
+                (hasPosition ? '<span class="badge bg-pm-cyan/20 text-pm-cyan">' + fmt(m.size, 1) + ' shares</span>' : '') +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="grid grid-cols-3 gap-2 mt-3 text-center">' +
+            '<div><div class="text-xs text-pm-muted">Avg Price</div><div class="text-sm font-medium">' + fmt(m.avgPrice) + '</div></div>' +
+            '<div><div class="text-xs text-pm-muted">Current</div><div class="text-sm font-medium">' + fmt(m.currentPrice) + '</div></div>' +
+            '<div><div class="text-xs text-pm-muted">PnL</div><div class="text-sm font-bold ' + pnlClass(pnl) + '">' + pnlSign(pnl) + fmt(pnl) + ' $</div></div>' +
+          '</div>' +
+        '</div>';
+      });
+      grid.innerHTML = html;
+    }
+
+    /* ========== Tabs ========== */
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        switchTab(this.dataset.tab);
+      });
+    });
+
+    /* ========== Refresh ========== */
+    function refreshAll() {
+      loadOverview();
+      if (historyLoaded) loadTrades(currentPage);
+      if (marketsLoaded) loadMarkets();
+    }
+
+    /* ========== Init ========== */
+    initCommon(function() {
+      loadOverview();
+      createSmartInterval(loadOverview, 60000);
+    });
+  </script>
+</body>
+</html>
