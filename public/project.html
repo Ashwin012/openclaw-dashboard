@@ -180,10 +180,56 @@
             <input id="cfgOptimizationLoop" type="checkbox" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"> Optimization Loop
           </label>
         </div>
+        <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:8px">Deploy Config — Staging</label>
+          <div style="display:flex;gap:8px;margin-bottom:6px">
+            <input id="cfgDeployStagingHost" type="text" placeholder="user@host" style="flex:1;padding:6px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;box-sizing:border-box">
+            <input id="cfgDeployStagingPath" type="text" placeholder="/path/to/project" style="flex:2;padding:6px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;box-sizing:border-box">
+          </div>
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:8px;margin-top:10px">Deploy Config — Prod</label>
+          <div style="display:flex;gap:8px">
+            <input id="cfgDeployProdHost" type="text" placeholder="user@host" style="flex:1;padding:6px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;box-sizing:border-box">
+            <input id="cfgDeployProdPath" type="text" placeholder="/path/to/project" style="flex:2;padding:6px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;box-sizing:border-box">
+          </div>
+        </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;padding:0 20px 16px">
         <button onclick="closeConfigModal()" style="padding:7px 16px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:13px;cursor:pointer">Cancel</button>
         <button onclick="saveConfig()" style="padding:7px 16px;border-radius:6px;border:none;background:var(--accent);color:var(--bg);font-size:13px;font-weight:600;cursor:pointer">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deploy Modal -->
+  <div id="deployModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:2000;align-items:center;justify-content:center" onclick="if(event.target===this)closeDeployModal()">
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;max-width:540px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.55)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border)">
+        <h3 style="margin:0;font-size:15px;color:var(--text);font-weight:600">&#128640; Deploy</h3>
+        <button onclick="closeDeployModal()" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1">&#10005;</button>
+      </div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+        <div>
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:6px">Environment</label>
+          <div style="display:flex;gap:10px" id="deployEnvBtns">
+            <button onclick="selectDeployEnv('staging')" id="deployEnvStaging" style="flex:1;padding:10px;border-radius:8px;border:2px solid var(--border);background:var(--bg-card);color:var(--text);font-size:13px;cursor:pointer;transition:all .2s">&#127793; Staging</button>
+            <button onclick="selectDeployEnv('prod')" id="deployEnvProd" style="flex:1;padding:10px;border-radius:8px;border:2px solid var(--border);background:var(--bg-card);color:var(--text);font-size:13px;cursor:pointer;transition:all .2s">&#127760; Production</button>
+          </div>
+        </div>
+        <div id="deployInfo" style="display:none;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;color:var(--text-muted)">
+          <div>Host: <span id="deployInfoHost" style="color:var(--text)">—</span></div>
+          <div>Path: <span id="deployInfoPath" style="color:var(--text)">—</span></div>
+        </div>
+        <div id="deployNotConfigured" style="display:none;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;color:var(--yellow)">
+          Deploy not configured for this environment. Set host and path in project config (&#9881;).
+        </div>
+        <div id="deployLogWrap" style="display:none">
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px">Output</label>
+          <pre id="deployLog" style="background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;color:var(--text);max-height:250px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;margin:0"></pre>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;padding:0 20px 16px">
+        <button onclick="closeDeployModal()" style="padding:7px 16px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:13px;cursor:pointer">Cancel</button>
+        <button onclick="executeDeploy()" id="deployConfirmBtn" style="padding:7px 16px;border-radius:6px;border:none;background:var(--green);color:var(--bg);font-size:13px;font-weight:600;cursor:pointer" disabled>Deploy</button>
       </div>
     </div>
   </div>
@@ -904,6 +950,113 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       }
     }
 
+    // ===== Deploy =====
+    let selectedDeployEnv = null;
+
+    function openDeployModal() {
+      selectedDeployEnv = null;
+      document.getElementById('deployModal').style.display = 'flex';
+      document.getElementById('deployEnvStaging').style.borderColor = 'var(--border)';
+      document.getElementById('deployEnvProd').style.borderColor = 'var(--border)';
+      document.getElementById('deployInfo').style.display = 'none';
+      document.getElementById('deployNotConfigured').style.display = 'none';
+      document.getElementById('deployLogWrap').style.display = 'none';
+      document.getElementById('deployLog').textContent = '';
+      document.getElementById('deployConfirmBtn').disabled = true;
+      document.getElementById('deployConfirmBtn').textContent = 'Deploy';
+    }
+
+    function closeDeployModal() {
+      document.getElementById('deployModal').style.display = 'none';
+    }
+
+    function selectDeployEnv(env) {
+      selectedDeployEnv = env;
+      const staging = document.getElementById('deployEnvStaging');
+      const prod = document.getElementById('deployEnvProd');
+      staging.style.borderColor = env === 'staging' ? 'var(--green)' : 'var(--border)';
+      staging.style.background = env === 'staging' ? 'var(--green)11' : 'var(--bg-card)';
+      prod.style.borderColor = env === 'prod' ? 'var(--red)' : 'var(--border)';
+      prod.style.background = env === 'prod' ? 'var(--red)11' : 'var(--bg-card)';
+
+      const deploy = projectData.deploy && projectData.deploy[env];
+      if (deploy && deploy.host && deploy.path) {
+        document.getElementById('deployInfo').style.display = 'block';
+        document.getElementById('deployNotConfigured').style.display = 'none';
+        document.getElementById('deployInfoHost').textContent = deploy.host;
+        document.getElementById('deployInfoPath').textContent = deploy.path;
+        document.getElementById('deployConfirmBtn').disabled = false;
+      } else {
+        document.getElementById('deployInfo').style.display = 'none';
+        document.getElementById('deployNotConfigured').style.display = 'block';
+        document.getElementById('deployConfirmBtn').disabled = true;
+      }
+    }
+
+    async function executeDeploy() {
+      if (!selectedDeployEnv) return;
+      const btn = document.getElementById('deployConfirmBtn');
+      btn.disabled = true;
+      btn.textContent = 'Deploying...';
+      const logWrap = document.getElementById('deployLogWrap');
+      const log = document.getElementById('deployLog');
+      logWrap.style.display = 'block';
+      log.textContent = '';
+
+      try {
+        const res = await fetch(`/api/projects/${projectId}/deploy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ environment: selectedDeployEnv })
+        });
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const evt = JSON.parse(line.slice(6));
+              if (evt.type === 'status') {
+                log.textContent += `[info] ${evt.data}\n`;
+              } else if (evt.type === 'cmd') {
+                log.textContent += `$ ${evt.data}\n`;
+              } else if (evt.type === 'stdout') {
+                log.textContent += evt.data + '\n';
+              } else if (evt.type === 'stderr') {
+                log.textContent += evt.data + '\n';
+              } else if (evt.type === 'done') {
+                log.textContent += `\n✓ ${evt.data}\n`;
+                showToast(evt.data);
+                btn.textContent = 'Done';
+                historyCache = null;
+              } else if (evt.type === 'error') {
+                log.textContent += `\n✗ ERROR: ${evt.data}\n`;
+                showToast('Deploy failed', 'error');
+                btn.textContent = 'Failed';
+              }
+              log.scrollTop = log.scrollHeight;
+            } catch { /* skip malformed lines */ }
+          }
+        }
+      } catch (err) {
+        log.textContent += `\n✗ ${err.message}\n`;
+        showToast('Deploy failed', 'error');
+        btn.textContent = 'Failed';
+      }
+
+      setTimeout(() => { btn.disabled = false; btn.textContent = 'Deploy'; }, 3000);
+    }
+
     function renderPage(data) {
       projectData = data;
       currentEngine = data.engine || 'claude';
@@ -935,6 +1088,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
                 <option value="${escapeHtml(data.branch)}" selected>${escapeHtml(data.branch)}</option>
               </select>
               <button onclick="gitPull()" class="ph-btn ph-btn-pull" id="pullBtn">Pull</button>
+              <button onclick="openDeployModal()" class="ph-btn ph-btn-deploy" id="deployBtn" style="display:${data.deploy ? 'inline-flex' : 'none'}">&#128640; Deploy</button>
               <div id="dockerToggleWrap" class="ph-docker-toggle" style="display:none">
                 <span id="dockerDot" class="docker-dot docker-dot-off"></span>
                 <button id="dockerToggleBtn" onclick="toggleDocker()" class="ph-btn ph-btn-docker" title="Toggle Docker">Docker</button>
@@ -1339,7 +1493,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       const filtered = getFilteredTasks();
       const columns = [
         { id: 'todo', label: 'Todo' },
-        { id: 'queued', label: '⏳ Queued/Pending' },
+        { id: 'queued', label: '⏳ Queued' },
         { id: 'in_progress', label: 'In Progress' },
         { id: 'review', label: '🔍 Review' },
         { id: 'validating', label: '✅ Validating' },
@@ -2031,6 +2185,17 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
     }
 
     // ===== Config Modal =====
+    function buildDeployConfig() {
+      const cfg = {};
+      const sh = document.getElementById('cfgDeployStagingHost').value.trim();
+      const sp = document.getElementById('cfgDeployStagingPath').value.trim();
+      if (sh && sp) cfg.staging = { host: sh, path: sp };
+      const ph = document.getElementById('cfgDeployProdHost').value.trim();
+      const pp = document.getElementById('cfgDeployProdPath').value.trim();
+      if (ph && pp) cfg.prod = { host: ph, path: pp };
+      return Object.keys(cfg).length ? cfg : null;
+    }
+
     function openConfigModal() {
       const d = projectData || {};
       document.getElementById('cfgDescription').value = d.description || '';
@@ -2043,6 +2208,10 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
       document.getElementById('cfgAutoDeploy').checked = !!d.autoDeploy;
       document.getElementById('cfgHumanValidation').checked = !!d.humanValidation;
       document.getElementById('cfgOptimizationLoop').checked = !!d.optimizationLoop;
+      document.getElementById('cfgDeployStagingHost').value = (d.deploy && d.deploy.staging && d.deploy.staging.host) || '';
+      document.getElementById('cfgDeployStagingPath').value = (d.deploy && d.deploy.staging && d.deploy.staging.path) || '';
+      document.getElementById('cfgDeployProdHost').value = (d.deploy && d.deploy.prod && d.deploy.prod.host) || '';
+      document.getElementById('cfgDeployProdPath').value = (d.deploy && d.deploy.prod && d.deploy.prod.path) || '';
       const modal = document.getElementById('configModal');
       modal.style.display = 'flex';
     }
@@ -2063,6 +2232,7 @@ async function gitPull() {      const btn = document.getElementById("pullBtn"); 
         autoDeploy: document.getElementById('cfgAutoDeploy').checked,
         humanValidation: document.getElementById('cfgHumanValidation').checked,
         optimizationLoop: document.getElementById('cfgOptimizationLoop').checked,
+        deploy: buildDeployConfig(),
       };
       try {
         const res = await fetch(`/api/projects/${projectId}/config`, {

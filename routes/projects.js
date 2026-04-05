@@ -1200,6 +1200,27 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
       }
     }
 
+    // Deploy config: { staging: { host, path, compose, composeFile }, prod: { ... } }
+    if (req.body.deploy !== undefined) {
+      if (req.body.deploy && typeof req.body.deploy === 'object') {
+        project.deploy = {};
+        for (const env of ['staging', 'prod']) {
+          const cfg = req.body.deploy[env];
+          if (cfg && typeof cfg === 'object' && cfg.host && cfg.path) {
+            project.deploy[env] = {
+              host: String(cfg.host),
+              path: String(cfg.path),
+              compose: cfg.compose !== false,
+              ...(cfg.composeFile ? { composeFile: String(cfg.composeFile) } : {})
+            };
+          }
+        }
+        if (!Object.keys(project.deploy).length) delete project.deploy;
+      } else {
+        delete project.deploy;
+      }
+    }
+
     try {
       writeJSON(path.join(__dirname, '..', 'config.json'), config);
       res.json({ ok: true });
@@ -1241,6 +1262,75 @@ module.exports = function createProjectRoutes({ config, requireAuth, requireAuth
     } catch {
       res.json({ available: true, running: false, containers: [] });
     }
+  });
+
+  // POST /api/projects/:id/deploy — Deploy to staging/prod via SSH
+  router.post('/api/projects/:id/deploy', requireAuth, async (req, res) => {
+    const project = config.projects.find(p => p.id === req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const { environment } = req.body;
+    if (!environment || !['staging', 'prod'].includes(environment)) {
+      return res.status(400).json({ error: 'Invalid environment (staging or prod)' });
+    }
+
+    const deploy = project.deploy && project.deploy[environment];
+    if (!deploy || !deploy.host || !deploy.path) {
+      return res.status(400).json({ error: `Deploy not configured for ${environment}. Set host and path in project config.` });
+    }
+
+    // Build remote commands: git pull, then optionally docker compose rebuild
+    const cmds = [`cd ${deploy.path} && git pull`];
+    if (deploy.compose !== false) {
+      const composeFile = deploy.composeFile ? `-f ${deploy.composeFile} ` : '';
+      cmds.push(`cd ${deploy.path} && docker compose ${composeFile}up -d --build`);
+    }
+    const remoteCmd = cmds.join(' && ');
+
+    // Stream output via SSE for real-time feedback
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    });
+
+    const send = (type, data) => {
+      res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+    };
+
+    send('status', `Deploying ${project.name} to ${environment}...`);
+    send('status', `SSH → ${deploy.host}`);
+    send('cmd', remoteCmd);
+
+    try {
+      const sshArgs = [
+        '-o', 'StrictHostKeyChecking=accept-new',
+        '-o', 'ConnectTimeout=10',
+        deploy.host,
+        remoteCmd
+      ];
+      const { stdout, stderr } = await execFileAsync('ssh', sshArgs, {
+        maxBuffer: 10 * 1024 * 1024,
+        timeout: 120000
+      });
+      if (stdout) send('stdout', stdout);
+      if (stderr) send('stderr', stderr);
+      send('done', `Deploy to ${environment} completed successfully`);
+
+      appendHistory(project, {
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        action: 'deployed',
+        message: `Deployed to ${environment} (${deploy.host}:${deploy.path})`,
+        files: [],
+        diff: null,
+        user: 'admin'
+      });
+    } catch (err) {
+      send('error', err.stderr || err.message || 'SSH command failed');
+    }
+
+    res.end();
   });
 
   // POST /api/projects/:id/docker/:action — docker compose start/stop

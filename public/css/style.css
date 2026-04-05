@@ -518,6 +518,12 @@ body.menu-open { overflow: hidden; }
   background: var(--green);
   color: var(--bg);
 }
+.ph-btn-deploy {
+  background: var(--purple);
+  color: var(--bg);
+  gap: 4px;
+}
+.ph-btn-deploy:hover { opacity: 0.85; }
 .ph-btn-config {
   background: var(--bg-surface);
   color: var(--text-muted);
@@ -1367,10 +1373,12 @@ body.menu-open { overflow: hidden; }
 
 /* Kanban board */
 .kanban-board {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  display: flex;
   gap: 14px;
   align-items: start;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 8px;
 }
 
 .kanban-col {
@@ -1378,6 +1386,8 @@ body.menu-open { overflow: hidden; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
+  min-width: 220px;
+  flex: 1 0 220px;
 }
 
 .kanban-col-header {
@@ -1899,7 +1909,7 @@ body.menu-open { overflow: hidden; }
   .file-tree { position: static; }
   .projects-grid { grid-template-columns: 1fr !important; }
   .container { padding: 16px; max-width: 100vw; overflow-x: hidden; }
-  .kanban-board { grid-template-columns: 1fr; }
+  .kanban-col { flex: 0 0 200px; min-width: 200px; }
   .mform-row-inline { flex-direction: column; }
   .tasks-toolbar { flex-direction: column; align-items: stretch; }
   .btn-new-task { width: 100%; justify-content: center; }
