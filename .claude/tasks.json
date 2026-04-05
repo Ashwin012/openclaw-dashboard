@@ -3480,7 +3480,7 @@
       "model": "claude-sonnet-4-6",
       "created": "2026-04-05T18:00:00Z",
       "createdAt": "2026-04-05T18:00:00Z",
-      "updatedAt": "2026-04-05T10:59:25.371075+00:00",
+      "updatedAt": "2026-04-05T10:59:42.002Z",
       "assignee": "codeur",
       "tags": [
         "orchestration",
@@ -3512,22 +3512,37 @@
           "author": "Agent-Codeur",
           "text": "✅ Implémentation ORCH-006 vérifiée et complète (commit 554bcfa). 4 modules livrés : worker-loop.js, locks.js, run-tracker.js, server.js mis à jour. Mapping medium↔normal géré par compat.js (DB=normal, JSON=medium). Double garde per-project : tracker.isProjectBusy() + locks.acquire(projectKey). Stale locks réclamés via reclaimExpired() à chaque tick (incl. démarrage).",
           "timestamp": "2026-04-05T10:59:25.371112+00:00"
+        },
+        {
+          "author": "Worker",
+          "text": "✅ Claude Code terminé (172s, 23 tour(s), $0.4163)\n\n- ---\n- - **worker-loop.js** : polling 30s (`WORKER_POLL_INTERVAL_MS`), `selectPendingTasks()` SQL priority `critical→high→normal→low + createdAt ASC`, guard `_polling` anti-overlap, dispatch async + auto-fail sur erreur\n- - **locks.js** : singleton PID-file (`acquireSingleton`/`releaseSingleton`), advisory locks SQLite (`acquire`/`release`/`reclaimExpired`), `taskKey`/`projectKey` builders\n- - **run-tracker.js** : `activeRuns Map`, lifecycle complet (`startRun→finish/fail/cancelRun`), `hydrate()` zombie recovery, `isProjectBusy()`, `cancelAll()` graceful shutdown\n- - **server.js** : singleton guard, `recoverZom…\n\nCommit: 6020698 — feat(orchestrator): ORCH-006 — worker loop review ready",
+          "timestamp": "2026-04-05T10:59:42.002Z"
+        },
+        {
+          "author": "Coder",
+          "text": "✅ Claude Code terminé (172s, 23 tour(s), $0.4163)\n\n- ---\n- - **worker-loop.js** : polling 30s (`WORKER_POLL_INTERVAL_MS`), `selectPendingTasks()` SQL priority `critical→high→normal→low + createdAt ASC`, guard `_polling` anti-overlap, dispatch async + auto-fail sur erreur\n- - **locks.js** : singleton PID-file (`acquireSingleton`/`releaseSingleton`), advisory locks SQLite (`acquire`/`release`/`reclaimExpired`), `taskKey`/`projectKey` builders\n- - **run-tracker.js** : `activeRuns Map`, lifecycle complet (`startRun→finish/fail/cancelRun`), `hydrate()` zombie recovery, `isProjectBusy()`, `cancelAll()` graceful shutdown\n- - **server.js** : singleton guard, `recoverZom…\n\nCommit: 6020698 — feat(orchestrator): ORCH-006 — worker loop review ready",
+          "timestamp": "2026-04-05T10:59:42.002Z"
         }
       ],
       "startedAt": "2026-04-05T10:56:47.513Z",
       "lastWorkerRunAt": "2026-04-05T10:56:47.513Z",
-      "lastCoderSummary": "✅ Implémentation complète — commit 554bcfa\n\n- lib/worker-loop.js : polling 30s (WORKER_POLL_INTERVAL_MS), selectPendingTasks() SQL priority (critical→high→normal→low + createdAt ASC), optimization loop guard (_polling flag)\n- lib/locks.js : acquireSingleton() PID file + isProcessAlive, advisory DB locks (acquire/release/reclaimExpired), taskKey/projectKey builders\n- lib/run-tracker.js : activeRuns Map, startRun/finishRun/failRun/cancelRun, hydrate() zombie recovery, isProjectBusy(), cancelAll() graceful shutdown\n- server.js : singleton guard au démarrage, cleanupStaleLocks via recoverZombies()+reclaimExpired() au premier tick, graceful shutdown SIGTERM/SIGINT, onTask stub pour ORCH-007"
+      "lastCoderSummary": "✅ Claude Code terminé (172s, 23 tour(s), $0.4163)\n\n- ---\n- - **worker-loop.js** : polling 30s (`WORKER_POLL_INTERVAL_MS`), `selectPendingTasks()` SQL priority `critical→high→normal→low + createdAt ASC`, guard `_polling` anti-overlap, dispatch async + auto-fail sur erreur\n- - **locks.js** : singleton PID-file (`acquireSingleton`/`releaseSingleton`), advisory locks SQLite (`acquire`/`release`/`reclaimExpired`), `taskKey`/`projectKey` builders\n- - **run-tracker.js** : `activeRuns Map`, lifecycle complet (`startRun→finish/fail/cancelRun`), `hydrate()` zombie recovery, `isProjectBusy()`, `cancelAll()` graceful shutdown\n- - **server.js** : singleton guard, `recoverZom…\n\nCommit: 6020698 — feat(orchestrator): ORCH-006 — worker loop review ready",
+      "reviewRequestedAt": "2026-04-05T10:59:42.002Z",
+      "lastCoderEngine": "claude",
+      "lastCoderModel": "claude-sonnet-4-6",
+      "lastCoderCommit": "602069862c9673390248fbbdb430dbc96cbfa90d",
+      "commitSha": "602069862c9673390248fbbdb430dbc96cbfa90d"
     },
     {
       "id": "ORCH-007",
       "title": "Engine execution — Claude/Codex/Ollama, models, fallback, stream-json",
-      "status": "queued",
+      "status": "in-review",
       "priority": "high",
       "engine": "claude",
       "model": "claude-sonnet-4-6",
       "created": "2026-04-05T18:00:00Z",
       "createdAt": "2026-04-05T18:00:00Z",
-      "updatedAt": "2026-04-05T18:00:00Z",
+      "updatedAt": "2026-04-05T11:05:56.000Z",
       "assignee": "codeur",
       "tags": [
         "orchestration",
@@ -3555,8 +3570,15 @@
           "author": "Agent-Technique",
           "text": "Couvre features #7-10 du gap analysis (engine spawning, model resolution, engine fallback, stream-json parsing).",
           "timestamp": "2026-04-05T18:00:00Z"
+        },
+        {
+          "author": "Agent-Codeur",
+          "text": "Implémenté lib/engine-resolver.js (model aliases, provider inference, fallback chain) + lib/engine-executor.js (spawn Claude stream-json, Codex exec, Ollama, rate_limit fallback, CLAUDE.md injection). server.js onTask câblé.",
+          "timestamp": "2026-04-05T11:05:56.000Z"
         }
-      ]
+      ],
+      "startedAt": "2026-04-05T10:59:47.630Z",
+      "lastWorkerRunAt": "2026-04-05T10:59:47.630Z"
     },
     {
       "id": "ORCH-008",

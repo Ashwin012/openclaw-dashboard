@@ -4,8 +4,10 @@ const express    = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { initDb } = require('./db');
 const { fullSync } = require('./lib/compat');
-const { acquireSingleton, releaseSingleton } = require('./lib/locks');
+const { acquireSingleton, releaseSingleton, release, taskKey, projectKey } = require('./lib/locks');
 const workerLoop = require('./lib/worker-loop');
+const tracker    = require('./lib/run-tracker');
+const executor   = require('./lib/engine-executor');
 
 const app    = express();
 const PORT   = process.env.PORT || 8092;
@@ -57,12 +59,15 @@ process.on('SIGINT',  () => shutdown('SIGINT'));
 app.listen(PORT, () => {
   console.log(`Orchestrator running on port ${PORT} (workerId=${WORKER_ID})`);
 
-  // Start worker loop — onTask is a stub until ORCH-009 (engine executor)
   workerLoop.start({
     workerId: WORKER_ID,
     onTask: async (task, run) => {
-      // Placeholder: engine execution implemented in ORCH-009
-      console.log(`[orchestrator] onTask stub — task=${task.id} run=${run.id} (engine=${task.engine || 'n/a'})`);
+      // Execute via resolved engine (claude / codex / ollama) with rate_limit fallback
+      const result = await executor.execute({ task, run });
+      tracker.finishRun(run.id, result.output);
+      // Release advisory locks (error path is handled by worker-loop catch)
+      release(taskKey(task.id), run.id);
+      if (task.project_id) release(projectKey(task.project_id), run.id);
     },
   });
 });
