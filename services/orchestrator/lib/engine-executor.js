@@ -15,6 +15,7 @@
 const { spawn }  = require('child_process');
 const tracker    = require('./run-tracker');
 const resolver   = require('./engine-resolver');
+const lifecycle  = require('./lifecycle');
 
 // Patterns that indicate the API rate-limited or quota was hit
 const RATE_LIMIT_RE = /rate.?limit|429|too many requests|quota exceeded|overloaded/i;
@@ -73,6 +74,7 @@ function spawnClaude(instruction, model, run) {
       env:   { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    lifecycle.registerProcess(run.id, child);
 
     let outputText  = '';
     let stderrText  = '';
@@ -117,6 +119,8 @@ function spawnClaude(instruction, model, run) {
     });
 
     child.on('close', code => {
+      lifecycle.unregisterProcess(run.id);
+
       // Flush remaining buffer
       if (buf.trim()) {
         try {
@@ -169,6 +173,7 @@ function spawnCodex(instruction, engine, run) {
       env:   { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    lifecycle.registerProcess(run.id, child);
 
     let outputText = '';
     let stderrText = '';
@@ -184,11 +189,13 @@ function spawnCodex(instruction, engine, run) {
     });
 
     child.on('error', err => {
+      lifecycle.unregisterProcess(run.id);
       if (err.code === 'ENOENT') err.message = 'codex CLI not found — is it installed?';
       reject(err);
     });
 
     child.on('close', code => {
+      lifecycle.unregisterProcess(run.id);
       if (code !== 0 && !outputText) {
         return reject(new Error(
           `codex exited with code ${code}: ${(stderrText || 'no output').slice(0, 500)}`

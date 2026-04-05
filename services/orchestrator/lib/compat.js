@@ -19,17 +19,22 @@ const JSON_TO_DB_STATUS = {
   'todo':        'pending',
   'queued':      'pending',
   'in-progress': 'running',
+  'in_progress': 'running',   // underscore variant used by orchestrator
   'in-review':   'done',
+  'in_review':   'done',      // underscore variant
+  'review':      'done',      // simplified form
+  'validating':  'running',   // validating = still running (agent review step)
   'done':        'done',
   'failed':      'failed',
+  'cancelled':   'cancelled',
 };
 
 const DB_TO_JSON_STATUS = {
-  'pending':   'todo',
-  'running':   'in-progress',
+  'pending':   'queued',
+  'running':   'in_progress',
   'done':      'done',
   'failed':    'failed',
-  'cancelled': 'done',
+  'cancelled': 'queued',    // re-queued on cancel
 };
 
 const JSON_TO_DB_PRIORITY = {

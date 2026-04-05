@@ -4,10 +4,12 @@ const express    = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { initDb } = require('./db');
 const { fullSync } = require('./lib/compat');
-const { acquireSingleton, releaseSingleton, release, taskKey, projectKey } = require('./lib/locks');
+const locks      = require('./lib/locks');
+const { acquireSingleton, releaseSingleton } = locks;
 const workerLoop = require('./lib/worker-loop');
 const tracker    = require('./lib/run-tracker');
 const executor   = require('./lib/engine-executor');
+const lifecycle  = require('./lib/lifecycle');
 
 const app    = express();
 const PORT   = process.env.PORT || 8092;
@@ -49,6 +51,7 @@ app.use('/api/v1/sync',     require('./routes/sync')());
 // Graceful shutdown
 function shutdown(signal) {
   console.log(`[orchestrator] ${signal} — shutting down`);
+  lifecycle.stopAllActiveRuns(tracker, locks, `signal:${signal}`);
   workerLoop.stop(`signal:${signal}`);
   releaseSingleton();
   process.exit(0);
@@ -62,12 +65,32 @@ app.listen(PORT, () => {
   workerLoop.start({
     workerId: WORKER_ID,
     onTask: async (task, run) => {
+      // Check optimization loop limit before executing
+      if (lifecycle.checkOptimizationLoop(task, run.id)) {
+        // DB already finalised by lifecycle — just clean up in-memory registry + locks
+        tracker.detachRun(run.id);
+        locks.release(locks.taskKey(task.id), run.id);
+        if (task.project_id) locks.release(locks.projectKey(task.project_id), run.id);
+        return;
+      }
+
       // Execute via resolved engine (claude / codex / ollama) with rate_limit fallback
       const result = await executor.execute({ task, run });
-      tracker.finishRun(run.id, result.output);
+
+      // Transition task to review (queued→in_progress→review)
+      tracker.reviewRun(run.id, result.output);
+
+      lifecycle.notify({
+        type:   'task_done',
+        title:  `✅ Tâche en review`,
+        body:   `${task.name || task.id} — engine=${result.engine}`,
+        taskId: task.id,
+        runId:  run.id,
+      });
+
       // Release advisory locks (error path is handled by worker-loop catch)
-      release(taskKey(task.id), run.id);
-      if (task.project_id) release(projectKey(task.project_id), run.id);
+      locks.release(locks.taskKey(task.id), run.id);
+      if (task.project_id) locks.release(locks.projectKey(task.project_id), run.id);
     },
   });
 });

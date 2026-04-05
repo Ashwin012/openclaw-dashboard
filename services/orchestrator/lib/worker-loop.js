@@ -14,6 +14,7 @@ const { v4: uuidv4 }  = require('uuid');
 const { getDb }       = require('../db');
 const locks           = require('./locks');
 const tracker         = require('./run-tracker');
+const lifecycle       = require('./lifecycle');
 
 const POLL_INTERVAL_MS = parseInt(process.env.WORKER_POLL_INTERVAL_MS, 10) || 30_000;
 const MAX_RUN_MS       = 3 * 60 * 60 * 1000;             // 3h hard timeout
@@ -80,22 +81,23 @@ function monitorActiveRuns() {
   for (const run of tracker.getActiveRuns()) {
     const age = now - run.startedAt;
 
-    // Hard timeout — cancel + release locks
+    // Hard timeout — SIGTERM child, transition task to review
     if (age >= MAX_RUN_MS) {
-      console.warn(`[worker-loop] run ${run.id} exceeded 3h — cancelling (task=${run.taskId})`);
+      lifecycle.handleHardTimeout(run);
       locks.release(locks.taskKey(run.taskId), run.id);
       if (run.projectId) locks.release(locks.projectKey(run.projectId), run.id);
-      tracker.cancelRun(run.id, 'timeout:3h');
+      // DB already finalised by lifecycle — only remove from in-memory registry
+      tracker.detachRun(run.id);
       _warnedMs.delete(run.id);
       continue;
     }
 
-    // Progressive warnings at 30/60/120 min
+    // Progressive warnings at 30/60/120 min (with notifications)
     const warned = _warnedMs.get(run.id) || new Set();
     for (const threshold of WARNING_MS) {
       if (age >= threshold && !warned.has(threshold)) {
         warned.add(threshold);
-        console.warn(`[worker-loop] run ${run.id} running for ${threshold / 60_000}min (task=${run.taskId})`);
+        lifecycle.handleDurationWarning(run, threshold / 60_000);
       }
     }
     _warnedMs.set(run.id, warned);
@@ -105,31 +107,11 @@ function monitorActiveRuns() {
 // ── Zombie Recovery ───────────────────────────────────────────────────────────
 
 /**
- * Reload 'running' rows from DB on startup. Runs older than 3h are cancelled
- * immediately; younger zombies are left to the normal timeout monitor.
+ * Recover zombie runs on startup via lifecycle module.
+ * Delegates full logic (re-queue vs review, validating→review) to lifecycle.
  */
 function recoverZombies() {
-  const zombies = tracker.hydrate(_workerId);
-  if (zombies.length === 0) return;
-
-  const now       = Date.now();
-  let   cancelled = 0;
-
-  for (const run of zombies) {
-    const age = now - run.startedAt;
-    if (age >= MAX_RUN_MS) {
-      console.warn(`[worker-loop] zombie run ${run.id} is ${Math.round(age / 3_600_000)}h old — cancelling`);
-      locks.release(locks.taskKey(run.taskId), run.id);
-      if (run.projectId) locks.release(locks.projectKey(run.projectId), run.id);
-      tracker.cancelRun(run.id, 'zombie:expired');
-      cancelled++;
-    } else {
-      const mins = Math.round(age / 60_000);
-      console.log(`[worker-loop] zombie run ${run.id} age=${mins}min — handing to monitor`);
-    }
-  }
-
-  console.log(`[worker-loop] zombie recovery: ${zombies.length} found, ${cancelled} cancelled`);
+  lifecycle.recoverZombies();
 }
 
 // ── Poll Tick ─────────────────────────────────────────────────────────────────

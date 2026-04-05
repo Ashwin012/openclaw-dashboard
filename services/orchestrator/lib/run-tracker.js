@@ -117,6 +117,42 @@ function finishRun(runId, output = '') {
 }
 
 /**
+ * Mark run as done and transition task to review.
+ * Sets originalStatus='review' in task input JSON so the compat layer
+ * writes 'review' back to tasks.json on next sync.
+ *
+ * @param {string} runId
+ * @param {string} [output]
+ */
+function reviewRun(runId, output = '') {
+  const state = activeRuns.get(runId);
+  if (!state) return false;
+
+  const now = Date.now();
+  const db  = getDb();
+
+  // Finalise run
+  db.prepare("UPDATE runs SET status = 'done', finished_at = ?, progress = 100, output = ? WHERE id = ?")
+    .run(now, output || '', runId);
+
+  // Update task: DB status='done', originalStatus in input JSON → 'review'
+  const row = db.prepare('SELECT input FROM tasks WHERE id = ?').get(state.taskId);
+  let extra = {};
+  try { extra = JSON.parse((row && row.input) || '{}'); } catch {}
+  extra.originalStatus = 'review';
+
+  db.prepare("UPDATE tasks SET status = 'done', input = ?, updated_at = ? WHERE id = ?")
+    .run(JSON.stringify(extra), now, state.taskId);
+
+  state.status   = 'done';
+  state.progress = 100;
+  activeRuns.delete(runId);
+
+  console.log(`[run-tracker] review run ${runId} (task=${state.taskId})`);
+  return true;
+}
+
+/**
  * Mark run as failed. Task status → 'failed'.
  * @param {string} runId
  * @param {string} [error]
@@ -162,6 +198,17 @@ function cancelAll(reason = 'worker shutdown') {
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
+
+/**
+ * Remove a run from the in-memory registry without touching the DB.
+ * Used when another subsystem (lifecycle) has already finalised the DB state.
+ * @param {string} runId
+ */
+function detachRun(runId) {
+  const had = activeRuns.has(runId);
+  activeRuns.delete(runId);
+  return had;
+}
 
 /** Return all active runs as a serializable array. */
 function getActiveRuns() {
@@ -238,6 +285,8 @@ module.exports = {
   startRun,
   updateRun,
   finishRun,
+  reviewRun,
+  detachRun,
   failRun,
   cancelRun,
   cancelAll,
