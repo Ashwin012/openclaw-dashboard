@@ -21,7 +21,15 @@
       "stagingUrl": "https://sto.afdex.io",
       "githubUrl": "https://github.com/Infozen/afdex-sto",
       "engine": "claude",
-      "autoDeploy": false
+      "autoDeploy": false,
+      "deploy": {
+        "prod": {
+          "host": "ashwin@102.222.106.156",
+          "path": "/opt/afdex-sto",
+          "compose": "docker-compose.prod.yml",
+          "branch": "main"
+        }
+      }
     },
     {
       "id": "champion-spirit",
@@ -67,7 +75,15 @@
       "prodUrl": "http://45.77.131.11:8080/",
       "githubUrl": "https://github.com/Ashwin012/trading-bot",
       "engine": "claude",
-      "autoDeploy": false
+      "autoDeploy": false,
+      "deploy": {
+        "prod": {
+          "host": "ashwin@45.77.131.11",
+          "path": "/home/ashwin/trading-bot",
+          "compose": "docker-compose.yml",
+          "branch": "main"
+        }
+      }
     },
     {
       "id": "openclaw-dashboard",
@@ -83,7 +99,16 @@
       "testUrl": "http://158.69.1.160:8090",
       "githubUrl": "https://github.com/Ashwin012/openclaw-dashboard",
       "engine": "claude",
-      "autoDeploy": true
+      "autoDeploy": true,
+      "deploy": {
+        "prod": {
+          "host": "localhost",
+          "path": "/home/openclaw/projects/dev-dashboard",
+          "compose": "",
+          "branch": "main",
+          "postDeploy": "sudo systemctl restart dev-dashboard"
+        }
+      }
     },
     {
       "id": "royal-heights",
@@ -95,7 +120,7 @@
         }
       ],
       "path": "/home/openclaw/projects/royal-heights",
-      "description": "Luxury Apartments in Balaclava, Mauritius — 32 units",
+      "description": "Luxury Apartments in Balaclava, Mauritius \u2014 32 units",
       "prodUrl": "https://royal-heights.mu",
       "githubUrl": "https://github.com/Infozen/royal-heights-website",
       "testUrl": "http://158.69.1.160:8085",
@@ -103,7 +128,15 @@
       "openclawAgentIds": [
         "royal-heights-marketing"
       ],
-      "autoDeploy": false
+      "autoDeploy": false,
+      "deploy": {
+        "prod": {
+          "host": "deploy@37.27.190.186",
+          "path": "/home/deploy/royal-heights",
+          "compose": "",
+          "branch": "main"
+        }
+      }
     },
     {
       "id": "synapcoin",
@@ -128,7 +161,15 @@
         "synap-communication",
         "synap-qa"
       ],
-      "autoDeploy": true
+      "autoDeploy": true,
+      "deploy": {
+        "prod": {
+          "host": "deploy@37.27.191.146",
+          "path": "/home/deploy/synapcoin",
+          "compose": "docker-compose.yml",
+          "branch": "main"
+        }
+      }
     },
     {
       "id": "synaphive",
@@ -152,7 +193,15 @@
         "synap-communication",
         "synap-qa"
       ],
-      "autoDeploy": true
+      "autoDeploy": true,
+      "deploy": {
+        "prod": {
+          "host": "deploy@37.27.190.186",
+          "path": "/home/deploy/synaphive",
+          "compose": "docker-compose.yml",
+          "branch": "main"
+        }
+      }
     }
   ],
   "openclawAgents": [
