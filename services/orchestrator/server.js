@@ -10,8 +10,9 @@ const workerLoop = require('./lib/worker-loop');
 const tracker    = require('./lib/run-tracker');
 const executor   = require('./lib/engine-executor');
 const lifecycle  = require('./lib/lifecycle');
-const notifier   = require('./lib/notifier');
-const webhook    = require('./lib/webhook');
+const notifier    = require('./lib/notifier');
+const webhook     = require('./lib/webhook');
+const gitHelpers  = require('./lib/git-helpers');
 
 const app    = express();
 const PORT   = process.env.PORT || 8092;
@@ -76,18 +77,38 @@ app.listen(PORT, () => {
         return;
       }
 
+      // Snapshot HEAD before execution for commit tracking
+      const projectPath = gitHelpers.resolveProjectPath(task.project_id);
+      const headBefore  = await gitHelpers.getGitHeadInfo(projectPath);
+
       // Execute via resolved engine (claude / codex / ollama) with rate_limit fallback
       const result = await executor.execute({ task, run });
+
+      // Post-execution: git tracking + quality gates (parallel)
+      const [headAfter, qgResult] = await Promise.all([
+        gitHelpers.getGitHeadInfo(projectPath),
+        gitHelpers.runQualityGates(projectPath),
+      ]);
+
+      // Commit SHA: prefer actual git diff, fall back to output text parsing
+      const gitNewSha  = headAfter.sha && headBefore.sha !== headAfter.sha ? headAfter.sha : null;
+      const commitSha  = gitNewSha || gitHelpers.extractCommitHash(result.output);
 
       // Transition task to review (queued→in_progress→review)
       tracker.reviewRun(run.id, result.output);
 
-      const summaryNote = executor.buildTaskSummaryNote({
+      // Build summary note and append quality gate result
+      let summaryNote = executor.buildTaskSummaryNote({
         task,
         rawOutput: result.output,
         engine:    result.engine,
         model:     result.model,
       });
+
+      const qgSummary = gitHelpers.summarizeQualityGates(qgResult);
+      if (qgSummary) {
+        summaryNote = (summaryNote + '\n' + qgSummary).slice(0, 1000);
+      }
 
       lifecycle.notify({
         type:   'task_done',
@@ -96,10 +117,6 @@ app.listen(PORT, () => {
         taskId: task.id,
         runId:  run.id,
       });
-
-      // Extract commit SHA from raw output for webhook + activity log
-      const commitShaMatch = (result.output || '').match(/\b([0-9a-f]{7,40})\b/);
-      const commitSha      = commitShaMatch ? commitShaMatch[1] : null;
 
       // Dashboard-compat notification (legacy format)
       notifier.addNotification({
