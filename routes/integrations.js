@@ -386,25 +386,7 @@ module.exports = function createIntegrationRoutes({ requireAuth }) {
     }
   });
 
-  // ===== EQS Listings (DISABLED) =====
-
   const DATA_DIR = path.join(__dirname, '..', 'data');
-
-  /* DISABLED - EQS removed
-  router.get('/api/eqs', requireAuth, (req, res) => {
-    const fp = path.join(DATA_DIR, 'eqs-listings.json');
-    if (!fs.existsSync(fp)) return res.json({ listings: [], updatedAt: null });
-    try { res.json(JSON.parse(fs.readFileSync(fp))); }
-    catch (e) { res.json({ listings: [], updatedAt: null, error: e.message }); }
-  });
-
-  router.post('/api/eqs/refresh', requireAuth, async (req, res) => {
-    try {
-      await execFileAsync('python3', [path.join(__dirname, '..', 'scripts', 'fetch-eqs.py')], { timeout: 120000 });
-      res.json(JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'eqs-listings.json'))));
-    } catch (e) { res.status(500).json({ error: e.message }); }
-  });
-  */
 
   // ===== Children (Pronote) =====
 
