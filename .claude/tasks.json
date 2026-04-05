@@ -3536,13 +3536,13 @@
     {
       "id": "ORCH-007",
       "title": "Engine execution — Claude/Codex/Ollama, models, fallback, stream-json",
-      "status": "in-review",
+      "status": "review",
       "priority": "high",
       "engine": "claude",
       "model": "claude-sonnet-4-6",
       "created": "2026-04-05T18:00:00Z",
       "createdAt": "2026-04-05T18:00:00Z",
-      "updatedAt": "2026-04-05T11:05:56.000Z",
+      "updatedAt": "2026-04-05T11:06:22.421Z",
       "assignee": "codeur",
       "tags": [
         "orchestration",
@@ -3575,10 +3575,26 @@
           "author": "Agent-Codeur",
           "text": "Implémenté lib/engine-resolver.js (model aliases, provider inference, fallback chain) + lib/engine-executor.js (spawn Claude stream-json, Codex exec, Ollama, rate_limit fallback, CLAUDE.md injection). server.js onTask câblé.",
           "timestamp": "2026-04-05T11:05:56.000Z"
+        },
+        {
+          "author": "Worker",
+          "text": "✅ Claude Code terminé (392s, 33 tour(s), $0.8678)\n\n- **ORCH-007 — commit `445f99c`**\n- 3 fichiers créés/modifiés :\n- - **`lib/engine-resolver.js`** — aliases (`sonnet`→`claude-sonnet-4-6`, `opus`→`claude-opus-4-6`, `haiku`→`claude-haiku-4-5`), inférence du provider depuis le nom de modèle, chaîne de fallback `claude→codex→ollama`\n- - **`server.js`** — `onTask` remplace le stub : `executor.execute()` + `tracker.finishRun()` + release locks (chemin erreur géré par le catch de `worker-loop`)\n- Tâche passée en `in-review`.\n- 1 autre(s) ligne(s) masquée(s)\n\nCommit: 445f99c — feat(orchestrator): ORCH-007 — engine execution (Claude/Codex/Ollama, model aliases, fallback)",
+          "timestamp": "2026-04-05T11:06:22.421Z"
+        },
+        {
+          "author": "Coder",
+          "text": "✅ Claude Code terminé (392s, 33 tour(s), $0.8678)\n\n- **ORCH-007 — commit `445f99c`**\n- 3 fichiers créés/modifiés :\n- - **`lib/engine-resolver.js`** — aliases (`sonnet`→`claude-sonnet-4-6`, `opus`→`claude-opus-4-6`, `haiku`→`claude-haiku-4-5`), inférence du provider depuis le nom de modèle, chaîne de fallback `claude→codex→ollama`\n- - **`server.js`** — `onTask` remplace le stub : `executor.execute()` + `tracker.finishRun()` + release locks (chemin erreur géré par le catch de `worker-loop`)\n- Tâche passée en `in-review`.\n- 1 autre(s) ligne(s) masquée(s)\n\nCommit: 445f99c — feat(orchestrator): ORCH-007 — engine execution (Claude/Codex/Ollama, model aliases, fallback)",
+          "timestamp": "2026-04-05T11:06:22.421Z"
         }
       ],
       "startedAt": "2026-04-05T10:59:47.630Z",
-      "lastWorkerRunAt": "2026-04-05T10:59:47.630Z"
+      "lastWorkerRunAt": "2026-04-05T10:59:47.630Z",
+      "reviewRequestedAt": "2026-04-05T11:06:22.421Z",
+      "lastCoderSummary": "✅ Claude Code terminé (392s, 33 tour(s), $0.8678)\n\n- **ORCH-007 — commit `445f99c`**\n- 3 fichiers créés/modifiés :\n- - **`lib/engine-resolver.js`** — aliases (`sonnet`→`claude-sonnet-4-6`, `opus`→`claude-opus-4-6`, `haiku`→`claude-haiku-4-5`), inférence du provider depuis le nom de modèle, chaîne de fallback `claude→codex→ollama`\n- - **`server.js`** — `onTask` remplace le stub : `executor.execute()` + `tracker.finishRun()` + release locks (chemin erreur géré par le catch de `worker-loop`)\n- Tâche passée en `in-review`.\n- 1 autre(s) ligne(s) masquée(s)\n\nCommit: 445f99c — feat(orchestrator): ORCH-007 — engine execution (Claude/Codex/Ollama, model aliases, fallback)",
+      "lastCoderEngine": "claude",
+      "lastCoderModel": "claude-sonnet-4-6",
+      "lastCoderCommit": "445f99c37027aa06fe75a670d4f291d790349c7b",
+      "commitSha": "445f99c37027aa06fe75a670d4f291d790349c7b"
     },
     {
       "id": "ORCH-008",
@@ -3637,13 +3653,13 @@
     {
       "id": "ORCH-009",
       "title": "Status machine — transitions, zombie recovery, hard timeout 3h, graceful shutdown",
-      "status": "queued",
+      "status": "review",
       "priority": "high",
       "engine": "claude",
       "model": "claude-sonnet-4-6",
       "created": "2026-04-05T18:00:00Z",
       "createdAt": "2026-04-05T18:00:00Z",
-      "updatedAt": "2026-04-05T18:00:00Z",
+      "updatedAt": "2026-04-05T11:14:14.896Z",
       "assignee": "codeur",
       "tags": [
         "orchestration",
@@ -3668,19 +3684,37 @@
           "author": "Agent-Technique",
           "text": "Features #12, #23-27 du gap analysis (status transitions, zombie recovery, hard timeout, duration warnings, optimization loop guard, graceful shutdown).",
           "timestamp": "2026-04-05T18:00:00Z"
+        },
+        {
+          "author": "Worker",
+          "text": "✅ Claude Code terminé (444s, 46 tour(s), $1.2057)\n\n- Commit: **6990cf7**\n- ---\n- **ORCH-009 — Feedback compact**\n- 6 fichiers modifiés, 1 créé (`lib/lifecycle.js`).\n- - **`run-tracker.js`** : `reviewRun` (originalStatus='review'), `detachRun` (retire de activeRuns sans toucher DB)\n- - **`engine-executor.js`** : `registerProcess`/`unregisterProcess` par run (pour SIGTERM)\n- 6 autre(s) ligne(s) masquée(s)\n\nCommit: 6990cf7 — feat(orchestrator): ORCH-009 — status machine, zombie recovery, graceful shutdown",
+          "timestamp": "2026-04-05T11:14:14.896Z"
+        },
+        {
+          "author": "Coder",
+          "text": "✅ Claude Code terminé (444s, 46 tour(s), $1.2057)\n\n- Commit: **6990cf7**\n- ---\n- **ORCH-009 — Feedback compact**\n- 6 fichiers modifiés, 1 créé (`lib/lifecycle.js`).\n- - **`run-tracker.js`** : `reviewRun` (originalStatus='review'), `detachRun` (retire de activeRuns sans toucher DB)\n- - **`engine-executor.js`** : `registerProcess`/`unregisterProcess` par run (pour SIGTERM)\n- 6 autre(s) ligne(s) masquée(s)\n\nCommit: 6990cf7 — feat(orchestrator): ORCH-009 — status machine, zombie recovery, graceful shutdown",
+          "timestamp": "2026-04-05T11:14:14.896Z"
         }
-      ]
+      ],
+      "startedAt": "2026-04-05T11:06:47.992Z",
+      "lastWorkerRunAt": "2026-04-05T11:06:47.992Z",
+      "reviewRequestedAt": "2026-04-05T11:14:14.896Z",
+      "lastCoderSummary": "✅ Claude Code terminé (444s, 46 tour(s), $1.2057)\n\n- Commit: **6990cf7**\n- ---\n- **ORCH-009 — Feedback compact**\n- 6 fichiers modifiés, 1 créé (`lib/lifecycle.js`).\n- - **`run-tracker.js`** : `reviewRun` (originalStatus='review'), `detachRun` (retire de activeRuns sans toucher DB)\n- - **`engine-executor.js`** : `registerProcess`/`unregisterProcess` par run (pour SIGTERM)\n- 6 autre(s) ligne(s) masquée(s)\n\nCommit: 6990cf7 — feat(orchestrator): ORCH-009 — status machine, zombie recovery, graceful shutdown",
+      "lastCoderEngine": "claude",
+      "lastCoderModel": "claude-sonnet-4-6",
+      "lastCoderCommit": "6990cf752b74d926c37c14f37fc0aa0633bcac84",
+      "commitSha": "6990cf752b74d926c37c14f37fc0aa0633bcac84"
     },
     {
       "id": "ORCH-010",
       "title": "Input/Output processing — instruction builder, summary 650 chars, error classification",
-      "status": "queued",
+      "status": "review",
       "priority": "high",
       "engine": "claude",
       "model": "claude-sonnet-4-6",
       "created": "2026-04-05T18:00:00Z",
       "createdAt": "2026-04-05T18:00:00Z",
-      "updatedAt": "2026-04-05T18:00:00Z",
+      "updatedAt": "2026-04-05T11:18:40.586Z",
       "assignee": "codeur",
       "tags": [
         "orchestration",
@@ -3712,19 +3746,37 @@
           "author": "Agent-Technique",
           "text": "Features #13-16 du gap analysis (instruction builder, rejection feedback, output summarization, error classification).",
           "timestamp": "2026-04-05T18:00:00Z"
+        },
+        {
+          "author": "Worker",
+          "text": "✅ Claude Code terminé (260s, 16 tour(s), $0.6641)\n\n- Commit `ed076c3`.\n- **Changements effectués dans `engine-executor.js` et `server.js` :**\n- - **Instruction builder** enrichi : header titre, corps (coderPrompt/description), bloc \"Contexte workflow\" (priorité/engine/modèle), info boucle d'optimisation (loopCount/maxLoops), injection du `rejectionFeedback`, footer \"Fin de tâche attendue\" systématique.\n- - **Output processing** : `stripAnsi` (regex ANSI CSI), `filterNoise` (lignes vides, spinners braille, tags log), `scoreSummaryLine` (heuristique : longueur, mots-clés d'action, SHA git), `processOutput` (top-N 650 chars / 6 lignes, fallback dernières lignes).\n-…\n\nCommit: ed076c3 — feat(orchestrator): ORCH-010 — I/O processing, instruction builder, error classification",
+          "timestamp": "2026-04-05T11:18:40.586Z"
+        },
+        {
+          "author": "Coder",
+          "text": "✅ Claude Code terminé (260s, 16 tour(s), $0.6641)\n\n- Commit `ed076c3`.\n- **Changements effectués dans `engine-executor.js` et `server.js` :**\n- - **Instruction builder** enrichi : header titre, corps (coderPrompt/description), bloc \"Contexte workflow\" (priorité/engine/modèle), info boucle d'optimisation (loopCount/maxLoops), injection du `rejectionFeedback`, footer \"Fin de tâche attendue\" systématique.\n- - **Output processing** : `stripAnsi` (regex ANSI CSI), `filterNoise` (lignes vides, spinners braille, tags log), `scoreSummaryLine` (heuristique : longueur, mots-clés d'action, SHA git), `processOutput` (top-N 650 chars / 6 lignes, fallback dernières lignes).\n-…\n\nCommit: ed076c3 — feat(orchestrator): ORCH-010 — I/O processing, instruction builder, error classification",
+          "timestamp": "2026-04-05T11:18:40.586Z"
         }
-      ]
+      ],
+      "startedAt": "2026-04-05T11:14:18.322Z",
+      "lastWorkerRunAt": "2026-04-05T11:14:18.322Z",
+      "reviewRequestedAt": "2026-04-05T11:18:40.586Z",
+      "lastCoderSummary": "✅ Claude Code terminé (260s, 16 tour(s), $0.6641)\n\n- Commit `ed076c3`.\n- **Changements effectués dans `engine-executor.js` et `server.js` :**\n- - **Instruction builder** enrichi : header titre, corps (coderPrompt/description), bloc \"Contexte workflow\" (priorité/engine/modèle), info boucle d'optimisation (loopCount/maxLoops), injection du `rejectionFeedback`, footer \"Fin de tâche attendue\" systématique.\n- - **Output processing** : `stripAnsi` (regex ANSI CSI), `filterNoise` (lignes vides, spinners braille, tags log), `scoreSummaryLine` (heuristique : longueur, mots-clés d'action, SHA git), `processOutput` (top-N 650 chars / 6 lignes, fallback dernières lignes).\n-…\n\nCommit: ed076c3 — feat(orchestrator): ORCH-010 — I/O processing, instruction builder, error classification",
+      "lastCoderEngine": "claude",
+      "lastCoderModel": "claude-sonnet-4-6",
+      "lastCoderCommit": "ed076c3d32498e70cb2092613e00d16d9fa65caf",
+      "commitSha": "ed076c3d32498e70cb2092613e00d16d9fa65caf"
     },
     {
       "id": "ORCH-011",
       "title": "Monitoring — notifications, activity log, webhooks, duration warnings",
-      "status": "queued",
+      "status": "review",
       "priority": "high",
       "engine": "claude",
       "model": "claude-sonnet-4-6",
       "created": "2026-04-05T18:00:00Z",
       "createdAt": "2026-04-05T18:00:00Z",
-      "updatedAt": "2026-04-05T18:00:00Z",
+      "updatedAt": "2026-04-05T11:20:47.927Z",
       "assignee": "codeur",
       "tags": [
         "orchestration",
@@ -3751,8 +3803,16 @@
           "author": "Agent-Technique",
           "text": "Features #17-18, #21, #25 du gap analysis (notifications, activity log, webhooks, duration warnings).",
           "timestamp": "2026-04-05T18:00:00Z"
+        },
+        {
+          "author": "Agent-Codeur",
+          "text": "Implémentation complète. lib/notifier.js (addNotification + logActivity 200-max), lib/webhook.js (POST 30s timeout AbortController), server.js câblé. Commit a01a921.",
+          "timestamp": "2026-04-05T11:20:47.927Z"
         }
-      ]
+      ],
+      "startedAt": "2026-04-05T11:18:48.538Z",
+      "lastWorkerRunAt": "2026-04-05T11:18:48.538Z",
+      "completedAt": "2026-04-05T11:20:47.927Z"
     },
     {
       "id": "ORCH-012",
