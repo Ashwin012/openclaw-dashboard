@@ -855,8 +855,70 @@
     .trade-side-badge.buy { background: rgba(166,227,161,0.15); color: #a6e3a1; }
     .trade-side-badge.sell { background: rgba(243,139,168,0.15); color: #f38ba8; }
 
+    /* ===== Polymarket Section ===== */
+    #polyBody { padding: 12px; }
+    .poly-kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .poly-kpi-tile {
+      padding: 10px 12px;
+      background: var(--bg);
+      border-radius: 8px;
+      border: 1px solid var(--border-muted, rgba(255,255,255,0.06));
+      transition: border-color 0.15s;
+    }
+    .poly-kpi-tile:hover { border-color: var(--border); }
+    .poly-kpi-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .poly-kpi-value {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .poly-position-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+      border-radius: 6px;
+      background: var(--bg);
+      margin-bottom: 4px;
+    }
+    .poly-position-row:last-child { margin-bottom: 0; }
+    .poly-pos-title { color: var(--text); font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .poly-pos-outcome { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: rgba(88,166,255,0.15); color: var(--accent); }
+    .poly-pos-price { color: var(--text-muted); font-size: 11px; }
+    .poly-pos-pnl { margin-left: auto; font-weight: 700; white-space: nowrap; }
+    .poly-trade-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .poly-trade-side.buy { color: #a6e3a1; }
+    .poly-trade-side.sell { color: #f38ba8; }
+    .poly-updated {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-align: right;
+      margin-top: 8px;
+      opacity: 0.7;
+    }
+
     @media (max-width: 900px) {
       .finance-row { grid-template-columns: 1fr; }
+      .poly-kpi-grid { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 600px) {
       .trading-kpi-grid { grid-template-columns: 1fr 1fr !important; }
@@ -986,6 +1048,20 @@
         <div id="tradingBody">
           <div style="color:var(--text-muted);font-size:13px">Chargement…</div>
         </div>
+      </div>
+    </div>
+
+    <!-- Polymarket Portfolio -->
+    <div class="panel" id="polyPanel" style="margin-bottom:20px">
+      <div class="panel-header">
+        <span class="panel-title">📊 Polymarket</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn-sm" onclick="event.stopPropagation();loadPolymarket()" title="Rafraîchir">🔄</button>
+          <span id="polyToggle" onclick="togglePolySection()" style="cursor:pointer;user-select:none">▼</span>
+        </div>
+      </div>
+      <div id="polyBody">
+        <div style="color:var(--text-muted);font-size:13px">Chargement…</div>
       </div>
     </div>
 
@@ -2575,6 +2651,92 @@
 
       loadTradingStatus();
       createSmartInterval(loadTradingStatus, 30000);
+    })();
+  </script>
+
+  <script>
+    (function() {
+      let _polyOpen = true;
+
+      window.togglePolySection = function() {
+        _polyOpen = !_polyOpen;
+        document.getElementById('polyBody').style.display = _polyOpen ? 'block' : 'none';
+        document.getElementById('polyToggle').textContent = _polyOpen ? '▼' : '▶';
+      };
+
+      window.loadPolymarket = async function() {
+        const body = document.getElementById('polyBody');
+        if (!body) return;
+        try {
+          const res = await fetch('/api/polymarket', { credentials: 'include' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          renderPolymarket(data);
+        } catch (e) {
+          body.innerHTML = '<div style="color:var(--red);font-size:13px">Erreur: ' + escapeHtml(e.message) + '</div>';
+        }
+      };
+
+      function renderPolymarket(data) {
+        const body = document.getElementById('polyBody');
+        const positions = data.positions || [];
+        const trades = data.recentTrades || [];
+        const portfolioValue = data.portfolioValue || 0;
+        const totalPnl = positions.reduce((s, p) => s + (p.pnl || 0), 0);
+        const pnlColor = (v) => v >= 0 ? 'var(--green)' : 'var(--red)';
+
+        let html = '<div class="poly-kpi-grid">' +
+          '<div class="poly-kpi-tile">' +
+            '<div class="poly-kpi-label">Portfolio Value</div>' +
+            '<div class="poly-kpi-value">' + Number(portfolioValue).toFixed(2) + ' $</div>' +
+          '</div>' +
+          '<div class="poly-kpi-tile">' +
+            '<div class="poly-kpi-label">Positions</div>' +
+            '<div class="poly-kpi-value">' + positions.length + '</div>' +
+          '</div>' +
+          '<div class="poly-kpi-tile">' +
+            '<div class="poly-kpi-label">Total PnL</div>' +
+            '<div class="poly-kpi-value" style="color:' + pnlColor(totalPnl) + '">' + (totalPnl >= 0 ? '+' : '') + Number(totalPnl).toFixed(2) + ' $</div>' +
+          '</div>' +
+        '</div>';
+
+        if (positions.length > 0) {
+          html += '<div style="margin-bottom:6px"><div class="trading-positions-title">Positions ouvertes</div>';
+          positions.forEach(function(p) {
+            var col = (p.pnl || 0) >= 0 ? '#a6e3a1' : '#f38ba8';
+            html += '<div class="poly-position-row">' +
+              '<span class="poly-pos-title" title="' + escapeHtml(p.title) + '">' + escapeHtml(p.title) + '</span>' +
+              '<span class="poly-pos-outcome">' + escapeHtml(p.outcome) + '</span>' +
+              '<span class="poly-pos-price">@' + Number(p.avgPrice).toFixed(2) + ' → ' + Number(p.currentPrice).toFixed(2) + '</span>' +
+              '<span class="poly-pos-pnl" style="color:' + col + '">' + ((p.pnl || 0) >= 0 ? '+' : '') + Number(p.pnl || 0).toFixed(2) + ' $</span>' +
+            '</div>';
+          });
+          html += '</div>';
+        } else {
+          html += '<div style="color:var(--text-muted);font-size:12px;padding:4px 8px">Aucune position ouverte</div>';
+        }
+
+        if (trades.length > 0) {
+          html += '<div style="margin-top:8px"><div class="trading-positions-title">Trades récents</div>';
+          trades.slice(0, 5).forEach(function(t) {
+            var sideClass = (t.side || '').toLowerCase() === 'sell' ? 'sell' : 'buy';
+            var time = t.timestamp ? new Date(t.timestamp).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '–';
+            html += '<div class="poly-trade-row">' +
+              '<span class="poly-trade-side ' + sideClass + '">' + escapeHtml(t.side) + '</span>' +
+              '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtml(t.title) + '">' + escapeHtml(t.title) + '</span>' +
+              '<span>' + escapeHtml(t.outcome) + ' @' + Number(t.price).toFixed(2) + '</span>' +
+              '<span style="color:var(--text-muted)">' + time + '</span>' +
+            '</div>';
+          });
+          html += '</div>';
+        }
+
+        html += '<div class="poly-updated">Mis à jour: ' + new Date().toLocaleTimeString('fr-FR') + '</div>';
+        body.innerHTML = html;
+      }
+
+      loadPolymarket();
+      createSmartInterval(loadPolymarket, 60000);
     })();
   </script>
 </body>

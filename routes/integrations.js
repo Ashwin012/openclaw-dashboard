@@ -139,6 +139,111 @@ module.exports = function createIntegrationRoutes({ requireAuth }) {
     }
   });
 
+  // ===== Polymarket Portfolio =====
+
+  const polymarketCache = new Map(); // conditionId -> { data, expiry }
+
+  router.get('/api/polymarket', requireAuth, async (req, res) => {
+    try {
+      const wallet = process.env.POLYMARKET_WALLET_ADDRESS;
+      if (!wallet) {
+        return res.status(503).json({ error: 'POLYMARKET_WALLET_ADDRESS not configured' });
+      }
+
+      const dataApi = 'https://data-api.polymarket.com';
+      const gammaApi = 'https://gamma-api.polymarket.com';
+
+      const [positionsRes, activityRes] = await Promise.allSettled([
+        fetch(`${dataApi}/positions?user=${encodeURIComponent(wallet)}`).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+        fetch(`${dataApi}/activity?user=${encodeURIComponent(wallet)}&limit=20`).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      ]);
+
+      const rawPositions = positionsRes.status === 'fulfilled' ? positionsRes.value : [];
+      const rawActivity = activityRes.status === 'fulfilled' ? activityRes.value : [];
+
+      // Enrich positions with market titles from Gamma API (cached 5min)
+      const positions = Array.isArray(rawPositions) ? rawPositions : [];
+      const conditionIds = [...new Set(positions.map(p => p.conditionId).filter(Boolean))];
+
+      const marketData = {};
+      const now = Date.now();
+      const toFetch = conditionIds.filter(id => {
+        const cached = polymarketCache.get(id);
+        if (cached && cached.expiry > now) { marketData[id] = cached.data; return false; }
+        return true;
+      });
+
+      if (toFetch.length > 0) {
+        const marketResults = await Promise.allSettled(
+          toFetch.map(id =>
+            fetch(`${gammaApi}/markets?condition_id=${encodeURIComponent(id)}`).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+          )
+        );
+        toFetch.forEach((id, i) => {
+          if (marketResults[i].status === 'fulfilled') {
+            const markets = marketResults[i].value;
+            const m = Array.isArray(markets) ? markets[0] : markets;
+            if (m) {
+              marketData[id] = { title: m.question || m.title || id, icon: m.icon || null };
+              polymarketCache.set(id, { data: marketData[id], expiry: now + 5 * 60 * 1000 });
+            }
+          }
+        });
+      }
+
+      // Build enriched positions
+      const enrichedPositions = positions
+        .filter(p => parseFloat(p.size || 0) !== 0)
+        .map(p => {
+          const market = marketData[p.conditionId] || {};
+          const size = parseFloat(p.size || 0);
+          const avgPrice = parseFloat(p.avgPrice || p.averagePrice || 0);
+          const curPrice = parseFloat(p.currentPrice || p.price || 0);
+          const pnl = size * (curPrice - avgPrice);
+          const pnlPercent = avgPrice > 0 ? ((curPrice - avgPrice) / avgPrice) * 100 : 0;
+          return {
+            conditionId: p.conditionId,
+            title: market.title || p.conditionId || '–',
+            outcome: p.outcome || p.asset || '–',
+            size,
+            avgPrice,
+            currentPrice: curPrice,
+            pnl,
+            pnlPercent
+          };
+        });
+
+      const portfolioValue = enrichedPositions.reduce((s, p) => s + p.size * p.currentPrice, 0);
+
+      // Build recent trades
+      const activity = Array.isArray(rawActivity) ? rawActivity : [];
+      const recentTrades = activity.map(t => {
+        const market = marketData[t.conditionId] || {};
+        return {
+          title: market.title || t.conditionId || '–',
+          side: t.side || t.type || '–',
+          outcome: t.outcome || t.asset || '–',
+          price: parseFloat(t.price || 0),
+          size: parseFloat(t.size || t.amount || 0),
+          timestamp: t.timestamp || t.createdAt || null
+        };
+      });
+
+      res.json({
+        wallet,
+        portfolioValue,
+        positions: enrichedPositions,
+        recentTrades,
+        errors: {
+          positions: positionsRes.status === 'rejected' ? positionsRes.reason.message : null,
+          activity: activityRes.status === 'rejected' ? activityRes.reason.message : null
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ===== EQS Listings (DISABLED) =====
 
   const DATA_DIR = path.join(__dirname, '..', 'data');
