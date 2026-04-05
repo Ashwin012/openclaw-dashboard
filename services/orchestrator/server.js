@@ -42,6 +42,7 @@ app.get('/health', (req, res) => {
     service:  'orchestrator',
     workerId: WORKER_ID,
     running:  workerLoop.isRunning(),
+    uptime:   process.uptime(),
     ts:       new Date().toISOString(),
   });
 });
@@ -50,6 +51,9 @@ app.get('/health', (req, res) => {
 app.use('/api/v1/projects', require('./routes/projects')());
 app.use('/api/v1/tasks',    require('./routes/tasks')());
 app.use('/api/v1/sync',     require('./routes/sync')());
+
+// Control API — legacy compat routes (/status, /stop, /question, /answer, /output)
+app.use('/', require('./routes/worker')());
 
 // Graceful shutdown
 function shutdown(signal) {

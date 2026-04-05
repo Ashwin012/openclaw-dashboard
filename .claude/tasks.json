@@ -3839,7 +3839,7 @@
       "model": "claude-sonnet-4-6",
       "created": "2026-04-05T18:00:00Z",
       "createdAt": "2026-04-05T18:00:00Z",
-      "updatedAt": "2026-04-05T11:23:33.312Z",
+      "updatedAt": "2026-04-05T11:23:56.091Z",
       "assignee": "codeur",
       "tags": [
         "orchestration",
@@ -3870,21 +3870,37 @@
           "author": "Agent-Codeur",
           "text": "Implémenté lib/git-helpers.js (resolveProjectPath, getGitHeadInfo, extractCommitHash, runQualityGates, summarizeQualityGates). Intégration dans server.js: snapshot HEAD avant/après exécution, quality gates en parallèle post-run, commitSha préféré depuis git diff, qgSummary ajouté à summaryNote.",
           "timestamp": "2026-04-05T11:23:33.312Z"
+        },
+        {
+          "author": "Worker",
+          "text": "✅ Claude Code terminé (155s, 25 tour(s), $0.5297)\n\n- - `lib/git-helpers.js` (nouveau module, 160 lignes)\n- - `resolveProjectPath(projectId)` — lookup config.json → path\n- - `getGitHeadInfo(projectPath)` — `git rev-parse HEAD` + `git log -1 --format=%s`\n- - `extractCommitHash(text)` — parse premier SHA 7-40 hex depuis texte\n- - `runQualityGates(projectPath)` — cherche `gitCheck-docker.sh` jusqu'à 3 niveaux parents, exécute avec timeout 10min, retourne `{found, passed, output, durationMs}`\n- - `summarizeQualityGates(result)` — ligne compacte `✅/❌ Quality gate PASSED/FAILED (Xs)` + snippet output 200 chars\n- 8 autre(s) ligne(s) masquée(s)\n\nCommit: 43f96fb — feat(orchestrator): ORCH-012 — quality gates + git tracking",
+          "timestamp": "2026-04-05T11:23:56.091Z"
+        },
+        {
+          "author": "Coder",
+          "text": "✅ Claude Code terminé (155s, 25 tour(s), $0.5297)\n\n- - `lib/git-helpers.js` (nouveau module, 160 lignes)\n- - `resolveProjectPath(projectId)` — lookup config.json → path\n- - `getGitHeadInfo(projectPath)` — `git rev-parse HEAD` + `git log -1 --format=%s`\n- - `extractCommitHash(text)` — parse premier SHA 7-40 hex depuis texte\n- - `runQualityGates(projectPath)` — cherche `gitCheck-docker.sh` jusqu'à 3 niveaux parents, exécute avec timeout 10min, retourne `{found, passed, output, durationMs}`\n- - `summarizeQualityGates(result)` — ligne compacte `✅/❌ Quality gate PASSED/FAILED (Xs)` + snippet output 200 chars\n- 8 autre(s) ligne(s) masquée(s)\n\nCommit: 43f96fb — feat(orchestrator): ORCH-012 — quality gates + git tracking",
+          "timestamp": "2026-04-05T11:23:56.091Z"
         }
       ],
       "startedAt": "2026-04-05T11:21:18.640Z",
-      "lastWorkerRunAt": "2026-04-05T11:21:18.640Z"
+      "lastWorkerRunAt": "2026-04-05T11:21:18.640Z",
+      "reviewRequestedAt": "2026-04-05T11:23:56.091Z",
+      "lastCoderSummary": "✅ Claude Code terminé (155s, 25 tour(s), $0.5297)\n\n- - `lib/git-helpers.js` (nouveau module, 160 lignes)\n- - `resolveProjectPath(projectId)` — lookup config.json → path\n- - `getGitHeadInfo(projectPath)` — `git rev-parse HEAD` + `git log -1 --format=%s`\n- - `extractCommitHash(text)` — parse premier SHA 7-40 hex depuis texte\n- - `runQualityGates(projectPath)` — cherche `gitCheck-docker.sh` jusqu'à 3 niveaux parents, exécute avec timeout 10min, retourne `{found, passed, output, durationMs}`\n- - `summarizeQualityGates(result)` — ligne compacte `✅/❌ Quality gate PASSED/FAILED (Xs)` + snippet output 200 chars\n- 8 autre(s) ligne(s) masquée(s)\n\nCommit: 43f96fb — feat(orchestrator): ORCH-012 — quality gates + git tracking",
+      "lastCoderEngine": "claude",
+      "lastCoderModel": "claude-sonnet-4-6",
+      "lastCoderCommit": "43f96fbe492f3ed4a8061cb01ce2dc647f4332d9",
+      "commitSha": "43f96fbe492f3ed4a8061cb01ce2dc647f4332d9"
     },
     {
       "id": "ORCH-013",
       "title": "Control API — /status, /stop, /question, /answer, /output",
-      "status": "queued",
+      "status": "review",
       "priority": "high",
       "engine": "claude",
       "model": "claude-sonnet-4-6",
       "created": "2026-04-05T18:00:00Z",
       "createdAt": "2026-04-05T18:00:00Z",
-      "updatedAt": "2026-04-05T18:00:00Z",
+      "updatedAt": "2026-04-05T11:26:52.696Z",
       "assignee": "codeur",
       "tags": [
         "orchestration",
@@ -3911,8 +3927,15 @@
           "author": "Agent-Technique",
           "text": "Feature #22 du gap analysis (HTTP control server). Compat avec le frontend dashboard existant.",
           "timestamp": "2026-04-05T18:00:00Z"
+        },
+        {
+          "author": "Agent-Codeur",
+          "text": "Implémenté routes/worker.js: GET /status, POST /stop, GET /question, POST /answer, GET /output. qaStore en mémoire pour Q&A interactif. Monté dans server.js sur /. uptime ajouté à /health.",
+          "timestamp": "2026-04-05T11:26:52.696Z"
         }
-      ]
+      ],
+      "startedAt": "2026-04-05T11:24:18.788Z",
+      "lastWorkerRunAt": "2026-04-05T11:24:18.788Z"
     },
     {
       "id": "ORCH-014",
