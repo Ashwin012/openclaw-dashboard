@@ -1,1 +1,76 @@
-{"pending":[]}
+{
+  "pending": [
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Polymarket dedicated page with 3 tabs (Overview, Historique, Markets)",
+      "taskId": "PM-002",
+      "fromStatus": "pending",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-05T16:45:12.384Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Polymarket dedicated page with 3 tabs (Overview, Historique, Markets)",
+      "taskId": "PM-002",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-05T16:48:58.276Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Polymarket dedicated page with 3 tabs (Overview, Historique, Markets)",
+      "taskId": "PM-002",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-05T17:58:17.714Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Polymarket dedicated page with 3 tabs (Overview, Historique, Markets)",
+      "taskId": "PM-002",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-05T17:59:30.370Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Agent Polymarket Deals Finder — page + backend + cron",
+      "taskId": "PM-003",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-05T17:59:47.792Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Agent Polymarket Deals Finder — page + backend + cron",
+      "taskId": "PM-003",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-05T18:12:27.428Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Polymarket dedicated page with 3 tabs (Overview, Historique, Markets)",
+      "taskId": "PM-002",
+      "fromStatus": "queued",
+      "toStatus": "in_progress",
+      "message": "🔄 Début du traitement par le worker",
+      "timestamp": "2026-04-05T18:20:19.071Z"
+    },
+    {
+      "projectName": "OpenClaw Dashboard",
+      "taskTitle": "Polymarket dedicated page with 3 tabs (Overview, Historique, Markets)",
+      "taskId": "PM-002",
+      "fromStatus": "in_progress",
+      "toStatus": "review",
+      "message": "🔍 Traitement terminé — en attente de review",
+      "timestamp": "2026-04-05T18:21:39.341Z"
+    }
+  ]
+}
